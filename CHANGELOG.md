@@ -10,6 +10,14 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 
 ## [Unreleased]
 ### Added
+- Initial C# project structure for GitHub to Discord dispatcher
+- GitHub Notifications API polling with ETag caching (zero-cost when idle via 304 Not Modified)
+- Notification filtering by reason, label, owner, and excluded repos
+- Discord outbound webhook dispatcher
+- `DebuggerDisplay` attributes on all data types and value classes
+- One-type-per-file convention for all C# source files
+- `LabelFilter` and `NoWorkFilter` as arrays in configuration
+- `AllowedOwners` and `ExcludedRepos` filter options for repo-level filtering
 ### Fixed
 ### Changed
 ### Deprecated

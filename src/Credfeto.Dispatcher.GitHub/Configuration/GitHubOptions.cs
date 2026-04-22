@@ -1,7 +1,8 @@
-using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace Credfeto.Dispatcher.GitHub.Configuration;
 
+[DebuggerDisplay("Token: {Token}, PollIntervalSeconds: {PollIntervalSeconds}")]
 public sealed class GitHubOptions
 {
     public string Token { get; init; } = string.Empty;
@@ -9,11 +10,4 @@ public sealed class GitHubOptions
     public int PollIntervalSeconds { get; init; } = 60;
 
     public GitHubFilterOptions Filter { get; init; } = new();
-}
-
-public sealed class GitHubFilterOptions
-{
-    public IReadOnlyList<string> Reasons { get; init; } = [];
-
-    public string LabelFilter { get; init; } = string.Empty;
 }

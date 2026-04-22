@@ -23,10 +23,10 @@ public sealed class StartupNotificationService : BackgroundService
     private readonly ICurrentTimeSource _currentTimeSource;
     private readonly IDiscordDispatcher _discordDispatcher;
     private readonly ILogger<StartupNotificationService> _logger;
-    private readonly IGitHubNotificationPoller _poller;
+    private readonly INotificationPoller _poller;
 
     public StartupNotificationService(
-        IGitHubNotificationPoller poller,
+        INotificationPoller poller,
         IDiscordDispatcher discordDispatcher,
         ICurrentTimeSource currentTimeSource,
         ILogger<StartupNotificationService> logger

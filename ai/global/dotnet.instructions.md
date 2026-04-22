@@ -4,6 +4,17 @@
 
 These rules apply to all .NET solutions derived from this template.
 
+## Build and Test Before Commit (MANDATORY)
+
+- Before every commit, run:
+  ```
+  dotnet build
+  dotnet test
+  ```
+- If `dotnet build` fails, **do not commit**. Fix all build errors first.
+- If `dotnet test` fails, **do not commit**. Fix all failing tests first.
+- If build or test errors cannot be resolved, stop and ask the user for guidance.
+
 ## Asynchronous Code
 
 - Prefer `ValueTask` and `ValueTask<T>` over `Task` and `Task<T>` wherever possible — they avoid heap allocations in the common synchronous-completion path.

@@ -25,6 +25,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Structured `ILogger<T>` logging throughout the polling and dispatch pipeline: worker startup/shutdown, poll cycles (ETag sent, 304 Not Modified or notification count), per-notification debug entries, filter pass/drop decisions, dispatch to Discord, and Discord webhook non-success warnings
 ### Fixed
 - Removed unused `Mediator` runtime package reference from `Credfeto.Dispatcher.Server` — `Mediator.SourceGenerator` source generator is sufficient; no separate runtime package is needed for a simple background service
+- Added .gitleaksignore file to suppress false positive gitleaks GL-GITHUB-01 detection on class name GitHubNotificationPollerLoggingExtensions
 ### Changed
 - Configure HttpClient base address, User-Agent, Accept, X-GitHub-Api-Version, and Authorization headers at registration time via IHttpClientFactory rather than per request
 - Renamed IGitHubNotificationPoller to INotificationPoller and implementation to NotificationPoller

@@ -29,7 +29,7 @@ public sealed class GitHubNotificationPoller : IGitHubNotificationPoller
 
         try
         {
-            using HttpRequestMessage request = BuildRequest();
+            using HttpRequestMessage request = this.BuildRequest();
             response = await this._httpClient.SendAsync(request: request, cancellationToken: cancellationToken);
 
             return await this.ProcessResponseAsync(response: response, cancellationToken: cancellationToken);
@@ -62,7 +62,7 @@ public sealed class GitHubNotificationPoller : IGitHubNotificationPoller
             return this._lastResult;
         }
 
-        response.EnsureSuccessStatusCode();
+        _ = response.EnsureSuccessStatusCode();
 
         if (response.Headers.ETag is not null)
         {

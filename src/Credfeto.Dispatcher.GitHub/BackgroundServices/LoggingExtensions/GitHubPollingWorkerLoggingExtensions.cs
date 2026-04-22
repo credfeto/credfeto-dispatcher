@@ -16,4 +16,7 @@ internal static partial class GitHubPollingWorkerLoggingExtensions
 
     [LoggerMessage(EventId = 3, Level = LogLevel.Error, Message = "Error polling GitHub notifications")]
     public static partial void LogPollingError(this ILogger logger, Exception exception);
+
+    [LoggerMessage(EventId = 4, Level = LogLevel.Information, Message = "Dispatching notification to Discord: Id={NotificationId}, Repo={Repository}, Title={Title}")]
+    public static partial void LogDispatchingNotification(this ILogger logger, string notificationId, string repository, string title);
 }

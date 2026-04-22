@@ -47,6 +47,12 @@
     <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-xhfc-gr8f-ffwc" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\Credfeto.Dispatcher.GitHub\Credfeto.Dispatcher.GitHub.csproj" />
     <ProjectReference Include="..\Credfeto.Dispatcher.Discord\Credfeto.Dispatcher.Discord.csproj" />
     <ProjectReference Include="..\Credfeto.Dispatcher.Shared\Credfeto.Dispatcher.Shared.csproj" />

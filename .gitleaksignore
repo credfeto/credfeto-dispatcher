@@ -1,0 +1,6 @@
+# Gitleaks ignore file - contains fingerprints of known false positives
+# Format: <commit>:<file>:<rule>:<line>
+
+# False positive: class name 'GitHubNotificationPollerLoggingExtensions' triggers GL-GITHUB-01 regex
+# The class name contains 'GitHub' followed by 35 alphanumeric chars but contains no actual secret
+1662c1f8a2c5bf8d5e0d5591141c0519078414d2:src/Credfeto.Dispatcher.GitHub/Services/LoggingExtensions/GitHubNotificationPollerLoggingExtensions.cs:GL-GITHUB-01:5

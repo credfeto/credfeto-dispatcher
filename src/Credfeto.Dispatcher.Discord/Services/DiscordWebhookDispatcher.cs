@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
@@ -25,7 +24,7 @@ public sealed class DiscordWebhookDispatcher : IDiscordDispatcher
 
     public async ValueTask SendAsync(DiscordMessage message, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(this._options.WebhookUrl))
+        if (this._options.WebhookUrl is null)
         {
             return;
         }
@@ -34,8 +33,10 @@ public sealed class DiscordWebhookDispatcher : IDiscordDispatcher
 
         string json = JsonSerializer.Serialize(value: payload, jsonTypeInfo: DiscordWebhookContext.Default.DiscordWebhookPayload);
 
-        using StringContent content = new(content: json, encoding: Encoding.UTF8, mediaType: "application/json");
-        using HttpResponseMessage response = await this._httpClient.PostAsync(requestUri: new Uri(this._options.WebhookUrl), content: content, cancellationToken: cancellationToken);
+        using HttpRequestMessage request = new(method: HttpMethod.Post, requestUri: this._options.WebhookUrl);
+        request.Content = new StringContent(content: json, encoding: Encoding.UTF8, mediaType: "application/json");
+
+        using HttpResponseMessage response = await this._httpClient.SendAsync(request: request, cancellationToken: cancellationToken);
 
         response.EnsureSuccessStatusCode();
     }

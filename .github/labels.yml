@@ -30,6 +30,50 @@
    color: "d8bb50"
    description: "Configuration files changes"
 
+ - name: "credfeto-dispatcher-discord"
+   color: "96f7d2"
+   description: "Changes in Credfeto.Dispatcher.Discord project"
+
+ - name: "credfeto-dispatcher-discord-datatypes"
+   color: "96f7d2"
+   description: "Changes in Credfeto.Dispatcher.Discord.DataTypes project"
+
+ - name: "credfeto-dispatcher-discord-interfaces"
+   color: "96f7d2"
+   description: "Changes in Credfeto.Dispatcher.Discord.Interfaces project"
+
+ - name: "credfeto-dispatcher-discord-tests"
+   color: "0e8a16"
+   description: "Changes in Credfeto.Dispatcher.Discord.Tests project"
+
+ - name: "credfeto-dispatcher-github"
+   color: "96f7d2"
+   description: "Changes in Credfeto.Dispatcher.GitHub project"
+
+ - name: "credfeto-dispatcher-github-datatypes"
+   color: "96f7d2"
+   description: "Changes in Credfeto.Dispatcher.GitHub.DataTypes project"
+
+ - name: "credfeto-dispatcher-github-interfaces"
+   color: "96f7d2"
+   description: "Changes in Credfeto.Dispatcher.GitHub.Interfaces project"
+
+ - name: "credfeto-dispatcher-github-tests"
+   color: "0e8a16"
+   description: "Changes in Credfeto.Dispatcher.GitHub.Tests project"
+
+ - name: "credfeto-dispatcher-server"
+   color: "96f7d2"
+   description: "Changes in Credfeto.Dispatcher.Server project"
+
+ - name: "credfeto-dispatcher-shared"
+   color: "96f7d2"
+   description: "Changes in Credfeto.Dispatcher.Shared project"
+
+ - name: "credfeto-dispatcher-shared-tests"
+   color: "0e8a16"
+   description: "Changes in Credfeto.Dispatcher.Shared.Tests project"
+
  - name: "dependencies"
    color: "0366d6"
    description: "Updates to dependencies"

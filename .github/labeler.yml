@@ -10,6 +10,28 @@
  - any: [ 'CHANGELOG.md' ]
 "Config Change":
  - any: [ 'src/**/*.json', '!src/global.json' ]
+"credfeto-dispatcher-discord":
+ - any: [ 'src/$Credfeto.Dispatcher.Discord/**/*' ]
+"credfeto-dispatcher-discord-datatypes":
+ - any: [ 'src/$Credfeto.Dispatcher.Discord.DataTypes/**/*' ]
+"credfeto-dispatcher-discord-interfaces":
+ - any: [ 'src/$Credfeto.Dispatcher.Discord.Interfaces/**/*' ]
+"credfeto-dispatcher-discord-tests":
+ - any: [ 'src/$Credfeto.Dispatcher.Discord.Tests/**/*' ]
+"credfeto-dispatcher-github":
+ - any: [ 'src/$Credfeto.Dispatcher.GitHub/**/*' ]
+"credfeto-dispatcher-github-datatypes":
+ - any: [ 'src/$Credfeto.Dispatcher.GitHub.DataTypes/**/*' ]
+"credfeto-dispatcher-github-interfaces":
+ - any: [ 'src/$Credfeto.Dispatcher.GitHub.Interfaces/**/*' ]
+"credfeto-dispatcher-github-tests":
+ - any: [ 'src/$Credfeto.Dispatcher.GitHub.Tests/**/*' ]
+"credfeto-dispatcher-server":
+ - any: [ 'src/$Credfeto.Dispatcher.Server/**/*' ]
+"credfeto-dispatcher-shared":
+ - any: [ 'src/$Credfeto.Dispatcher.Shared/**/*' ]
+"credfeto-dispatcher-shared-tests":
+ - any: [ 'src/$Credfeto.Dispatcher.Shared.Tests/**/*' ]
 "dotnet":
  - any: [ 'src/**/*.csproj' ]
 "Editorconfig":

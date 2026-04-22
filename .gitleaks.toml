@@ -68,7 +68,12 @@ title = "gitleaks config"
 
 [allowlist]
     description = "Allow Listed"
-    file = '''(^\.?gitleaks.toml$|(.*?)(jpg|gif|doc|pdf|bin)$)'''
+    commits = [
+        "0e075db8ece7abc6a4e66fee895dbde039ecc7a2",
+        "1662c1f8a2c5bf8d5e0d5591141c0519078414d2",
+        "97ab7226cf65618166664686a457e2fc82470b9f"
+    ]
+    file = '''(^\.?gitleaks(ignore|.toml)$|^CHANGELOG\.md$|(.*?)(jpg|gif|doc|pdf|bin)$)'''
     regexes = [
         '''(.*?)gitleaks:allow'''
     ]

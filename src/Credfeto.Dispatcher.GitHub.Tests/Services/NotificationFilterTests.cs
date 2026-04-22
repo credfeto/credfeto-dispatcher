@@ -5,7 +5,9 @@ using Credfeto.Dispatcher.GitHub.Interfaces;
 using Credfeto.Dispatcher.GitHub.Services;
 using FunFair.Test.Common;
 using FunFair.Test.Common.Helpers;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using NSubstitute;
 using Xunit;
 
 namespace Credfeto.Dispatcher.GitHub.Tests.Services;
@@ -16,7 +18,7 @@ public sealed class NotificationFilterTests : TestBase
 
     private static INotificationFilter BuildFilter(GitHubOptions options)
     {
-        return new NotificationFilter(Options.Create(options));
+        return new NotificationFilter(options: Options.Create(options), logger: Substitute.For<ILogger<NotificationFilter>>());
     }
 
     private static GitHubNotification BuildNotification(string reason = "mention", string repoFullName = "owner/repo")

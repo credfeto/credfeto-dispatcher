@@ -8,6 +8,7 @@ using Credfeto.Dispatcher.Discord.Interfaces;
 using Credfeto.Dispatcher.Discord.Services;
 using FunFair.Test.Common;
 using FunFair.Test.Common.Extensions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using Xunit;
@@ -26,14 +27,14 @@ public sealed class DiscordWebhookDispatcherTests : TestBase
         this._httpClientFactory = Substitute.For<IHttpClientFactory>();
 
         DiscordOptions options = new() { WebhookUrl = WebhookUrl };
-        this._dispatcher = new DiscordWebhookDispatcher(httpClientFactory: this._httpClientFactory, options: Options.Create(options));
+        this._dispatcher = new DiscordWebhookDispatcher(httpClientFactory: this._httpClientFactory, options: Options.Create(options), logger: Substitute.For<ILogger<DiscordWebhookDispatcher>>());
     }
 
     [Fact]
     public async Task SendAsyncDoesNotCallHttpClientWhenWebhookUrlIsNullAsync()
     {
         DiscordOptions optionsWithNoWebhook = new() { WebhookUrl = null };
-        IDiscordDispatcher dispatcher = new DiscordWebhookDispatcher(httpClientFactory: this._httpClientFactory, options: Options.Create(optionsWithNoWebhook));
+        IDiscordDispatcher dispatcher = new DiscordWebhookDispatcher(httpClientFactory: this._httpClientFactory, options: Options.Create(optionsWithNoWebhook), logger: Substitute.For<ILogger<DiscordWebhookDispatcher>>());
 
         DiscordMessage message = new(Content: "Hello", Embeds: []);
 

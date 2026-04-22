@@ -13,7 +13,8 @@ namespace Credfeto.Dispatcher.GitHub.Services;
 
 public sealed class GitHubNotificationPoller : IGitHubNotificationPoller
 {
-    private const string GitHubApiBase = "https://api.github.com";
+    private static readonly Uri NotificationsRelativeUri = new(uriString: "notifications", uriKind: UriKind.Relative);
+
     private readonly HttpClient _httpClient;
     private string? _eTag;
     private IReadOnlyList<GitHubNotification> _lastResult = [];
@@ -42,10 +43,7 @@ public sealed class GitHubNotificationPoller : IGitHubNotificationPoller
 
     private HttpRequestMessage BuildRequest()
     {
-        HttpRequestMessage request = new(method: HttpMethod.Get, requestUri: new Uri($"{GitHubApiBase}/notifications"));
-
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
-        request.Headers.Add(name: "X-GitHub-Api-Version", value: "2022-11-28");
+        HttpRequestMessage request = new(method: HttpMethod.Get, requestUri: NotificationsRelativeUri);
 
         if (this._eTag is not null)
         {

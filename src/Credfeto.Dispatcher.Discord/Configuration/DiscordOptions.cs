@@ -7,6 +7,4 @@ namespace Credfeto.Dispatcher.Discord.Configuration;
 public sealed class DiscordOptions
 {
     public Uri? WebhookUrl { get; init; }
-
-    public Uri? NotificationsChannelWebhookUrl { get; init; }
 }

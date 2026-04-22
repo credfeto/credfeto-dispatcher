@@ -91,3 +91,25 @@ fi
   - Names the vulnerable package and the severity.
   - Describes the steps to fix it manually.
   - Is labelled `Security` and `AI-Work`.
+
+## Template Rule Escalation (Non-Template Repos Only)
+
+This section applies **only when working in a non-template repository** (i.e., any repo other than `credfeto/cs-template`).
+
+If, during work in a non-template repo, a gap or needed change is identified in the global template rules or instructions:
+
+1. **Do not** apply the rule change locally — template rules are managed centrally in `credfeto/cs-template`.
+2. Create a new issue in `credfeto/cs-template` using the GitHub CLI:
+   ```bash
+   gh issue create --repo credfeto/cs-template \
+     --title "<short description of the rule change>" \
+     --label "AI-Work" \
+     --body "..."
+   ```
+3. The issue body **must** include all of the following:
+   - **Source repository**: The repo where the need was discovered.
+   - **Current behaviour / gap**: What is missing or inconsistent in the existing rules.
+   - **Proposed rule text**: The concrete rule update or new instruction text being requested.
+   - **Reason for template propagation**: Why this change should apply across all repos, not just locally.
+4. After creating the issue, note its URL in any relevant commit or PR description so the context is not lost.
+5. Continue work in the current repo without waiting for the template issue to be resolved.

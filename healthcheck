@@ -1,2 +1,17 @@
-#!/bin/sh
-curl -f http://localhost:8080/health || exit 1
+#! /bin/sh
+
+#PORT="8080"
+
+# check if the node process is running
+CHECK_TASK_PID=$(pidof Credfeto.Dispatcher.Server)
+if [ -z "$CHECK_TASK_PID" ]; then
+  exit 1
+fi
+
+## Check if port is open and listening (using ping)
+#PING_RESULT=$(curl "http://127.0.0.1:$PORT/ping?source=docker")
+#if [ -z "$PING_RESULT" ]; then
+#  exit 1
+#fi
+
+exit 0

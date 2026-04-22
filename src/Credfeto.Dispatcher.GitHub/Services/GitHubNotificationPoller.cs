@@ -8,6 +8,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Interfaces;
+using Credfeto.Dispatcher.GitHub.Services.LoggingExtensions;
+using Microsoft.Extensions.Logging;
 
 namespace Credfeto.Dispatcher.GitHub.Services;
 
@@ -15,16 +17,27 @@ public sealed class GitHubNotificationPoller : IGitHubNotificationPoller
 {
     private const string GitHubApiBase = "https://api.github.com";
     private readonly HttpClient _httpClient;
+    private readonly ILogger<GitHubNotificationPoller> _logger;
     private string? _eTag;
     private IReadOnlyList<GitHubNotification> _lastResult = [];
 
-    public GitHubNotificationPoller(HttpClient httpClient)
+    public GitHubNotificationPoller(HttpClient httpClient, ILogger<GitHubNotificationPoller> logger)
     {
         this._httpClient = httpClient;
+        this._logger = logger;
     }
 
     public async ValueTask<IReadOnlyList<GitHubNotification>> PollAsync(CancellationToken cancellationToken)
     {
+        if (this._eTag is null)
+        {
+            this._logger.LogPollingFirstCall();
+        }
+        else
+        {
+            this._logger.LogPollingWithETag(eTag: this._eTag);
+        }
+
         HttpResponseMessage? response = null;
 
         try
@@ -59,6 +72,8 @@ public sealed class GitHubNotificationPoller : IGitHubNotificationPoller
     {
         if (response.StatusCode == HttpStatusCode.NotModified)
         {
+            this._logger.LogPollNotModified();
+
             return this._lastResult;
         }
 
@@ -75,6 +90,7 @@ public sealed class GitHubNotificationPoller : IGitHubNotificationPoller
         if (apiNotifications is null)
         {
             this._lastResult = [];
+            this._logger.LogPollNotificationsReceived(count: 0);
 
             return this._lastResult;
         }
@@ -83,17 +99,21 @@ public sealed class GitHubNotificationPoller : IGitHubNotificationPoller
 
         foreach (GitHubApiNotification n in apiNotifications)
         {
-            notifications.Add(
-                new GitHubNotification(
-                    Id: n.Id,
-                    Reason: n.Reason,
-                    Subject: new NotificationSubject(Title: n.Subject.Title, Url: new Uri(n.Subject.Url ?? "about:blank"), Type: n.Subject.Type),
-                    Repository: new NotificationRepository(FullName: n.Repository.FullName, Url: new Uri(n.Repository.HtmlUrl)),
-                    UpdatedAt: n.UpdatedAt,
-                    Unread: n.Unread
-                )
+            GitHubNotification notification = new(
+                Id: n.Id,
+                Reason: n.Reason,
+                Subject: new NotificationSubject(Title: n.Subject.Title, Url: new Uri(n.Subject.Url ?? "about:blank"), Type: n.Subject.Type),
+                Repository: new NotificationRepository(FullName: n.Repository.FullName, Url: new Uri(n.Repository.HtmlUrl)),
+                UpdatedAt: n.UpdatedAt,
+                Unread: n.Unread
             );
+
+            this._logger.LogNotificationReceived(notificationId: notification.Id, reason: notification.Reason, repository: notification.Repository.FullName, title: notification.Subject.Title);
+
+            notifications.Add(notification);
         }
+
+        this._logger.LogPollNotificationsReceived(count: notifications.Count);
 
         this._lastResult = notifications;
 

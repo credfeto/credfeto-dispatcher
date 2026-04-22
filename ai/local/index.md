@@ -1,5 +1,4 @@
 <-- Globally Maintained -->
-<-- Globally Maintained -->
 # Local instructions
 
 This is an index of local instructions that apply to just this project. 
@@ -13,13 +12,7 @@ This is an index of local instructions that apply to just this project.
 - The rules above this point in the file should be considered global rules.
 
 <-- Locally Maintained -->
-<-- Locally Maintained -->
-<-- Locally Maintained -->
-<-- Locally Maintained -->
-<-- Locally Maintained -->
-<-- Locally Maintained -->
-<-- Locally Maintained -->
-<-- Locally Maintained -->
-<-- Locally Maintained -->
-<-- Locally Maintained -->
-<-- Locally Maintained -->
+
+## Local Instruction Files
+
+- [documentation.instructions.md](documentation.instructions.md) — Rules for keeping README.md configuration documentation up-to-date

@@ -5,7 +5,7 @@ using Credfeto.Dispatcher.GitHub.DataTypes;
 
 namespace Credfeto.Dispatcher.GitHub.Interfaces;
 
-public interface IGitHubNotificationPoller
+public interface INotificationPoller
 {
     ValueTask<IReadOnlyList<GitHubNotification>> PollAsync(CancellationToken cancellationToken);
 }

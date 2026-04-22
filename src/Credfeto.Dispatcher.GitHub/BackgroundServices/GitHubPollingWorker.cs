@@ -19,10 +19,10 @@ public sealed class GitHubPollingWorker : BackgroundService
     private readonly ILogger<GitHubPollingWorker> _logger;
     private readonly INotificationFilter _notificationFilter;
     private readonly GitHubOptions _options;
-    private readonly IGitHubNotificationPoller _poller;
+    private readonly INotificationPoller _poller;
 
     public GitHubPollingWorker(
-        IGitHubNotificationPoller poller,
+        INotificationPoller poller,
         INotificationFilter notificationFilter,
         IDiscordDispatcher discordDispatcher,
         IOptions<GitHubOptions> options,

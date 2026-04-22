@@ -8,44 +8,36 @@ using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Interfaces;
+using Credfeto.Dispatcher.GitHub.Models;
 
 namespace Credfeto.Dispatcher.GitHub.Services;
 
-public sealed class GitHubNotificationPoller : IGitHubNotificationPoller
+public sealed class NotificationPoller : INotificationPoller
 {
-    private const string GitHubApiBase = "https://api.github.com";
-    private readonly HttpClient _httpClient;
+    private static readonly Uri NotificationsRelativeUri = new(uriString: "notifications", uriKind: UriKind.Relative);
+
+    private readonly IHttpClientFactory _httpClientFactory;
     private string? _eTag;
     private IReadOnlyList<GitHubNotification> _lastResult = [];
 
-    public GitHubNotificationPoller(HttpClient httpClient)
+    public NotificationPoller(IHttpClientFactory httpClientFactory)
     {
-        this._httpClient = httpClient;
+        this._httpClientFactory = httpClientFactory;
     }
 
     public async ValueTask<IReadOnlyList<GitHubNotification>> PollAsync(CancellationToken cancellationToken)
     {
-        HttpResponseMessage? response = null;
+        HttpClient httpClient = this._httpClientFactory.CreateClient("GitHub");
 
-        try
-        {
-            using HttpRequestMessage request = this.BuildRequest();
-            response = await this._httpClient.SendAsync(request: request, cancellationToken: cancellationToken);
+        using HttpRequestMessage request = this.BuildRequest();
+        using HttpResponseMessage response = await httpClient.SendAsync(request: request, cancellationToken: cancellationToken);
 
-            return await this.ProcessResponseAsync(response: response, cancellationToken: cancellationToken);
-        }
-        finally
-        {
-            response?.Dispose();
-        }
+        return await this.ProcessResponseAsync(response: response, cancellationToken: cancellationToken);
     }
 
     private HttpRequestMessage BuildRequest()
     {
-        HttpRequestMessage request = new(method: HttpMethod.Get, requestUri: new Uri($"{GitHubApiBase}/notifications"));
-
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
-        request.Headers.Add(name: "X-GitHub-Api-Version", value: "2022-11-28");
+        HttpRequestMessage request = new(method: HttpMethod.Get, requestUri: NotificationsRelativeUri);
 
         if (this._eTag is not null)
         {
@@ -70,7 +62,7 @@ public sealed class GitHubNotificationPoller : IGitHubNotificationPoller
         }
 
         string json = await response.Content.ReadAsStringAsync(cancellationToken);
-        GitHubApiNotification[]? apiNotifications = JsonSerializer.Deserialize(json: json, jsonTypeInfo: GitHubNotificationContext.Default.GitHubApiNotificationArray);
+        ApiNotification[]? apiNotifications = JsonSerializer.Deserialize(json: json, jsonTypeInfo: NotificationSerializerContext.Default.ApiNotificationArray);
 
         if (apiNotifications is null)
         {
@@ -81,7 +73,7 @@ public sealed class GitHubNotificationPoller : IGitHubNotificationPoller
 
         List<GitHubNotification> notifications = new(apiNotifications.Length);
 
-        foreach (GitHubApiNotification n in apiNotifications)
+        foreach (ApiNotification n in apiNotifications)
         {
             notifications.Add(
                 new GitHubNotification(

@@ -18,9 +18,19 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - One-type-per-file convention for all C# source files
 - `LabelFilter` and `NoWorkFilter` as arrays in configuration
 - `AllowedOwners` and `ExcludedRepos` filter options for repo-level filtering
+- GitHubOptionsValidator to validate GitHub API token is configured and PollIntervalSeconds is at least 30
+- DiscordOptionsValidator to validate Discord WebhookUrl is configured
+- Standard resilience handler (retry with exponential backoff, circuit breaker, timeout) via Microsoft.Extensions.Http.Resilience on both GitHub and Discord HTTP clients
+- Documentation instructions for keeping README.md configuration section up-to-date when configuration options change
 ### Fixed
 - Removed unused `Mediator` runtime package reference from `Credfeto.Dispatcher.Server` — `Mediator.SourceGenerator` source generator is sufficient; no separate runtime package is needed for a simple background service
 ### Changed
+- Configure HttpClient base address, User-Agent, Accept, X-GitHub-Api-Version, and Authorization headers at registration time via IHttpClientFactory rather than per request
+- Renamed IGitHubNotificationPoller to INotificationPoller and implementation to NotificationPoller
+- Moved internal GitHub API model types to Models namespace and removed GitHub prefix from type names
+- Replaced try/finally pattern with using declaration for HttpResponseMessage disposal
+- Updated X-GitHub-Api-Version header to 2026-03-10
+- Simplified DiscordWebhookDispatcher.SendAsync to use PostAsync directly instead of manually building HttpRequestMessage
 ### Deprecated
 ### Removed
 ### Security

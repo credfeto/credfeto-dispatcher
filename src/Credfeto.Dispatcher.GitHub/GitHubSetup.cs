@@ -6,6 +6,7 @@ using Credfeto.Dispatcher.GitHub.Configuration;
 using Credfeto.Dispatcher.GitHub.Interfaces;
 using Credfeto.Dispatcher.GitHub.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Options;
 
 namespace Credfeto.Dispatcher.GitHub;
@@ -22,6 +23,7 @@ public static class GitHubSetup
         return services
             .AddSingleton<IValidateOptions<GitHubOptions>, GitHubOptionsValidator>()
             .AddHttpClient(name: "GitHub", configureClient: ConfigureGitHubHttpClient)
+            .AddStandardResilienceHandler()
             .Services
             .AddSingleton<INotificationPoller, NotificationPoller>()
             .AddSingleton<INotificationFilter, NotificationFilter>()

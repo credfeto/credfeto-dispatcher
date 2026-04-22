@@ -15,14 +15,15 @@ public static class GitHubSetup
     private const string GitHubApiBase = "https://api.github.com/";
     private const string UserAgent = "credfeto-dispatcher";
     private const string GitHubApiVersionHeaderName = "X-GitHub-Api-Version";
-    private const string GitHubApiVersion = "2022-11-28";
+    private const string GitHubApiVersion = "2026-03-10";
 
     public static IServiceCollection AddGitHub(this IServiceCollection services)
     {
         return services
+            .AddSingleton<IValidateOptions<GitHubOptions>, GitHubOptionsValidator>()
             .AddHttpClient(name: "GitHub", configureClient: ConfigureGitHubHttpClient)
             .Services
-            .AddSingleton<IGitHubNotificationPoller, GitHubNotificationPoller>()
+            .AddSingleton<INotificationPoller, NotificationPoller>()
             .AddSingleton<INotificationFilter, NotificationFilter>()
             .AddHostedService<GitHubPollingWorker>();
     }

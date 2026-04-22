@@ -8,10 +8,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Interfaces;
+using Credfeto.Dispatcher.GitHub.Models;
 
 namespace Credfeto.Dispatcher.GitHub.Services;
 
-public sealed class GitHubNotificationPoller : IGitHubNotificationPoller
+public sealed class NotificationPoller : INotificationPoller
 {
     private static readonly Uri NotificationsRelativeUri = new(uriString: "notifications", uriKind: UriKind.Relative);
 
@@ -19,7 +20,7 @@ public sealed class GitHubNotificationPoller : IGitHubNotificationPoller
     private string? _eTag;
     private IReadOnlyList<GitHubNotification> _lastResult = [];
 
-    public GitHubNotificationPoller(IHttpClientFactory httpClientFactory)
+    public NotificationPoller(IHttpClientFactory httpClientFactory)
     {
         this._httpClientFactory = httpClientFactory;
     }
@@ -27,19 +28,11 @@ public sealed class GitHubNotificationPoller : IGitHubNotificationPoller
     public async ValueTask<IReadOnlyList<GitHubNotification>> PollAsync(CancellationToken cancellationToken)
     {
         HttpClient httpClient = this._httpClientFactory.CreateClient("GitHub");
-        HttpResponseMessage? response = null;
 
-        try
-        {
-            using HttpRequestMessage request = this.BuildRequest();
-            response = await httpClient.SendAsync(request: request, cancellationToken: cancellationToken);
+        using HttpRequestMessage request = this.BuildRequest();
+        using HttpResponseMessage response = await httpClient.SendAsync(request: request, cancellationToken: cancellationToken);
 
-            return await this.ProcessResponseAsync(response: response, cancellationToken: cancellationToken);
-        }
-        finally
-        {
-            response?.Dispose();
-        }
+        return await this.ProcessResponseAsync(response: response, cancellationToken: cancellationToken);
     }
 
     private HttpRequestMessage BuildRequest()
@@ -69,7 +62,7 @@ public sealed class GitHubNotificationPoller : IGitHubNotificationPoller
         }
 
         string json = await response.Content.ReadAsStringAsync(cancellationToken);
-        GitHubApiNotification[]? apiNotifications = JsonSerializer.Deserialize(json: json, jsonTypeInfo: GitHubNotificationContext.Default.GitHubApiNotificationArray);
+        ApiNotification[]? apiNotifications = JsonSerializer.Deserialize(json: json, jsonTypeInfo: NotificationSerializerContext.Default.ApiNotificationArray);
 
         if (apiNotifications is null)
         {
@@ -80,7 +73,7 @@ public sealed class GitHubNotificationPoller : IGitHubNotificationPoller
 
         List<GitHubNotification> notifications = new(apiNotifications.Length);
 
-        foreach (GitHubApiNotification n in apiNotifications)
+        foreach (ApiNotification n in apiNotifications)
         {
             notifications.Add(
                 new GitHubNotification(

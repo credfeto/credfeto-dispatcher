@@ -88,3 +88,35 @@ Never push code that does not compile. If you cannot fix a build error, report i
 - All value types (records declared with positional parameters or `record struct`) must have a `[DebuggerDisplay("...")]` attribute.
 - All configuration/options classes (typically bound from `appsettings.json`) must have a `[DebuggerDisplay("...")]` attribute showing their key properties.
 - The `DebuggerDisplay` format string should show the most useful identifying information — typically a name, identifier, or URL.
+
+## NuGet Vulnerability Suppression
+
+Accepted NuGet security advisories must be suppressed **at the project level** using the specific advisory URL, not suppressed globally in shared props.
+
+### Required: project-level suppression
+
+Suppress each accepted advisory in the affected `.csproj` file using `<NuGetAuditSuppress>`:
+
+```xml
+<ItemGroup>
+  <!-- Reason: <brief explanation of why this advisory is accepted> -->
+  <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-xxxx-xxxx-xxxx" />
+</ItemGroup>
+```
+
+### Prohibited: global suppression
+
+Do **not** suppress NuGet vulnerability warnings globally in shared `.props` files or `Directory.Build.props`. The following patterns are **explicitly prohibited**:
+
+```xml
+<!-- PROHIBITED: broad suppression in shared props -->
+<WarningsNotAsErrors>NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
+<NoWarn>NU1901;NU1902;NU1903;NU1904</NoWarn>
+```
+
+### Rationale
+
+Global suppression hides newly introduced advisories as packages are updated. Per-advisory project-level suppression ensures that:
+- Only explicitly reviewed and accepted vulnerabilities are suppressed.
+- New advisories on updated packages are not silently ignored.
+- Each suppression is traceable to a specific advisory URL and kept in the project file where the affected package is referenced.

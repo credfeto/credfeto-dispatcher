@@ -13,8 +13,9 @@ public static class DiscordSetup
     public static IServiceCollection AddDiscord(this IServiceCollection services)
     {
         return services
-            .AddHttpClient<IDiscordDispatcher, DiscordWebhookDispatcher>(ConfigureDiscordHttpClient)
-            .Services;
+            .AddHttpClient(name: "Discord", configureClient: ConfigureDiscordHttpClient)
+            .Services
+            .AddSingleton<IDiscordDispatcher, DiscordWebhookDispatcher>();
     }
 
     private static void ConfigureDiscordHttpClient(HttpClient client)

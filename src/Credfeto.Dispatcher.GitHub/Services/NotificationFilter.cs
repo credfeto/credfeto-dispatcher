@@ -32,6 +32,11 @@ public sealed class NotificationFilter : INotificationFilter
             return false;
         }
 
+        if (!this.PassesAllowedRepoFilter(notification))
+        {
+            return false;
+        }
+
         if (!this.PassesExcludedRepoFilter(notification))
         {
             return false;
@@ -73,6 +78,23 @@ public sealed class NotificationFilter : INotificationFilter
         if (!passes)
         {
             this._logger.LogNotificationDroppedOwner(notificationId: notification.Id, owner: repoOwner);
+        }
+
+        return passes;
+    }
+
+    private bool PassesAllowedRepoFilter(GitHubNotification notification)
+    {
+        if (this._options.Filter.AllowedRepos.Count == 0)
+        {
+            return true;
+        }
+
+        bool passes = this._options.Filter.AllowedRepos.Any(repo => string.Equals(a: notification.Repository.FullName, b: repo, comparisonType: StringComparison.OrdinalIgnoreCase));
+
+        if (!passes)
+        {
+            this._logger.LogNotificationDroppedAllowedRepo(notificationId: notification.Id, repository: notification.Repository.FullName);
         }
 
         return passes;

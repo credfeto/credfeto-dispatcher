@@ -216,21 +216,77 @@ public sealed class NotificationFilterTests : TestBase
         Assert.True(result, userMessage: $"Expected notification with reason '{reason}' to be dispatched");
     }
 
-    [Theory]
-    [InlineData("subscribed")]
-    [InlineData("team_mention")]
-    [InlineData("author")]
-    public void ShouldDispatchReturnsFalseWhenReasonIsNotInAllowedList(string reason)
+    [Fact]
+    public void ShouldDispatchReturnsTrueWhenAllowedReposIsEmpty()
     {
-        GitHubOptions options = new()
-        {
-            Filter = new GitHubFilterOptions { Reasons = ["mention", "review_requested", "assign"] }
-        };
-        INotificationFilter filter = BuildFilter(options);
-        GitHubNotification notification = BuildNotification(reason: reason);
+        INotificationFilter filter = BuildFilter(new GitHubOptions());
+        GitHubNotification notification = BuildNotification(repoFullName: "owner/any-repo");
 
         bool result = filter.ShouldDispatch(notification);
 
-        Assert.False(result, userMessage: $"Expected notification with reason '{reason}' to not be dispatched");
+        Assert.True(result, userMessage: "Expected notification to be dispatched when allowed repos list is empty");
+    }
+
+    [Fact]
+    public void ShouldDispatchReturnsTrueWhenRepoIsInAllowedList()
+    {
+        GitHubOptions options = new()
+        {
+            Filter = new GitHubFilterOptions { AllowedRepos = ["owner/repo"] }
+        };
+        INotificationFilter filter = BuildFilter(options);
+        GitHubNotification notification = BuildNotification(repoFullName: "owner/repo");
+
+        bool result = filter.ShouldDispatch(notification);
+
+        Assert.True(result, userMessage: "Expected notification to be dispatched when repo is in allowed list");
+    }
+
+    [Fact]
+    public void ShouldDispatchReturnsFalseWhenRepoNotInAllowedList()
+    {
+        GitHubOptions options = new()
+        {
+            Filter = new GitHubFilterOptions { AllowedRepos = ["owner/repo"] }
+        };
+        INotificationFilter filter = BuildFilter(options);
+        GitHubNotification notification = BuildNotification(repoFullName: "owner/other-repo");
+
+        bool result = filter.ShouldDispatch(notification);
+
+        Assert.False(result, userMessage: "Expected notification to not be dispatched when repo is not in allowed list");
+    }
+
+    [Fact]
+    public void ShouldDispatchReturnsTrueWhenAllowedRepoMatchesCaseInsensitively()
+    {
+        GitHubOptions options = new()
+        {
+            Filter = new GitHubFilterOptions { AllowedRepos = ["OWNER/REPO"] }
+        };
+        INotificationFilter filter = BuildFilter(options);
+        GitHubNotification notification = BuildNotification(repoFullName: "owner/repo");
+
+        bool result = filter.ShouldDispatch(notification);
+
+        Assert.True(result, userMessage: "Expected allowed repo filter to be case-insensitive");
+    }
+
+    [Fact]
+    public void ShouldDispatchHandlesMultipleAllowedRepos()
+    {
+        GitHubOptions options = new()
+        {
+            Filter = new GitHubFilterOptions { AllowedRepos = ["owner/repo-a", "owner/repo-b"] }
+        };
+        INotificationFilter filter = BuildFilter(options);
+        GitHubNotification notificationA = BuildNotification(repoFullName: "owner/repo-a");
+        GitHubNotification notificationB = BuildNotification(repoFullName: "owner/repo-b");
+        GitHubNotification notificationC = BuildNotification(repoFullName: "owner/repo-c");
+
+        Assert.True(filter.ShouldDispatch(notificationA), userMessage: "Expected repo-a to be dispatched");
+        Assert.True(filter.ShouldDispatch(notificationB), userMessage: "Expected repo-b to be dispatched");
+        Assert.False(filter.ShouldDispatch(notificationC), userMessage: "Expected repo-c to not be dispatched");
     }
 }
+

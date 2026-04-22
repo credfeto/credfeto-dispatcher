@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Credfeto.Dispatcher.GitHub.Services.LoggingExtensions;
 
-internal static partial class GitHubNotificationPollerLoggingExtensions
+internal static partial class GitHubNotificationPollerLoggingExtensions // gitleaks:allow
 {
     [LoggerMessage(EventId = 0, Level = LogLevel.Information, Message = "Polling GitHub notifications with ETag: {ETag}")]
     public static partial void LogPollingWithETag(this ILogger logger, string eTag);

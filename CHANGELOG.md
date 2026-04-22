@@ -18,6 +18,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - One-type-per-file convention for all C# source files
 - `LabelFilter` and `NoWorkFilter` as arrays in configuration
 - `AllowedOwners` and `ExcludedRepos` filter options for repo-level filtering
+- Polly standard resilience handler to GitHub and Discord HttpClient registrations via Microsoft.Extensions.Http.Resilience
 ### Fixed
 - Removed unused `Mediator` runtime package reference from `Credfeto.Dispatcher.Server` — `Mediator.SourceGenerator` source generator is sufficient; no separate runtime package is needed for a simple background service
 ### Changed

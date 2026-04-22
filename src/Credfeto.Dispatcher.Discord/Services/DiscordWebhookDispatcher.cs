@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.Discord.Configuration;
@@ -47,24 +46,9 @@ public sealed class DiscordWebhookDispatcher : IDiscordDispatcher
 
         foreach (DiscordEmbed embed in message.Embeds)
         {
-            embeds.Add(new DiscordWebhookEmbed(Title: embed.Title, Description: embed.Description, Url: embed.Url, Color: embed.Color));
+            embeds.Add(new DiscordWebhookEmbed(Title: embed.Title, Description: embed.Description, Url: embed.Url.ToString(), Color: embed.Color));
         }
 
         return new DiscordWebhookPayload(Content: message.Content, Embeds: embeds);
     }
 }
-
-internal sealed record DiscordWebhookPayload(
-    [property: JsonPropertyName("content")] string Content,
-    [property: JsonPropertyName("embeds")] IReadOnlyList<DiscordWebhookEmbed> Embeds
-);
-
-internal sealed record DiscordWebhookEmbed(
-    [property: JsonPropertyName("title")] string Title,
-    [property: JsonPropertyName("description")] string Description,
-    [property: JsonPropertyName("url")] string Url,
-    [property: JsonPropertyName("color")] int Color
-);
-
-[JsonSerializable(typeof(DiscordWebhookPayload))]
-internal sealed partial class DiscordWebhookContext : JsonSerializerContext;

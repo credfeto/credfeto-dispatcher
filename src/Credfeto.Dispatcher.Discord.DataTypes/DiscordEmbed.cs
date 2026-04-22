@@ -1,3 +1,7 @@
+using System;
+using System.Diagnostics;
+
 namespace Credfeto.Dispatcher.Discord.DataTypes;
 
-public sealed record DiscordEmbed(string Title, string Description, string Url, int Color);
+[DebuggerDisplay("{Title}: {Url}")]
+public sealed record DiscordEmbed(string Title, string Description, Uri Url, int Color);

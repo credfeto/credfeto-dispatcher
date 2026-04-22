@@ -1,3 +1,7 @@
+using System;
+using System.Diagnostics;
+
 namespace Credfeto.Dispatcher.GitHub.DataTypes;
 
-public sealed record NotificationRepository(string FullName, string Url);
+[DebuggerDisplay("{FullName}: {Url}")]
+public sealed record NotificationRepository(string FullName, Uri Url);

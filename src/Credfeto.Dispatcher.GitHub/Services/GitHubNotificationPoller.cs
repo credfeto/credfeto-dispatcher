@@ -4,7 +4,6 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.DataTypes;
@@ -68,8 +67,8 @@ public sealed class GitHubNotificationPoller : IGitHubNotificationPoller
                 new GitHubNotification(
                     Id: n.Id,
                     Reason: n.Reason,
-                    Subject: new NotificationSubject(Title: n.Subject.Title, Url: n.Subject.Url ?? string.Empty, Type: n.Subject.Type),
-                    Repository: new NotificationRepository(FullName: n.Repository.FullName, Url: n.Repository.HtmlUrl),
+                    Subject: new NotificationSubject(Title: n.Subject.Title, Url: new Uri(n.Subject.Url ?? "about:blank"), Type: n.Subject.Type),
+                    Repository: new NotificationRepository(FullName: n.Repository.FullName, Url: new Uri(n.Repository.HtmlUrl)),
                     UpdatedAt: n.UpdatedAt,
                     Unread: n.Unread
                 )
@@ -81,27 +80,3 @@ public sealed class GitHubNotificationPoller : IGitHubNotificationPoller
         return this._lastResult;
     }
 }
-
-internal sealed record GitHubApiNotification(
-    [property: JsonPropertyName("id")] string Id,
-    [property: JsonPropertyName("reason")] string Reason,
-    [property: JsonPropertyName("subject")] GitHubApiSubject Subject,
-    [property: JsonPropertyName("repository")] GitHubApiRepository Repository,
-    [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt,
-    [property: JsonPropertyName("unread")] bool Unread
-);
-
-internal sealed record GitHubApiSubject(
-    [property: JsonPropertyName("title")] string Title,
-    [property: JsonPropertyName("url")] string? Url,
-    [property: JsonPropertyName("type")] string Type
-);
-
-internal sealed record GitHubApiRepository(
-    [property: JsonPropertyName("full_name")] string FullName,
-    [property: JsonPropertyName("html_url")] string HtmlUrl
-);
-
-[JsonSerializable(typeof(GitHubApiNotification[]))]
-[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower)]
-internal sealed partial class GitHubNotificationContext : JsonSerializerContext;

@@ -19,6 +19,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - `LabelFilter` and `NoWorkFilter` as arrays in configuration
 - `AllowedOwners` and `ExcludedRepos` filter options for repo-level filtering
 ### Fixed
+- Replace non-existent `Mediator` runtime package reference with `Mediator.Abstractions`
 ### Changed
 ### Deprecated
 ### Removed

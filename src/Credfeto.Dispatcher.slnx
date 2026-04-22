@@ -1,8 +1,32 @@
 <Solution>
   <Folder Name="/Config/">
     <File Path="../CHANGELOG.md" />
+    <File Path="../Dockerfile" />
     <File Path="../README.md" />
+    <File Path="../healthcheck" />
     <File Path="CodeAnalysis.ruleset" />
     <File Path="global.json" />
+    <File Path="publish" />
+  </Folder>
+  <Folder Name="/Server/">
+    <Project Path="Credfeto.Dispatcher.Server/Credfeto.Dispatcher.Server.csproj" />
+  </Folder>
+  <Folder Name="/Services/">
+  </Folder>
+  <Folder Name="/Services/GitHub/">
+    <Project Path="Credfeto.Dispatcher.GitHub.DataTypes/Credfeto.Dispatcher.GitHub.DataTypes.csproj" />
+    <Project Path="Credfeto.Dispatcher.GitHub.Interfaces/Credfeto.Dispatcher.GitHub.Interfaces.csproj" />
+    <Project Path="Credfeto.Dispatcher.GitHub.Tests/Credfeto.Dispatcher.GitHub.Tests.csproj" />
+    <Project Path="Credfeto.Dispatcher.GitHub/Credfeto.Dispatcher.GitHub.csproj" />
+  </Folder>
+  <Folder Name="/Services/Discord/">
+    <Project Path="Credfeto.Dispatcher.Discord.DataTypes/Credfeto.Dispatcher.Discord.DataTypes.csproj" />
+    <Project Path="Credfeto.Dispatcher.Discord.Interfaces/Credfeto.Dispatcher.Discord.Interfaces.csproj" />
+    <Project Path="Credfeto.Dispatcher.Discord.Tests/Credfeto.Dispatcher.Discord.Tests.csproj" />
+    <Project Path="Credfeto.Dispatcher.Discord/Credfeto.Dispatcher.Discord.csproj" />
+  </Folder>
+  <Folder Name="/Shared/">
+    <Project Path="Credfeto.Dispatcher.Shared.Tests/Credfeto.Dispatcher.Shared.Tests.csproj" />
+    <Project Path="Credfeto.Dispatcher.Shared/Credfeto.Dispatcher.Shared.csproj" />
   </Folder>
 </Solution>

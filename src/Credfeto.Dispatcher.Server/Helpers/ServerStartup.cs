@@ -95,7 +95,6 @@ internal static class ServerStartup
         builder
             .Services.Configure<GitHubOptions>(gitHubSection)
             .Configure<DiscordOptions>(discordSection)
-            .AddMediator()
             .AddDate()
             .AddRandomNumbers()
             .AddRunOnStartupServices()

@@ -13,6 +13,7 @@ public static class GitHubSetup
             .AddHttpClient<IGitHubNotificationPoller, GitHubNotificationPoller>()
             .Services
             .AddSingleton<INotificationFilter, NotificationFilter>()
+            .AddHostedService<StartupNotificationService>()
             .AddHostedService<GitHubPollingWorker>();
     }
 }

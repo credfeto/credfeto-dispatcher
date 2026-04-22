@@ -54,6 +54,8 @@
     <PackageReference Include="Credfeto.Date" Version="1.1.150.1668" />
     <PackageReference Include="Credfeto.Random" Version="1.0.148.1626" />
     <PackageReference Include="Credfeto.Services.Startup" Version="1.1.143.1554" />
+    <PackageReference Include="Mediator" Version="3.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.6" />
     <PackageReference Include="Serilog.Enrichers.Demystifier" Version="1.0.3" />
     <PackageReference Include="Serilog.Enrichers.Environment" Version="3.0.1" />
     <PackageReference Include="Serilog.Enrichers.Process" Version="3.0.0" />

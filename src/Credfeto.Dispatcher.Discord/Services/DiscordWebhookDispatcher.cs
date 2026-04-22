@@ -13,12 +13,12 @@ namespace Credfeto.Dispatcher.Discord.Services;
 
 public sealed class DiscordWebhookDispatcher : IDiscordDispatcher
 {
-    private readonly HttpClient _httpClient;
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly DiscordOptions _options;
 
-    public DiscordWebhookDispatcher(HttpClient httpClient, IOptions<DiscordOptions> options)
+    public DiscordWebhookDispatcher(IHttpClientFactory httpClientFactory, IOptions<DiscordOptions> options)
     {
-        this._httpClient = httpClient;
+        this._httpClientFactory = httpClientFactory;
         this._options = options.Value;
     }
 
@@ -29,6 +29,7 @@ public sealed class DiscordWebhookDispatcher : IDiscordDispatcher
             return;
         }
 
+        HttpClient httpClient = this._httpClientFactory.CreateClient("Discord");
         DiscordWebhookPayload payload = BuildPayload(message);
 
         string json = JsonSerializer.Serialize(value: payload, jsonTypeInfo: DiscordWebhookContext.Default.DiscordWebhookPayload);
@@ -39,7 +40,7 @@ public sealed class DiscordWebhookDispatcher : IDiscordDispatcher
         {
             using HttpRequestMessage request = new(method: HttpMethod.Post, requestUri: this._options.WebhookUrl);
             request.Content = new StringContent(content: json, encoding: Encoding.UTF8, mediaType: "application/json");
-            response = await this._httpClient.SendAsync(request: request, cancellationToken: cancellationToken);
+            response = await httpClient.SendAsync(request: request, cancellationToken: cancellationToken);
             _ = response.EnsureSuccessStatusCode();
         }
         finally

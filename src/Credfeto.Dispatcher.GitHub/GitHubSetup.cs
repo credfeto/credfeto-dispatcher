@@ -27,6 +27,7 @@ public static class GitHubSetup
             .Services
             .AddSingleton<INotificationPoller, NotificationPoller>()
             .AddSingleton<INotificationFilter, NotificationFilter>()
+            .AddHostedService<StartupNotificationService>()
             .AddHostedService<GitHubPollingWorker>();
     }
 

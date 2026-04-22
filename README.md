@@ -39,7 +39,11 @@ Set the following in `appsettings.json` or environment variables:
     "PollIntervalSeconds": 60,
     "Filter": {
       "Reasons": ["review_requested", "assign", "mention", "ci_activity"],
-      "LabelFilter": "AI-Work"
+      "LabelFilter": ["AI-Work"],
+      "NoWorkFilter": ["on-hold"],
+      "AllowedOwners": [],
+      "AllowedRepos": [],
+      "ExcludedRepos": []
     }
   },
   "Discord": {

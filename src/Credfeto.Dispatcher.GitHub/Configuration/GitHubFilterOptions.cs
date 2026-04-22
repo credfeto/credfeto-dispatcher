@@ -14,5 +14,7 @@ public sealed class GitHubFilterOptions
 
     public IReadOnlyList<string> AllowedOwners { get; init; } = [];
 
+    public IReadOnlyList<string> AllowedRepos { get; init; } = [];
+
     public IReadOnlyList<string> ExcludedRepos { get; init; } = [];
 }

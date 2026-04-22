@@ -22,6 +22,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - DiscordOptionsValidator to validate Discord WebhookUrl is configured
 - Standard resilience handler (retry with exponential backoff, circuit breaker, timeout) via Microsoft.Extensions.Http.Resilience on both GitHub and Discord HTTP clients
 - Documentation instructions for keeping README.md configuration section up-to-date when configuration options change
+- post startup and GitHub auth status messages to Discord on launch
 ### Fixed
 - Removed unused `Mediator` runtime package reference from `Credfeto.Dispatcher.Server` — `Mediator.SourceGenerator` source generator is sufficient; no separate runtime package is needed for a simple background service
 ### Changed

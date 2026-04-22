@@ -22,15 +22,15 @@ public sealed class GitHubSetupTests : DependencyInjectionTestsBase
     }
 
     [Fact]
-    public void GitHubNotificationPollerShouldBeRegistered()
+    public void NotificationPollerShouldBeRegistered()
     {
-        this.RequireService<IGitHubNotificationPoller>();
+        this.RequireService<INotificationPoller>();
     }
 
     [Fact]
-    public void GitHubNotificationPollerShouldBeOfCorrectType()
+    public void NotificationPollerShouldBeOfCorrectType()
     {
-        this.RequireServiceInCollectionFor<IGitHubNotificationPoller, GitHubNotificationPoller>();
+        this.RequireServiceInCollectionFor<INotificationPoller, NotificationPoller>();
     }
 
     [Fact]

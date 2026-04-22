@@ -12,7 +12,7 @@ using Xunit;
 
 namespace Credfeto.Dispatcher.GitHub.Tests.Services;
 
-public sealed class GitHubNotificationPollerTests : TestBase
+public sealed class NotificationPollerTests : TestBase
 {
     private const string NotificationJson =
         """
@@ -36,12 +36,12 @@ public sealed class GitHubNotificationPollerTests : TestBase
         """;
 
     private readonly System.Net.Http.IHttpClientFactory _httpClientFactory;
-    private readonly IGitHubNotificationPoller _poller;
+    private readonly INotificationPoller _poller;
 
-    public GitHubNotificationPollerTests()
+    public NotificationPollerTests()
     {
         this._httpClientFactory = Substitute.For<System.Net.Http.IHttpClientFactory>();
-        this._poller = new GitHubNotificationPoller(this._httpClientFactory);
+        this._poller = new NotificationPoller(this._httpClientFactory);
     }
 
     [Fact]

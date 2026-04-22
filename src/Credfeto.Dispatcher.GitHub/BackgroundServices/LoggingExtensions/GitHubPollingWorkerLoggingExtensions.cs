@@ -1,0 +1,19 @@
+using System;
+using Microsoft.Extensions.Logging;
+
+namespace Credfeto.Dispatcher.GitHub.BackgroundServices.LoggingExtensions;
+
+internal static partial class GitHubPollingWorkerLoggingExtensions
+{
+    [LoggerMessage(EventId = 0, Level = LogLevel.Information, Message = "GitHub polling worker starting")]
+    public static partial void LogWorkerStarting(this ILogger logger);
+
+    [LoggerMessage(EventId = 1, Level = LogLevel.Information, Message = "GitHub polling worker stopping")]
+    public static partial void LogWorkerStopping(this ILogger logger);
+
+    [LoggerMessage(EventId = 2, Level = LogLevel.Debug, Message = "Polled {Count} GitHub notifications")]
+    public static partial void LogPolledNotifications(this ILogger logger, int count);
+
+    [LoggerMessage(EventId = 3, Level = LogLevel.Error, Message = "Error polling GitHub notifications")]
+    public static partial void LogPollingError(this ILogger logger, Exception exception);
+}

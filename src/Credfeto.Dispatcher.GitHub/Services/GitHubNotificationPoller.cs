@@ -15,23 +15,24 @@ public sealed class GitHubNotificationPoller : IGitHubNotificationPoller
 {
     private static readonly Uri NotificationsRelativeUri = new(uriString: "notifications", uriKind: UriKind.Relative);
 
-    private readonly HttpClient _httpClient;
+    private readonly IHttpClientFactory _httpClientFactory;
     private string? _eTag;
     private IReadOnlyList<GitHubNotification> _lastResult = [];
 
-    public GitHubNotificationPoller(HttpClient httpClient)
+    public GitHubNotificationPoller(IHttpClientFactory httpClientFactory)
     {
-        this._httpClient = httpClient;
+        this._httpClientFactory = httpClientFactory;
     }
 
     public async ValueTask<IReadOnlyList<GitHubNotification>> PollAsync(CancellationToken cancellationToken)
     {
+        HttpClient httpClient = this._httpClientFactory.CreateClient("GitHub");
         HttpResponseMessage? response = null;
 
         try
         {
             using HttpRequestMessage request = this.BuildRequest();
-            response = await this._httpClient.SendAsync(request: request, cancellationToken: cancellationToken);
+            response = await httpClient.SendAsync(request: request, cancellationToken: cancellationToken);
 
             return await this.ProcessResponseAsync(response: response, cancellationToken: cancellationToken);
         }

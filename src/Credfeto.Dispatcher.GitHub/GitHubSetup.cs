@@ -20,8 +20,9 @@ public static class GitHubSetup
     public static IServiceCollection AddGitHub(this IServiceCollection services)
     {
         return services
-            .AddHttpClient<IGitHubNotificationPoller, GitHubNotificationPoller>(ConfigureGitHubHttpClient)
+            .AddHttpClient(name: "GitHub", configureClient: ConfigureGitHubHttpClient)
             .Services
+            .AddSingleton<IGitHubNotificationPoller, GitHubNotificationPoller>()
             .AddSingleton<INotificationFilter, NotificationFilter>()
             .AddHostedService<GitHubPollingWorker>();
     }

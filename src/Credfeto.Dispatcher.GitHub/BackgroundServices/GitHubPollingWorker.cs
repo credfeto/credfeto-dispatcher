@@ -12,7 +12,7 @@ using Microsoft.Extensions.Options;
 
 namespace Credfeto.Dispatcher.GitHub.BackgroundServices;
 
-public sealed class GitHubPollingWorker : BackgroundService
+public sealed partial class GitHubPollingWorker : BackgroundService
 {
     private readonly IDiscordDispatcher _discordDispatcher;
     private readonly ILogger<GitHubPollingWorker> _logger;
@@ -66,7 +66,7 @@ public sealed class GitHubPollingWorker : BackgroundService
     {
         IReadOnlyList<GitHubNotification> notifications = await this._poller.PollAsync(cancellationToken);
 
-        this._logger.LogDebug(message: "Polled {Count} GitHub notifications", notifications.Count);
+        LogPolledNotifications(logger: this._logger, count: notifications.Count);
 
         foreach (GitHubNotification notification in notifications)
         {
@@ -92,4 +92,7 @@ public sealed class GitHubPollingWorker : BackgroundService
 
         return new Discord.DataTypes.DiscordMessage(Content: $"[{notification.Repository.FullName}] {notification.Subject.Type}", Embeds: [embed]);
     }
+
+    [LoggerMessage(EventId = 0, Level = LogLevel.Debug, Message = "Polled {Count} GitHub notifications")]
+    private static partial void LogPolledNotifications(ILogger logger, int count);
 }

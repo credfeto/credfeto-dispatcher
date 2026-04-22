@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using Credfeto.Dispatcher.GitHub.Configuration;
 using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Interfaces;
@@ -41,15 +43,7 @@ public sealed class NotificationFilter : INotificationFilter
             return true;
         }
 
-        foreach (string reason in this._options.Filter.Reasons)
-        {
-            if (string.Equals(a: notification.Reason, b: reason, comparisonType: System.StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return this._options.Filter.Reasons.Any(reason => string.Equals(a: notification.Reason, b: reason, comparisonType: StringComparison.OrdinalIgnoreCase));
     }
 
     private bool PassesOwnerFilter(GitHubNotification notification)
@@ -61,15 +55,7 @@ public sealed class NotificationFilter : INotificationFilter
 
         string repoOwner = GetOwner(notification.Repository.FullName);
 
-        foreach (string owner in this._options.Filter.AllowedOwners)
-        {
-            if (string.Equals(a: repoOwner, b: owner, comparisonType: System.StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return this._options.Filter.AllowedOwners.Any(owner => string.Equals(a: repoOwner, b: owner, comparisonType: StringComparison.OrdinalIgnoreCase));
     }
 
     private bool PassesExcludedRepoFilter(GitHubNotification notification)
@@ -79,20 +65,12 @@ public sealed class NotificationFilter : INotificationFilter
             return true;
         }
 
-        foreach (string excluded in this._options.Filter.ExcludedRepos)
-        {
-            if (string.Equals(a: notification.Repository.FullName, b: excluded, comparisonType: System.StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-        }
-
-        return true;
+        return !this._options.Filter.ExcludedRepos.Any(excluded => string.Equals(a: notification.Repository.FullName, b: excluded, comparisonType: StringComparison.OrdinalIgnoreCase));
     }
 
     private static string GetOwner(string fullName)
     {
-        int slashIndex = fullName.IndexOf(value: '/', comparisonType: System.StringComparison.Ordinal);
+        int slashIndex = fullName.IndexOf(value: '/', comparisonType: StringComparison.Ordinal);
 
         return slashIndex < 0
             ? fullName

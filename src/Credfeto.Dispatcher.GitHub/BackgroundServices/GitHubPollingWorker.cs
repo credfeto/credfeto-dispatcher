@@ -76,6 +76,8 @@ public sealed class GitHubPollingWorker : BackgroundService
                 continue;
             }
 
+            this._logger.LogDispatchingNotification(notificationId: notification.Id, repository: notification.Repository.FullName, title: notification.Subject.Title);
+
             Discord.DataTypes.DiscordMessage message = BuildDiscordMessage(notification);
 
             await this._discordDispatcher.SendAsync(message: message, cancellationToken: cancellationToken);

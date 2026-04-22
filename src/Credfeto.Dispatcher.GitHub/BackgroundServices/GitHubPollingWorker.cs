@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.Discord.Interfaces;
+using Credfeto.Dispatcher.GitHub.BackgroundServices.LoggingExtensions;
 using Credfeto.Dispatcher.GitHub.Configuration;
 using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Interfaces;
@@ -12,7 +13,7 @@ using Microsoft.Extensions.Options;
 
 namespace Credfeto.Dispatcher.GitHub.BackgroundServices;
 
-public sealed partial class GitHubPollingWorker : BackgroundService
+public sealed class GitHubPollingWorker : BackgroundService
 {
     private readonly IDiscordDispatcher _discordDispatcher;
     private readonly ILogger<GitHubPollingWorker> _logger;
@@ -37,7 +38,7 @@ public sealed partial class GitHubPollingWorker : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        this._logger.LogInformation("GitHub polling worker starting");
+        this._logger.LogWorkerStarting();
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -51,7 +52,7 @@ public sealed partial class GitHubPollingWorker : BackgroundService
             }
             catch (Exception exception)
             {
-                this._logger.LogError(exception: exception, message: "Error polling GitHub notifications");
+                this._logger.LogPollingError(exception: exception);
             }
 
             int pollIntervalSeconds = this._options.PollIntervalSeconds > 0 ? this._options.PollIntervalSeconds : 60;
@@ -59,14 +60,14 @@ public sealed partial class GitHubPollingWorker : BackgroundService
             await Task.Delay(millisecondsDelay: pollIntervalSeconds * 1000, cancellationToken: stoppingToken);
         }
 
-        this._logger.LogInformation("GitHub polling worker stopping");
+        this._logger.LogWorkerStopping();
     }
 
     private async ValueTask PollAndDispatchAsync(CancellationToken cancellationToken)
     {
         IReadOnlyList<GitHubNotification> notifications = await this._poller.PollAsync(cancellationToken);
 
-        LogPolledNotifications(logger: this._logger, count: notifications.Count);
+        this._logger.LogPolledNotifications(count: notifications.Count);
 
         foreach (GitHubNotification notification in notifications)
         {
@@ -92,7 +93,4 @@ public sealed partial class GitHubPollingWorker : BackgroundService
 
         return new Discord.DataTypes.DiscordMessage(Content: $"[{notification.Repository.FullName}] {notification.Subject.Type}", Embeds: [embed]);
     }
-
-    [LoggerMessage(EventId = 0, Level = LogLevel.Debug, Message = "Polled {Count} GitHub notifications")]
-    private static partial void LogPolledNotifications(ILogger logger, int count);
 }

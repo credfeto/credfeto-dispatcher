@@ -10,6 +10,7 @@ public static class DiscordSetup
     {
         return services
             .AddHttpClient<IDiscordDispatcher, DiscordWebhookDispatcher>()
+            .AddStandardResilienceHandler()
             .Services;
     }
 }

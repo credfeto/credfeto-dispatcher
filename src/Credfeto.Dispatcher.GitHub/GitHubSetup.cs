@@ -11,6 +11,7 @@ public static class GitHubSetup
     {
         return services
             .AddHttpClient<IGitHubNotificationPoller, GitHubNotificationPoller>()
+            .AddStandardResilienceHandler()
             .Services
             .AddSingleton<INotificationFilter, NotificationFilter>()
             .AddHostedService<GitHubPollingWorker>();

@@ -34,19 +34,9 @@ public sealed class DiscordWebhookDispatcher : IDiscordDispatcher
 
         string json = JsonSerializer.Serialize(value: payload, jsonTypeInfo: DiscordWebhookContext.Default.DiscordWebhookPayload);
 
-        HttpResponseMessage? response = null;
-
-        try
-        {
-            using HttpRequestMessage request = new(method: HttpMethod.Post, requestUri: this._options.WebhookUrl);
-            request.Content = new StringContent(content: json, encoding: Encoding.UTF8, mediaType: "application/json");
-            response = await httpClient.SendAsync(request: request, cancellationToken: cancellationToken);
-            _ = response.EnsureSuccessStatusCode();
-        }
-        finally
-        {
-            response?.Dispose();
-        }
+        using StringContent content = new(content: json, encoding: Encoding.UTF8, mediaType: "application/json");
+        using HttpResponseMessage response = await httpClient.PostAsync(requestUri: this._options.WebhookUrl, content: content, cancellationToken: cancellationToken);
+        _ = response.EnsureSuccessStatusCode();
     }
 
     private static DiscordWebhookPayload BuildPayload(DiscordMessage message)

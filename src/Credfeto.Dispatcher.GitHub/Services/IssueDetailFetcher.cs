@@ -37,15 +37,11 @@ public sealed class IssueDetailFetcher : IIssueDetailFetcher
             return null;
         }
 
-        IReadOnlyList<string> assignees = issue.Assignees is { Count: > 0 }
-            ? issue.Assignees.Select(a => a.Login)
-                   .ToList()
-            : [];
+        IReadOnlyList<string> assignees = issue.Assignees?.Select(a => a.Login)
+                                                          .ToList() ?? [];
 
-        IReadOnlyList<string> labels = issue.Labels is { Count: > 0 }
-            ? issue.Labels.Select(l => l.Name)
-                   .ToList()
-            : [];
+        IReadOnlyList<string> labels = issue.Labels?.Select(l => l.Name)
+                                                    .ToList() ?? [];
 
         Uri? linkedPullRequestUrl = issue.PullRequest is not null ? new Uri(issue.PullRequest.HtmlUrl) : null;
 

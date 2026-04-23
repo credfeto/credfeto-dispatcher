@@ -13,6 +13,9 @@
   </Folder>
   <Folder Name="/Services/">
   </Folder>
+  <Folder Name="/Storage/">
+    <Project Path="Credfeto.Dispatcher.Storage/Credfeto.Dispatcher.Storage.csproj" />
+  </Folder>
   <Folder Name="/Services/GitHub/">
     <Project Path="Credfeto.Dispatcher.GitHub.DataTypes/Credfeto.Dispatcher.GitHub.DataTypes.csproj" />
     <Project Path="Credfeto.Dispatcher.GitHub.Interfaces/Credfeto.Dispatcher.GitHub.Interfaces.csproj" />

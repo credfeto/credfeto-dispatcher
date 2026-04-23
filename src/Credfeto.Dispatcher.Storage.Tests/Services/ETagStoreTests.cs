@@ -29,7 +29,7 @@ public sealed class ETagStoreTests : TestBase, IAsyncLifetime
 
         using (DispatcherDbContext ctx = new(options))
         {
-            ctx.Database.EnsureCreated();
+            ctx.Database.Migrate();
         }
 
         this._store = new ETagStore(new TestDbContextFactory(options));

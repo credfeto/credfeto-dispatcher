@@ -1,7 +1,10 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace Credfeto.Dispatcher.Storage.Migrations;
 
+[DbContext(typeof(DispatcherDbContext))]
 [Migration("20260423120000_AddPollingStateTable")]
 public sealed partial class AddPollingStateTable : Migration
 {

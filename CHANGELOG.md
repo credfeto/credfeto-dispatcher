@@ -46,6 +46,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Simplified DiscordWebhookDispatcher.SendAsync to use PostAsync directly instead of manually building HttpRequestMessage
 - Simplified `INotificationStateTracker` interface: methods now accept `GitHubNotification` and `PullRequestDetails`/`IssueDetails` objects instead of individual scalar parameters, reducing call-site verbosity
 - Enriched `PullRequestDetails` and `IssueDetails` with `Repository` (owner, name, url) and `LastNotification` (id, timestamp) properties, populated from the source `GitHubNotification` at fetch time
+- Expanded PullRequestDetails to include lists of comments, reviews, workflow runs, and linked items
 ### Deprecated
 ### Removed
 ### Security

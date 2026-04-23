@@ -26,7 +26,8 @@ public sealed class PullRequestDetailFetcherTests : TestBase
           "html_url": "https://github.com/owner/repo/pull/42",
           "assignees": [],
           "labels": [],
-          "head": {"sha": "abc123"}
+          "head": {"sha": "abc123"},
+          "base": {"ref": "main"}
         }
         """;
 
@@ -40,7 +41,8 @@ public sealed class PullRequestDetailFetcherTests : TestBase
           "html_url": "https://github.com/owner/repo/pull/42",
           "assignees": [],
           "labels": [],
-          "head": {"sha": "abc123"}
+          "head": {"sha": "abc123"},
+          "base": {"ref": "main"}
         }
         """;
 
@@ -54,7 +56,8 @@ public sealed class PullRequestDetailFetcherTests : TestBase
           "html_url": "https://github.com/owner/repo/pull/42",
           "assignees": [],
           "labels": [],
-          "head": {"sha": "abc123"}
+          "head": {"sha": "abc123"},
+          "base": {"ref": "main"}
         }
         """;
 
@@ -68,7 +71,8 @@ public sealed class PullRequestDetailFetcherTests : TestBase
           "html_url": "https://github.com/owner/repo/pull/42",
           "assignees": [{"login": "alice"}, {"login": "bob"}],
           "labels": [],
-          "head": {"sha": "abc123"}
+          "head": {"sha": "abc123"},
+          "base": {"ref": "main"}
         }
         """;
 
@@ -82,7 +86,8 @@ public sealed class PullRequestDetailFetcherTests : TestBase
           "html_url": "https://github.com/owner/repo/pull/42",
           "assignees": [],
           "labels": [{"name": "bug"}, {"name": "enhancement"}],
-          "head": {"sha": "abc123"}
+          "head": {"sha": "abc123"},
+          "base": {"ref": "main"}
         }
         """;
 
@@ -91,7 +96,8 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         [{
           "body": "A test comment",
           "user": {"login": "reviewer"},
-          "html_url": "https://github.com/owner/repo/issues/42#issuecomment-1"
+          "html_url": "https://github.com/owner/repo/issues/42#issuecomment-1",
+          "created_at": "2024-01-01T00:00:00Z"
         }]
         """;
 
@@ -101,7 +107,8 @@ public sealed class PullRequestDetailFetcherTests : TestBase
           "state": "CHANGES_REQUESTED",
           "body": "Please fix this",
           "user": {"login": "reviewer"},
-          "html_url": "https://github.com/owner/repo/pull/42#pullrequestreview-1"
+          "html_url": "https://github.com/owner/repo/pull/42#pullrequestreview-1",
+          "submitted_at": "2024-01-01T00:00:00Z"
         }]
         """;
 
@@ -111,7 +118,8 @@ public sealed class PullRequestDetailFetcherTests : TestBase
           "state": "APPROVED",
           "body": "Looks good",
           "user": {"login": "reviewer"},
-          "html_url": "https://github.com/owner/repo/pull/42#pullrequestreview-1"
+          "html_url": "https://github.com/owner/repo/pull/42#pullrequestreview-1",
+          "submitted_at": "2024-01-01T00:00:00Z"
         }]
         """;
 
@@ -120,6 +128,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         {
           "workflow_runs": [{
             "name": "CI",
+            "status": "completed",
             "conclusion": "failure",
             "html_url": "https://github.com/owner/repo/actions/runs/123"
           }]
@@ -131,6 +140,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         {
           "workflow_runs": [{
             "name": "CI",
+            "status": "completed",
             "conclusion": "success",
             "html_url": "https://github.com/owner/repo/actions/runs/123"
           }]
@@ -232,8 +242,12 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task ReturnsPullRequestDetailsForOpenPrAsync()
     {
-        using HttpClient client = CreateClient(HttpStatusCode.OK, OpenPrJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
+        using HttpClient reqChecksClient = CreateNotFoundClient();
+        using HttpClient commentsClient = CreateEmptyArrayClient();
+        using HttpClient reviewsClient = CreateEmptyArrayClient();
+        using HttpClient runsClient = CreateEmptyRunsClient();
+        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, reqChecksClient, commentsClient, reviewsClient, runsClient);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
@@ -246,8 +260,12 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task ReturnsPullRequestDetailsForDraftPrAsync()
     {
-        using HttpClient client = CreateClient(HttpStatusCode.OK, DraftPrJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, DraftPrJson);
+        using HttpClient reqChecksClient = CreateNotFoundClient();
+        using HttpClient commentsClient = CreateEmptyArrayClient();
+        using HttpClient reviewsClient = CreateEmptyArrayClient();
+        using HttpClient runsClient = CreateEmptyRunsClient();
+        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, reqChecksClient, commentsClient, reviewsClient, runsClient);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
@@ -260,8 +278,12 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task ReturnsPullRequestDetailsForClosedPrAsync()
     {
-        using HttpClient client = CreateClient(HttpStatusCode.OK, ClosedPrJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, ClosedPrJson);
+        using HttpClient reqChecksClient = CreateNotFoundClient();
+        using HttpClient commentsClient = CreateEmptyArrayClient();
+        using HttpClient reviewsClient = CreateEmptyArrayClient();
+        using HttpClient runsClient = CreateEmptyRunsClient();
+        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, reqChecksClient, commentsClient, reviewsClient, runsClient);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
@@ -274,8 +296,12 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task MapsTitleFromPullRequestAsync()
     {
-        using HttpClient client = CreateClient(HttpStatusCode.OK, OpenPrJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
+        using HttpClient reqChecksClient = CreateNotFoundClient();
+        using HttpClient commentsClient = CreateEmptyArrayClient();
+        using HttpClient reviewsClient = CreateEmptyArrayClient();
+        using HttpClient runsClient = CreateEmptyRunsClient();
+        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, reqChecksClient, commentsClient, reviewsClient, runsClient);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
@@ -288,8 +314,12 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task MapsNumberFromPullRequestAsync()
     {
-        using HttpClient client = CreateClient(HttpStatusCode.OK, OpenPrJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
+        using HttpClient reqChecksClient = CreateNotFoundClient();
+        using HttpClient commentsClient = CreateEmptyArrayClient();
+        using HttpClient reviewsClient = CreateEmptyArrayClient();
+        using HttpClient runsClient = CreateEmptyRunsClient();
+        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, reqChecksClient, commentsClient, reviewsClient, runsClient);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
@@ -302,8 +332,12 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task MapsHtmlUrlFromPullRequestAsync()
     {
-        using HttpClient client = CreateClient(HttpStatusCode.OK, OpenPrJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
+        using HttpClient reqChecksClient = CreateNotFoundClient();
+        using HttpClient commentsClient = CreateEmptyArrayClient();
+        using HttpClient reviewsClient = CreateEmptyArrayClient();
+        using HttpClient runsClient = CreateEmptyRunsClient();
+        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, reqChecksClient, commentsClient, reviewsClient, runsClient);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
@@ -316,8 +350,12 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task MapsAssigneesFromPullRequestAsync()
     {
-        using HttpClient client = CreateClient(HttpStatusCode.OK, PrWithAssigneesJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, PrWithAssigneesJson);
+        using HttpClient reqChecksClient = CreateNotFoundClient();
+        using HttpClient commentsClient = CreateEmptyArrayClient();
+        using HttpClient reviewsClient = CreateEmptyArrayClient();
+        using HttpClient runsClient = CreateEmptyRunsClient();
+        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, reqChecksClient, commentsClient, reviewsClient, runsClient);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
@@ -332,8 +370,12 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task MapsLabelsFromPullRequestAsync()
     {
-        using HttpClient client = CreateClient(HttpStatusCode.OK, PrWithLabelsJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, PrWithLabelsJson);
+        using HttpClient reqChecksClient = CreateNotFoundClient();
+        using HttpClient commentsClient = CreateEmptyArrayClient();
+        using HttpClient reviewsClient = CreateEmptyArrayClient();
+        using HttpClient runsClient = CreateEmptyRunsClient();
+        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, reqChecksClient, commentsClient, reviewsClient, runsClient);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 

@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics.CodeAnalysis;
 using Credfeto.Dispatcher.Storage.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -7,6 +8,7 @@ namespace Credfeto.Dispatcher.Storage.Migrations;
 
 [DbContext(typeof(DispatcherDbContext))]
 [SuppressMessage("Performance", "CA1812:Avoid uninstantiated internal classes", Justification = "Instantiated by Entity Framework Core via reflection")]
+[SuppressMessage("Philips.CodeAnalysis.DuplicateCodeAnalyzer", "PH2071:Duplicate shape found", Justification = "Two entities with identical property schemas — refactoring is not applicable to EF Core model snapshot structure.")]
 internal sealed class DispatcherDbContextModelSnapshot : ModelSnapshot
 {
     protected override void BuildModel(ModelBuilder modelBuilder)
@@ -27,5 +29,29 @@ internal sealed class DispatcherDbContextModelSnapshot : ModelSnapshot
                 b.ToTable("PollingStates");
             }
         );
+
+        modelBuilder.Entity<PullRequestEntity>(b =>
+        {
+            b.HasKey(e => new { e.Repository, e.Id });
+            b.ToTable("PullRequests");
+            b.Property(e => e.Repository);
+            b.Property(e => e.Id);
+            b.Property(e => e.Status);
+            b.Property(e => e.FirstSeen);
+            b.Property(e => e.LastUpdated);
+            b.Property(e => e.WhenClosed);
+        });
+
+        modelBuilder.Entity<IssueEntity>(b =>
+        {
+            b.HasKey(e => new { e.Repository, e.Id });
+            b.ToTable("Issues");
+            b.Property(e => e.Repository);
+            b.Property(e => e.Id);
+            b.Property(e => e.Status);
+            b.Property(e => e.FirstSeen);
+            b.Property(e => e.LastUpdated);
+            b.Property(e => e.WhenClosed);
+        });
     }
 }

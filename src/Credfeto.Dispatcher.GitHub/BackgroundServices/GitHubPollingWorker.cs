@@ -17,11 +17,14 @@ namespace Credfeto.Dispatcher.GitHub.BackgroundServices;
 public sealed class GitHubPollingWorker : BackgroundService
 {
     private const string PullRequestType = "PullRequest";
+    private const string IssueType = "Issue";
     private const int EmbedColour = 0x5865F2;
 
     private readonly IDiscordDispatcher _discordDispatcher;
+    private readonly IIssueDetailFetcher _issueDetailFetcher;
     private readonly ILogger<GitHubPollingWorker> _logger;
     private readonly INotificationFilter _notificationFilter;
+    private readonly INotificationStateTracker _notificationStateTracker;
     private readonly GitHubOptions _options;
     private readonly INotificationPoller _poller;
     private readonly IPullRequestDetailFetcher _pullRequestDetailFetcher;
@@ -31,6 +34,8 @@ public sealed class GitHubPollingWorker : BackgroundService
         INotificationFilter notificationFilter,
         IDiscordDispatcher discordDispatcher,
         IPullRequestDetailFetcher pullRequestDetailFetcher,
+        IIssueDetailFetcher issueDetailFetcher,
+        INotificationStateTracker notificationStateTracker,
         IOptions<GitHubOptions> options,
         ILogger<GitHubPollingWorker> logger
     )
@@ -39,6 +44,8 @@ public sealed class GitHubPollingWorker : BackgroundService
         this._notificationFilter = notificationFilter;
         this._discordDispatcher = discordDispatcher;
         this._pullRequestDetailFetcher = pullRequestDetailFetcher;
+        this._issueDetailFetcher = issueDetailFetcher;
+        this._notificationStateTracker = notificationStateTracker;
         this._options = options.Value;
         this._logger = logger;
     }
@@ -85,25 +92,93 @@ public sealed class GitHubPollingWorker : BackgroundService
 
             this._logger.LogDispatchingNotification(notificationId: notification.Id, repository: notification.Repository.FullName, title: notification.Subject.Title);
 
-            DiscordMessage message = await this.BuildDiscordMessageAsync(notification: notification, cancellationToken: cancellationToken);
-
-            await this._discordDispatcher.SendAsync(message: message, cancellationToken: cancellationToken);
+            await this.ProcessNotificationAsync(notification: notification, cancellationToken: cancellationToken);
         }
     }
 
-    private async ValueTask<DiscordMessage> BuildDiscordMessageAsync(GitHubNotification notification, CancellationToken cancellationToken)
+    private async ValueTask ProcessNotificationAsync(GitHubNotification notification, CancellationToken cancellationToken)
     {
         if (string.Equals(a: notification.Subject.Type, b: PullRequestType, comparisonType: StringComparison.OrdinalIgnoreCase))
         {
-            PullRequestDetails? details = await this._pullRequestDetailFetcher.FetchAsync(notification: notification, cancellationToken: cancellationToken);
-
-            if (details is not null)
+            if (await this.TryProcessPullRequestNotificationAsync(notification: notification, cancellationToken: cancellationToken))
             {
-                return BuildPullRequestMessage(notification: notification, details: details);
+                return;
+            }
+        }
+        else if (string.Equals(a: notification.Subject.Type, b: IssueType, comparisonType: StringComparison.OrdinalIgnoreCase))
+        {
+            if (await this.TryProcessIssueNotificationAsync(notification: notification, cancellationToken: cancellationToken))
+            {
+                return;
             }
         }
 
-        return BuildBasicMessage(notification);
+        DiscordMessage fallbackMessage = BuildBasicMessage(notification);
+        await this._discordDispatcher.SendAsync(message: fallbackMessage, cancellationToken: cancellationToken);
+    }
+
+    private async ValueTask<bool> TryProcessPullRequestNotificationAsync(GitHubNotification notification, CancellationToken cancellationToken)
+    {
+        PullRequestDetails? details = await this._pullRequestDetailFetcher.FetchAsync(notification: notification, cancellationToken: cancellationToken);
+
+        if (details is null)
+        {
+            return false;
+        }
+
+        if (!await this._notificationStateTracker.ShouldSkipPullRequestAsync(
+                repository: notification.Repository.FullName,
+                pullRequestNumber: details.Number,
+                currentStatus: details.Status,
+                cancellationToken: cancellationToken))
+        {
+            DiscordMessage message = BuildPullRequestMessage(notification: notification, details: details);
+            await this._discordDispatcher.SendAsync(message: message, cancellationToken: cancellationToken);
+        }
+        else
+        {
+            this._logger.LogSkippingClosedItem(notificationId: notification.Id, repository: notification.Repository.FullName, itemId: details.Number, itemType: PullRequestType);
+        }
+
+        await this._notificationStateTracker.UpdatePullRequestStateAsync(
+            repository: notification.Repository.FullName,
+            pullRequestNumber: details.Number,
+            status: details.Status,
+            cancellationToken: cancellationToken);
+
+        return true;
+    }
+
+    private async ValueTask<bool> TryProcessIssueNotificationAsync(GitHubNotification notification, CancellationToken cancellationToken)
+    {
+        IssueDetails? details = await this._issueDetailFetcher.FetchAsync(notification: notification, cancellationToken: cancellationToken);
+
+        if (details is null)
+        {
+            return false;
+        }
+
+        if (!await this._notificationStateTracker.ShouldSkipIssueAsync(
+                repository: notification.Repository.FullName,
+                issueNumber: details.Number,
+                currentStatus: details.Status,
+                cancellationToken: cancellationToken))
+        {
+            DiscordMessage message = BuildBasicMessage(notification);
+            await this._discordDispatcher.SendAsync(message: message, cancellationToken: cancellationToken);
+        }
+        else
+        {
+            this._logger.LogSkippingClosedItem(notificationId: notification.Id, repository: notification.Repository.FullName, itemId: details.Number, itemType: IssueType);
+        }
+
+        await this._notificationStateTracker.UpdateIssueStateAsync(
+            repository: notification.Repository.FullName,
+            issueNumber: details.Number,
+            status: details.Status,
+            cancellationToken: cancellationToken);
+
+        return true;
     }
 
     private static DiscordMessage BuildBasicMessage(GitHubNotification notification)

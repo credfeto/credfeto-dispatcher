@@ -16,3 +16,4 @@ This is an index of local instructions that apply to just this project.
 ## Local Instruction Files
 
 - [documentation.instructions.md](documentation.instructions.md) — Rules for keeping README.md configuration documentation up-to-date
+- [database.instructions.md](database.instructions.md) — Schema and conventions for the notification state tracking database tables (PullRequests, Issues), and guidance for adding future trackable object types

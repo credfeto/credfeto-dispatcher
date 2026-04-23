@@ -28,6 +28,7 @@ public static class GitHubSetup
             .AddSingleton<INotificationPoller, NotificationPoller>()
             .AddSingleton<INotificationFilter, NotificationFilter>()
             .AddSingleton<IPullRequestDetailFetcher, PullRequestDetailFetcher>()
+            .AddSingleton<IIssueDetailFetcher, IssueDetailFetcher>()
             .AddHostedService<StartupNotificationService>()
             .AddHostedService<GitHubPollingWorker>();
     }

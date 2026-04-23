@@ -19,4 +19,7 @@ internal static partial class GitHubPollingWorkerLoggingExtensions
 
     [LoggerMessage(EventId = 4, Level = LogLevel.Information, Message = "Dispatching notification to Discord: Id={NotificationId}, Repo={Repository}, Title={Title}")]
     public static partial void LogDispatchingNotification(this ILogger logger, string notificationId, string repository, string title);
+
+    [LoggerMessage(EventId = 5, Level = LogLevel.Debug, Message = "Skipping notification for already-closed item: Id={NotificationId}, Repo={Repository}, ItemId={ItemId}, Type={ItemType}")]
+    public static partial void LogSkippingClosedItem(this ILogger logger, string notificationId, string repository, int itemId, string itemType);
 }

@@ -255,7 +255,7 @@ public sealed class GitHubPollingWorkerTests : TestBase
     }
 
     [Fact]
-    public async Task FirstTimeClosedPullRequestIsDispatchedAsync()
+    public async Task ClosedPullRequestIsNeverDispatchedEvenOnFirstSeenAsync()
     {
         GitHubNotification notification = BuildPrNotification("subscribed");
         PullRequestDetails details = BuildClosedPrDetails();
@@ -263,19 +263,21 @@ public sealed class GitHubPollingWorkerTests : TestBase
         this._filter.ShouldDispatch(notification)
                     .Returns(true);
 
-        // State tracker returns false (not in DB as closed yet), so dispatch should happen
+        // State tracker returns true (closed = always skip), so no dispatch should happen
         this._stateTracker.ShouldSkipPullRequestAsync(
                               repository: Arg.Any<string>(),
                               pullRequestNumber: Arg.Any<int>(),
                               currentStatus: Arg.Any<string>(),
                               cancellationToken: Arg.Any<CancellationToken>())
-                          .Returns(Task.FromResult(false));
+                          .Returns(Task.FromResult(true));
 
-        DiscordMessage captured = await this.RunAndCaptureAsync(
-            poller: new FakePoller([notification]),
-            fetcher: new FakeFetcher(details));
+        CancellationToken token = TestContext.Current.CancellationToken;
+        using GitHubPollingWorker worker = this.CreateWorker(poller: new FakePoller([notification]), fetcher: new FakeFetcher(details));
+        await worker.StartAsync(token);
+        await Task.Delay(millisecondsDelay: 200, cancellationToken: token);
+        await worker.StopAsync(token);
 
-        Assert.Equal(expected: "[owner/repo] PR #42 (subscribed) https://github.com/owner/repo/pull/42", actual: captured.Content);
+        Assert.False(condition: this._discord.Dispatched.IsCompleted, userMessage: "Expected no message to be dispatched for first-seen closed PR");
     }
 
     private sealed class FakePoller : INotificationPoller

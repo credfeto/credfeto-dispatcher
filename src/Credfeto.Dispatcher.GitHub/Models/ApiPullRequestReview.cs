@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics;
 using System.Text.Json.Serialization;
 
@@ -8,5 +9,6 @@ internal sealed record ApiPullRequestReview(
     [property: JsonPropertyName("state")] string State,
     [property: JsonPropertyName("body")] string Body,
     [property: JsonPropertyName("user")] ApiUser User,
-    [property: JsonPropertyName("html_url")] string HtmlUrl
+    [property: JsonPropertyName("html_url")] string HtmlUrl,
+    [property: JsonPropertyName("submitted_at")] DateTimeOffset SubmittedAt
 );

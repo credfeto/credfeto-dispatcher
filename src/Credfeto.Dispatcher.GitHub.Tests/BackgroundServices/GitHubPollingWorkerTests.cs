@@ -62,21 +62,17 @@ public sealed class GitHubPollingWorkerTests : TestBase
         return new PullRequestDetails(
             Number: 42,
             Title: "Test PR",
+            Body: null,
             Status: "Open",
             HtmlUrl: new Uri("https://github.com/owner/repo/pull/42"),
             Repository: new ItemRepository(Owner: "owner", Name: "repo", Url: new Uri("https://github.com/owner/repo")),
             LastNotification: new LastNotification(Id: "1", Timestamp: new DateTimeOffset(year: 2024, month: 1, day: 1, hour: 0, minute: 0, second: 0, offset: TimeSpan.Zero)),
             Assignees: [],
             Labels: [],
-            CommentBody: null,
-            CommentAuthor: null,
-            CommentUrl: null,
-            ReviewState: null,
-            ReviewBody: null,
-            ReviewAuthor: null,
-            ReviewUrl: null,
-            FailedRunName: null,
-            FailedRunUrl: null);
+            Comments: [],
+            Reviews: [],
+            Runs: [],
+            LinkedItems: []);
     }
 
     private static PullRequestDetails BuildClosedPrDetails()
@@ -84,21 +80,17 @@ public sealed class GitHubPollingWorkerTests : TestBase
         return new PullRequestDetails(
             Number: 42,
             Title: "Test PR",
+            Body: null,
             Status: "Closed",
             HtmlUrl: new Uri("https://github.com/owner/repo/pull/42"),
             Repository: new ItemRepository(Owner: "owner", Name: "repo", Url: new Uri("https://github.com/owner/repo")),
             LastNotification: new LastNotification(Id: "1", Timestamp: new DateTimeOffset(year: 2024, month: 1, day: 1, hour: 0, minute: 0, second: 0, offset: TimeSpan.Zero)),
             Assignees: [],
             Labels: [],
-            CommentBody: null,
-            CommentAuthor: null,
-            CommentUrl: null,
-            ReviewState: null,
-            ReviewBody: null,
-            ReviewAuthor: null,
-            ReviewUrl: null,
-            FailedRunName: null,
-            FailedRunUrl: null);
+            Comments: [],
+            Reviews: [],
+            Runs: [],
+            LinkedItems: []);
     }
 
     private static IssueDetails BuildOpenIssueDetails()

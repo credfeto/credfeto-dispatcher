@@ -8,19 +8,15 @@ namespace Credfeto.Dispatcher.GitHub.DataTypes;
 public sealed record PullRequestDetails(
     int Number,
     string Title,
+    string? Body,
     string Status,
     Uri HtmlUrl,
     ItemRepository Repository,
     LastNotification LastNotification,
     IReadOnlyList<string> Assignees,
     IReadOnlyList<string> Labels,
-    string? CommentBody,
-    string? CommentAuthor,
-    Uri? CommentUrl,
-    string? ReviewState,
-    string? ReviewBody,
-    string? ReviewAuthor,
-    Uri? ReviewUrl,
-    string? FailedRunName,
-    Uri? FailedRunUrl
+    IReadOnlyList<PullRequestComment> Comments,
+    IReadOnlyList<PullRequestReview> Reviews,
+    IReadOnlyList<PullRequestRun> Runs,
+    IReadOnlyList<LinkedItem> LinkedItems
 );

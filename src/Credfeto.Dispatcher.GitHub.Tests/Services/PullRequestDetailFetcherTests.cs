@@ -137,6 +137,32 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         }
         """;
 
+    private const string RequiredChecksWithCiJson =
+        """
+        {
+          "contexts": ["CI"]
+        }
+        """;
+
+    private const string OpenPrWithBodyJson =
+        """
+        {
+          "number": 42,
+          "title": "Test PR",
+          "body": "Closes #10",
+          "state": "open",
+          "draft": false,
+          "html_url": "https://github.com/owner/repo/pull/42",
+          "assignees": [],
+          "labels": [],
+          "head": {"sha": "abc123"},
+          "base": {"ref": "main"}
+        }
+        """;
+
+    private const string EmptyArrayJson = "[]";
+    private const string EmptyRunsJson = """{"workflow_runs": []}""";
+
     private readonly System.Net.Http.IHttpClientFactory _httpClientFactory;
     private readonly IPullRequestDetailFetcher _fetcher;
 
@@ -162,6 +188,12 @@ public sealed class PullRequestDetailFetcherTests : TestBase
             handler?.Dispose();
         }
     }
+
+    private static HttpClient CreateNotFoundClient() => CreateClient(HttpStatusCode.NotFound);
+
+    private static HttpClient CreateEmptyArrayClient() => CreateClient(HttpStatusCode.OK, EmptyArrayJson);
+
+    private static HttpClient CreateEmptyRunsClient() => CreateClient(HttpStatusCode.OK, EmptyRunsJson);
 
     private static GitHubNotification BuildNotification(string type, string reason)
     {
@@ -314,124 +346,170 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     }
 
     [Fact]
-    public async Task FetchesLatestCommentWhenReasonIsCommentAsync()
+    public async Task FetchesCommentsListAsync()
     {
         using HttpClient prClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
-        using HttpClient commentClient = CreateClient(HttpStatusCode.OK, CommentsJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, commentClient);
+        using HttpClient reqChecksClient = CreateNotFoundClient();
+        using HttpClient commentsClient = CreateClient(HttpStatusCode.OK, CommentsJson);
+        using HttpClient reviewsClient = CreateEmptyArrayClient();
+        using HttpClient runsClient = CreateEmptyRunsClient();
+        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, reqChecksClient, commentsClient, reviewsClient, runsClient);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "comment");
 
         PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
 
         Assert.NotNull(result);
-        Assert.Equal(expected: "A test comment", actual: result.CommentBody);
-        Assert.Equal(expected: "reviewer", actual: result.CommentAuthor);
-        Assert.Equal(expected: new Uri("https://github.com/owner/repo/issues/42#issuecomment-1"), actual: result.CommentUrl);
+        PullRequestComment comment = Assert.Single(result.Comments);
+        Assert.Equal(expected: "A test comment", actual: comment.Body);
+        Assert.Equal(expected: "reviewer", actual: comment.Author);
+        Assert.Equal(expected: new Uri("https://github.com/owner/repo/issues/42#issuecomment-1"), actual: comment.Url);
     }
 
     [Fact]
-    public async Task ReturnsNullCommentWhenCommentApiFailsAsync()
+    public async Task ReturnsEmptyCommentsWhenApiFailsAsync()
     {
         using HttpClient prClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
-        using HttpClient failClient = CreateClient(HttpStatusCode.InternalServerError);
-        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, failClient);
+        using HttpClient reqChecksClient = CreateNotFoundClient();
+        using HttpClient commentsClient = CreateClient(HttpStatusCode.InternalServerError);
+        using HttpClient reviewsClient = CreateEmptyArrayClient();
+        using HttpClient runsClient = CreateEmptyRunsClient();
+        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, reqChecksClient, commentsClient, reviewsClient, runsClient);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "comment");
 
         PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
 
         Assert.NotNull(result);
-        Assert.Null(result.CommentBody);
-        Assert.Null(result.CommentAuthor);
-        Assert.Null(result.CommentUrl);
+        Assert.Empty(result.Comments);
     }
 
     [Fact]
-    public async Task ReturnsNullCommentWhenCommentListIsEmptyAsync()
+    public async Task ReturnsEmptyCommentsWhenListIsEmptyAsync()
     {
         using HttpClient prClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
-        using HttpClient emptyClient = CreateClient(HttpStatusCode.OK, "[]");
-        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, emptyClient);
+        using HttpClient reqChecksClient = CreateNotFoundClient();
+        using HttpClient commentsClient = CreateEmptyArrayClient();
+        using HttpClient reviewsClient = CreateEmptyArrayClient();
+        using HttpClient runsClient = CreateEmptyRunsClient();
+        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, reqChecksClient, commentsClient, reviewsClient, runsClient);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "comment");
 
         PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
 
         Assert.NotNull(result);
-        Assert.Null(result.CommentBody);
+        Assert.Empty(result.Comments);
     }
 
     [Fact]
-    public async Task FetchesReviewWhenReasonIsReviewRequestedAsync()
+    public async Task FetchesReviewsListAsync()
     {
         using HttpClient prClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
-        using HttpClient reviewClient = CreateClient(HttpStatusCode.OK, ReviewsWithChangesRequestedJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, reviewClient);
+        using HttpClient reqChecksClient = CreateNotFoundClient();
+        using HttpClient commentsClient = CreateEmptyArrayClient();
+        using HttpClient reviewsClient = CreateClient(HttpStatusCode.OK, ReviewsWithChangesRequestedJson);
+        using HttpClient runsClient = CreateEmptyRunsClient();
+        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, reqChecksClient, commentsClient, reviewsClient, runsClient);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "review_requested");
 
         PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
 
         Assert.NotNull(result);
-        Assert.Equal(expected: "CHANGES_REQUESTED", actual: result.ReviewState);
-        Assert.Equal(expected: "Please fix this", actual: result.ReviewBody);
-        Assert.Equal(expected: "reviewer", actual: result.ReviewAuthor);
+        PullRequestReview review = Assert.Single(result.Reviews);
+        Assert.Equal(expected: "CHANGES_REQUESTED", actual: review.State);
+        Assert.Equal(expected: "Please fix this", actual: review.Body);
+        Assert.Equal(expected: "reviewer", actual: review.Author);
     }
 
     [Fact]
-    public async Task ReturnsNullReviewWhenNoChangesRequestedAsync()
+    public async Task FetchesApprovedReviewInListAsync()
     {
         using HttpClient prClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
-        using HttpClient reviewClient = CreateClient(HttpStatusCode.OK, ReviewsApprovedJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, reviewClient);
+        using HttpClient reqChecksClient = CreateNotFoundClient();
+        using HttpClient commentsClient = CreateEmptyArrayClient();
+        using HttpClient reviewsClient = CreateClient(HttpStatusCode.OK, ReviewsApprovedJson);
+        using HttpClient runsClient = CreateEmptyRunsClient();
+        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, reqChecksClient, commentsClient, reviewsClient, runsClient);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "review_requested");
 
         PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
 
         Assert.NotNull(result);
-        Assert.Null(result.ReviewState);
-        Assert.Null(result.ReviewBody);
+        PullRequestReview approvedReview = Assert.Single(result.Reviews);
+        Assert.Equal(expected: "APPROVED", actual: approvedReview.State);
     }
 
     [Fact]
-    public async Task FetchesFailedRunWhenReasonIsCiActivityAsync()
+    public async Task FetchesRunsListWithFailureAsync()
     {
         using HttpClient prClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
+        using HttpClient reqChecksClient = CreateNotFoundClient();
+        using HttpClient commentsClient = CreateEmptyArrayClient();
+        using HttpClient reviewsClient = CreateEmptyArrayClient();
         using HttpClient runsClient = CreateClient(HttpStatusCode.OK, WorkflowRunsWithFailureJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, runsClient);
+        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, reqChecksClient, commentsClient, reviewsClient, runsClient);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "ci_activity");
 
         PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
 
         Assert.NotNull(result);
-        Assert.Equal(expected: "CI", actual: result.FailedRunName);
-        Assert.Equal(expected: new Uri("https://github.com/owner/repo/actions/runs/123"), actual: result.FailedRunUrl);
+        PullRequestRun failedRun = Assert.Single(result.Runs);
+        Assert.Equal(expected: "CI", actual: failedRun.Name);
+        Assert.Equal(expected: "failure", actual: failedRun.Conclusion);
+        Assert.Equal(expected: new Uri("https://github.com/owner/repo/actions/runs/123"), actual: failedRun.Url);
     }
 
     [Fact]
-    public async Task ReturnsNullFailedRunWhenAllRunsPassedAsync()
+    public async Task FetchesRunsListWithPassedRunAsync()
     {
         using HttpClient prClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
+        using HttpClient reqChecksClient = CreateNotFoundClient();
+        using HttpClient commentsClient = CreateEmptyArrayClient();
+        using HttpClient reviewsClient = CreateEmptyArrayClient();
         using HttpClient runsClient = CreateClient(HttpStatusCode.OK, WorkflowRunsAllPassedJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, runsClient);
+        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, reqChecksClient, commentsClient, reviewsClient, runsClient);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "ci_activity");
 
         PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
 
         Assert.NotNull(result);
-        Assert.Null(result.FailedRunName);
-        Assert.Null(result.FailedRunUrl);
+        PullRequestRun passedRun = Assert.Single(result.Runs);
+        Assert.Equal(expected: "success", actual: passedRun.Conclusion);
+    }
+
+    [Fact]
+    public async Task SetsIsRequiredTrueWhenRunMatchesRequiredContextAsync()
+    {
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
+        using HttpClient reqChecksClient = CreateClient(HttpStatusCode.OK, RequiredChecksWithCiJson);
+        using HttpClient commentsClient = CreateEmptyArrayClient();
+        using HttpClient reviewsClient = CreateEmptyArrayClient();
+        using HttpClient runsClient = CreateClient(HttpStatusCode.OK, WorkflowRunsWithFailureJson);
+        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, reqChecksClient, commentsClient, reviewsClient, runsClient);
+
+        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "ci_activity");
+
+        PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
+
+        Assert.NotNull(result);
+        PullRequestRun requiredRun = Assert.Single(result.Runs);
+        Assert.True(requiredRun.IsRequired, userMessage: "Expected run to be marked as required");
     }
 
     [Fact]
     public async Task MapsRepositoryFromNotificationAsync()
     {
-        using HttpClient client = CreateClient(HttpStatusCode.OK, OpenPrJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
+        using HttpClient reqChecksClient = CreateNotFoundClient();
+        using HttpClient commentsClient = CreateEmptyArrayClient();
+        using HttpClient reviewsClient = CreateEmptyArrayClient();
+        using HttpClient runsClient = CreateEmptyRunsClient();
+        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, reqChecksClient, commentsClient, reviewsClient, runsClient);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
@@ -446,8 +524,12 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task MapsLastNotificationFromNotificationAsync()
     {
-        using HttpClient client = CreateClient(HttpStatusCode.OK, OpenPrJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
+        using HttpClient reqChecksClient = CreateNotFoundClient();
+        using HttpClient commentsClient = CreateEmptyArrayClient();
+        using HttpClient reviewsClient = CreateEmptyArrayClient();
+        using HttpClient runsClient = CreateEmptyRunsClient();
+        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, reqChecksClient, commentsClient, reviewsClient, runsClient);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
@@ -461,6 +543,43 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     }
 
     [Fact]
+    public async Task MapsPrBodyAsync()
+    {
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, OpenPrWithBodyJson);
+        using HttpClient reqChecksClient = CreateNotFoundClient();
+        using HttpClient commentsClient = CreateEmptyArrayClient();
+        using HttpClient reviewsClient = CreateEmptyArrayClient();
+        using HttpClient runsClient = CreateEmptyRunsClient();
+        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, reqChecksClient, commentsClient, reviewsClient, runsClient);
+
+        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
+
+        PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
+
+        Assert.NotNull(result);
+        Assert.Equal(expected: "Closes #10", actual: result.Body);
+    }
+
+    [Fact]
+    public async Task ParsesLinkedItemsFromPrBodyAsync()
+    {
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, OpenPrWithBodyJson);
+        using HttpClient reqChecksClient = CreateNotFoundClient();
+        using HttpClient commentsClient = CreateEmptyArrayClient();
+        using HttpClient reviewsClient = CreateEmptyArrayClient();
+        using HttpClient runsClient = CreateEmptyRunsClient();
+        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, reqChecksClient, commentsClient, reviewsClient, runsClient);
+
+        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
+
+        PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
+
+        Assert.NotNull(result);
+        LinkedItem linkedItem = Assert.Single(result.LinkedItems);
+        Assert.Equal(expected: 10, actual: linkedItem.Number);
+    }
+
+    [Fact]
     public async Task TruncatesLongCommentBodyAsync()
     {
         string longBody = new(c: 'x', count: 400);
@@ -468,21 +587,25 @@ public sealed class PullRequestDetailFetcherTests : TestBase
                                         [{
                                           "body": "{{longBody}}",
                                           "user": {"login": "reviewer"},
-                                          "html_url": "https://github.com/owner/repo/issues/42#issuecomment-1"
+                                          "html_url": "https://github.com/owner/repo/issues/42#issuecomment-1",
+                                          "created_at": "2024-01-01T00:00:00Z"
                                         }]
                                         """;
 
         using HttpClient prClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
-        using HttpClient commentClient = CreateClient(HttpStatusCode.OK, commentsWithLongBody);
-        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, commentClient);
+        using HttpClient reqChecksClient = CreateNotFoundClient();
+        using HttpClient commentsClient = CreateClient(HttpStatusCode.OK, commentsWithLongBody);
+        using HttpClient reviewsClient = CreateEmptyArrayClient();
+        using HttpClient runsClient = CreateEmptyRunsClient();
+        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, reqChecksClient, commentsClient, reviewsClient, runsClient);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "comment");
 
         PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
 
         Assert.NotNull(result);
-        Assert.NotNull(result.CommentBody);
-        Assert.Equal(expected: 301, actual: result.CommentBody.Length);
-        Assert.True(result.CommentBody.EndsWith('…'), userMessage: "Expected body to end with ellipsis");
+        PullRequestComment truncatedComment = Assert.Single(result.Comments);
+        Assert.Equal(expected: 301, actual: truncatedComment.Body.Length);
+        Assert.True(truncatedComment.Body.EndsWith('\u2026'), userMessage: "Expected body to end with ellipsis");
     }
 }

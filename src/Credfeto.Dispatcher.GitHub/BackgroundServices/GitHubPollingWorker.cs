@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.Discord.DataTypes;
@@ -207,20 +208,32 @@ public sealed class GitHubPollingWorker : BackgroundService
             fields.Add(new DiscordEmbedField(Name: "Labels", Value: string.Join(separator: ", ", values: details.Labels), Inline: true));
         }
 
-        if (details.CommentBody is not null)
+        if (details.LinkedItems.Count > 0)
         {
-            fields.Add(new DiscordEmbedField(Name: $"Comment by {details.CommentAuthor}", Value: details.CommentUrl is not null ? $"[View comment]({details.CommentUrl})\n{details.CommentBody}" : details.CommentBody, Inline: false));
+            string linked = string.Join(separator: ", ", values: details.LinkedItems.Select(i => $"#{i.Number}"));
+            fields.Add(new DiscordEmbedField(Name: "Linked Issues", Value: linked, Inline: true));
         }
 
-        if (details.ReviewBody is not null)
+        if (details.Comments.Count > 0)
         {
-            string reviewHeader = details.ReviewState is not null ? $"Review ({details.ReviewState}) by {details.ReviewAuthor}" : $"Review by {details.ReviewAuthor}";
-            fields.Add(new DiscordEmbedField(Name: reviewHeader, Value: details.ReviewUrl is not null ? $"[View review]({details.ReviewUrl})\n{details.ReviewBody}" : details.ReviewBody, Inline: false));
+            PullRequestComment latest = details.Comments[^1];
+            string commentValue = $"[View comment]({latest.Url})\n{latest.Body}";
+            fields.Add(new DiscordEmbedField(Name: $"Comment by {latest.Author}", Value: commentValue, Inline: false));
         }
 
-        if (details.FailedRunName is not null && details.FailedRunUrl is not null)
+        foreach (PullRequestReview review in details.Reviews)
         {
-            fields.Add(new DiscordEmbedField(Name: "Failed CI Run", Value: $"[{details.FailedRunName}]({details.FailedRunUrl})", Inline: false));
+            string header = $"Review ({review.State}) by {review.Author}";
+            string value = review.Body is not null ? $"[View review]({review.Url})\n{review.Body}" : $"[View review]({review.Url})";
+            fields.Add(new DiscordEmbedField(Name: header, Value: value, Inline: false));
+        }
+
+        IReadOnlyList<PullRequestRun> failedRuns = [..details.Runs.Where(r => string.Equals(a: r.Conclusion, b: "failure", comparisonType: StringComparison.OrdinalIgnoreCase))];
+
+        foreach (PullRequestRun run in failedRuns)
+        {
+            string runLabel = run.IsRequired ? $"{run.Name} ⚠️ required" : run.Name;
+            fields.Add(new DiscordEmbedField(Name: "Failed CI Run", Value: $"[{runLabel}]({run.Url})", Inline: false));
         }
 
         DiscordEmbed embed = new(

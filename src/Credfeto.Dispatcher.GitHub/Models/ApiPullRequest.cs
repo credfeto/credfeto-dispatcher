@@ -8,10 +8,12 @@ namespace Credfeto.Dispatcher.GitHub.Models;
 internal sealed record ApiPullRequest(
     [property: JsonPropertyName("number")] int Number,
     [property: JsonPropertyName("title")] string Title,
+    [property: JsonPropertyName("body")] string? Body,
     [property: JsonPropertyName("state")] string State,
     [property: JsonPropertyName("draft")] bool Draft,
     [property: JsonPropertyName("html_url")] string HtmlUrl,
     [property: JsonPropertyName("assignees")] IReadOnlyList<ApiUser> Assignees,
     [property: JsonPropertyName("labels")] IReadOnlyList<ApiLabel> Labels,
-    [property: JsonPropertyName("head")] ApiPullRequestHead Head
+    [property: JsonPropertyName("head")] ApiPullRequestHead Head,
+    [property: JsonPropertyName("base")] ApiPullRequestBase Base
 );

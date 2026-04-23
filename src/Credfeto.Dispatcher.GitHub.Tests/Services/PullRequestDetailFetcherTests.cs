@@ -142,7 +142,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
 
     public PullRequestDetailFetcherTests()
     {
-        this._httpClientFactory = Substitute.For<System.Net.Http.IHttpClientFactory>();
+        this._httpClientFactory = GetSubstitute<System.Net.Http.IHttpClientFactory>();
         this._fetcher = new PullRequestDetailFetcher(this._httpClientFactory);
     }
 

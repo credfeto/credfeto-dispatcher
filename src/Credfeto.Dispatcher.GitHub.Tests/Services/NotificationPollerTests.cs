@@ -9,7 +9,6 @@ using Credfeto.Dispatcher.GitHub.Services;
 using Credfeto.Dispatcher.GitHub.Tests.Helpers;
 using FunFair.Test.Common;
 using FunFair.Test.Common.Extensions;
-using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Xunit;
 
@@ -44,9 +43,9 @@ public sealed class NotificationPollerTests : TestBase
 
     public NotificationPollerTests()
     {
-        this._httpClientFactory = Substitute.For<System.Net.Http.IHttpClientFactory>();
-        this._eTagStore = Substitute.For<IETagStore>();
-        this._poller = new NotificationPoller(httpClientFactory: this._httpClientFactory, eTagStore: this._eTagStore, logger: Substitute.For<ILogger<NotificationPoller>>());
+        this._httpClientFactory = GetSubstitute<System.Net.Http.IHttpClientFactory>();
+        this._eTagStore = GetSubstitute<IETagStore>();
+        this._poller = new NotificationPoller(httpClientFactory: this._httpClientFactory, eTagStore: this._eTagStore, logger: this.GetTypedLogger<NotificationPoller>());
     }
 
     [Fact]

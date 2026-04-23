@@ -24,7 +24,7 @@ public sealed class GitHubPollingWorkerTests : TestBase
     public GitHubPollingWorkerTests()
     {
         this._discord = new CapturingDiscordDispatcher();
-        this._filter = Substitute.For<INotificationFilter>();
+        this._filter = GetSubstitute<INotificationFilter>();
     }
 
     private static GitHubNotification BuildPrNotification(string reason)
@@ -77,7 +77,7 @@ public sealed class GitHubPollingWorkerTests : TestBase
             discordDispatcher: this._discord,
             pullRequestDetailFetcher: fetcher,
             options: Options.Create(new GitHubOptions { PollIntervalSeconds = 30 }),
-            logger: Substitute.For<ILogger<GitHubPollingWorker>>());
+            logger: this.GetTypedLogger<GitHubPollingWorker>());
     }
 
     private async Task<DiscordMessage> RunAndCaptureAsync(INotificationPoller poller, IPullRequestDetailFetcher fetcher)

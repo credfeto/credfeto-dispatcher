@@ -77,6 +77,23 @@ Never push code that does not compile. If you cannot fix a build error, report i
 - All test projects must import the latest release version of the `FunFair.Test.Source.Generator` source generator package.
 - Test fixture classes must derive from `FunFair.Test.Common.TestBase`.
 
+## NSubstitute and FunFair.Test.Common Patterns
+
+When writing tests with `FunFair.Test.Common.TestBase`, use the helper methods provided by the base class instead of calling NSubstitute directly:
+
+| Instead of | Use |
+|---|---|
+| `Substitute.For<IMyInterface>()` | `GetSubstitute<IMyInterface>()` (static — no `this.`) |
+| `Substitute.For<ILogger<MyClass>>()` | `this.GetTypedLogger<MyClass>()` (instance — requires `this.`) |
+
+### Rules
+
+- Never call `Substitute.For<T>()` directly in test classes that derive from `TestBase` or `DependencyInjectionTestsBase`.
+- Use `GetSubstitute<T>()` (no `this.` prefix — it is a static method) for all interface/class mocks.
+- Use `this.GetTypedLogger<T>()` (with `this.` prefix — it is an instance method) for `ILogger<T>` mocks.
+- If a mock is needed inside a `static` method (e.g. a DI registration factory passed to a base constructor), create a concrete no-op inner class instead of using `Substitute.For<T>()`.
+- Remove unused `using NSubstitute;` statements from files where all `Substitute.For<>()` calls have been replaced.
+
 ## Source File Organisation
 
 - **One type per file**: every C# source file must contain exactly one type (class, record, struct, interface, or enum). Do not define multiple types in a single file.

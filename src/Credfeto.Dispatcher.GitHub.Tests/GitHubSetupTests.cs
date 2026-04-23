@@ -1,10 +1,12 @@
+using System.Diagnostics.CodeAnalysis;
+using System.Threading;
+using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.Configuration;
 using Credfeto.Dispatcher.GitHub.Interfaces;
 using Credfeto.Dispatcher.GitHub.Services;
 using FunFair.Test.Common;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using NSubstitute;
 using Xunit;
 
 namespace Credfeto.Dispatcher.GitHub.Tests;
@@ -20,7 +22,21 @@ public sealed class GitHubSetupTests : DependencyInjectionTestsBase
     {
         return services.AddGitHub()
                        .AddSingleton<IOptions<GitHubOptions>>(Options.Create(new GitHubOptions()))
-                       .AddSingleton(Substitute.For<IETagStore>());
+                       .AddSingleton<IETagStore, TestETagStore>();
+    }
+
+    [SuppressMessage(category: "Microsoft.Performance", checkId: "CA1812:AvoidUninstantiatedInternalClasses", Justification = "Instantiated by dependency injection")]
+    private sealed class TestETagStore : IETagStore
+    {
+        public ValueTask<string?> GetETagAsync(string key, CancellationToken cancellationToken)
+        {
+            return new((string?)null);
+        }
+
+        public ValueTask SaveETagAsync(string key, string eTag, CancellationToken cancellationToken)
+        {
+            return ValueTask.CompletedTask;
+        }
     }
 
     [Fact]

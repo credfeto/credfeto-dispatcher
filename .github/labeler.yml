@@ -32,6 +32,8 @@
  - any: [ 'src/$Credfeto.Dispatcher.Shared/**/*' ]
 "credfeto-dispatcher-shared-tests":
  - any: [ 'src/$Credfeto.Dispatcher.Shared.Tests/**/*' ]
+"credfeto-dispatcher-storage":
+ - any: [ 'src/$Credfeto.Dispatcher.Storage/**/*' ]
 "dotnet":
  - any: [ 'src/**/*.csproj' ]
 "Editorconfig":

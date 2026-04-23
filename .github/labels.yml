@@ -74,6 +74,10 @@
    color: "0e8a16"
    description: "Changes in Credfeto.Dispatcher.Shared.Tests project"
 
+ - name: "credfeto-dispatcher-storage"
+   color: "96f7d2"
+   description: "Changes in Credfeto.Dispatcher.Storage project"
+
  - name: "dependencies"
    color: "0366d6"
    description: "Updates to dependencies"

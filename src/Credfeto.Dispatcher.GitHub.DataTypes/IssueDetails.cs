@@ -8,5 +8,7 @@ public sealed record IssueDetails(
     int Number,
     string Title,
     string Status,
-    Uri HtmlUrl
+    Uri HtmlUrl,
+    ItemRepository Repository,
+    LastNotification LastNotification
 );

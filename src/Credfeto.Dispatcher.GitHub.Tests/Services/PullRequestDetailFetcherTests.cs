@@ -428,6 +428,39 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     }
 
     [Fact]
+    public async Task MapsRepositoryFromNotificationAsync()
+    {
+        using HttpClient client = CreateClient(HttpStatusCode.OK, OpenPrJson);
+        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+
+        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
+
+        PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
+
+        Assert.NotNull(result);
+        Assert.Equal(expected: "owner", actual: result.Repository.Owner);
+        Assert.Equal(expected: "repo", actual: result.Repository.Name);
+        Assert.Equal(expected: new Uri("https://github.com/owner/repo"), actual: result.Repository.Url);
+    }
+
+    [Fact]
+    public async Task MapsLastNotificationFromNotificationAsync()
+    {
+        using HttpClient client = CreateClient(HttpStatusCode.OK, OpenPrJson);
+        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+
+        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
+
+        PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
+
+        Assert.NotNull(result);
+        Assert.Equal(expected: "1", actual: result.LastNotification.Id);
+        Assert.Equal(
+            expected: new DateTimeOffset(year: 2024, month: 1, day: 1, hour: 0, minute: 0, second: 0, offset: TimeSpan.Zero),
+            actual: result.LastNotification.Timestamp);
+    }
+
+    [Fact]
     public async Task TruncatesLongCommentBodyAsync()
     {
         string longBody = new(c: 'x', count: 400);

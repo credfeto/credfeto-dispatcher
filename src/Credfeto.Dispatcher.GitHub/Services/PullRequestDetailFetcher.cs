@@ -51,6 +51,8 @@ public sealed class PullRequestDetailFetcher : IPullRequestDetailFetcher
             Title: pr.Title,
             Status: DetermineStatus(pr),
             HtmlUrl: new Uri(pr.HtmlUrl),
+            Repository: ItemRepository.FromNotification(notification),
+            LastNotification: LastNotification.FromNotification(notification),
             Assignees: [..pr.Assignees.Select(u => u.Login)],
             Labels: [..pr.Labels.Select(l => l.Name)],
             CommentBody: commentBody,

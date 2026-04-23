@@ -39,7 +39,9 @@ public sealed class IssueDetailFetcher : IIssueDetailFetcher
             Number: issue.Number,
             Title: issue.Title,
             Status: DetermineStatus(issue),
-            HtmlUrl: new Uri(issue.HtmlUrl)
+            HtmlUrl: new Uri(issue.HtmlUrl),
+            Repository: ItemRepository.FromNotification(notification),
+            LastNotification: LastNotification.FromNotification(notification)
         );
     }
 

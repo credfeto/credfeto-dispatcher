@@ -10,6 +10,8 @@ public sealed record PullRequestDetails(
     string Title,
     string Status,
     Uri HtmlUrl,
+    ItemRepository Repository,
+    LastNotification LastNotification,
     IReadOnlyList<string> Assignees,
     IReadOnlyList<string> Labels,
     string? CommentBody,

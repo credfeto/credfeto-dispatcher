@@ -165,4 +165,37 @@ public sealed class IssueDetailFetcherTests : TestBase
         Assert.NotNull(result);
         Assert.Equal(expected: new Uri("https://github.com/owner/repo/issues/10"), actual: result.HtmlUrl);
     }
+
+    [Fact]
+    public async Task MapsRepositoryFromNotificationAsync()
+    {
+        using HttpClient client = CreateClient(HttpStatusCode.OK, OpenIssueJson);
+        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+
+        GitHubNotification notification = BuildNotification("Issue");
+
+        IssueDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
+
+        Assert.NotNull(result);
+        Assert.Equal(expected: "owner", actual: result.Repository.Owner);
+        Assert.Equal(expected: "repo", actual: result.Repository.Name);
+        Assert.Equal(expected: new Uri("https://github.com/owner/repo"), actual: result.Repository.Url);
+    }
+
+    [Fact]
+    public async Task MapsLastNotificationFromNotificationAsync()
+    {
+        using HttpClient client = CreateClient(HttpStatusCode.OK, OpenIssueJson);
+        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+
+        GitHubNotification notification = BuildNotification("Issue");
+
+        IssueDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
+
+        Assert.NotNull(result);
+        Assert.Equal(expected: "1", actual: result.LastNotification.Id);
+        Assert.Equal(
+            expected: new DateTimeOffset(year: 2024, month: 1, day: 1, hour: 0, minute: 0, second: 0, offset: TimeSpan.Zero),
+            actual: result.LastNotification.Timestamp);
+    }
 }

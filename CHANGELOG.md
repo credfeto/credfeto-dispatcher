@@ -45,6 +45,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Updated X-GitHub-Api-Version header to 2026-03-10
 - Simplified DiscordWebhookDispatcher.SendAsync to use PostAsync directly instead of manually building HttpRequestMessage
 - Simplified `INotificationStateTracker` interface: methods now accept `GitHubNotification` and `PullRequestDetails`/`IssueDetails` objects instead of individual scalar parameters, reducing call-site verbosity
+- Enriched `PullRequestDetails` and `IssueDetails` with `Repository` (owner, name, url) and `LastNotification` (id, timestamp) properties, populated from the source `GitHubNotification` at fetch time
 ### Deprecated
 ### Removed
 ### Security

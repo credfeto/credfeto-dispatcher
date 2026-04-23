@@ -64,6 +64,8 @@ public sealed class GitHubPollingWorkerTests : TestBase
             Title: "Test PR",
             Status: "Open",
             HtmlUrl: new Uri("https://github.com/owner/repo/pull/42"),
+            Repository: new ItemRepository(Owner: "owner", Name: "repo", Url: new Uri("https://github.com/owner/repo")),
+            LastNotification: new LastNotification(Id: "1", Timestamp: new DateTimeOffset(year: 2024, month: 1, day: 1, hour: 0, minute: 0, second: 0, offset: TimeSpan.Zero)),
             Assignees: [],
             Labels: [],
             CommentBody: null,
@@ -84,6 +86,8 @@ public sealed class GitHubPollingWorkerTests : TestBase
             Title: "Test PR",
             Status: "Closed",
             HtmlUrl: new Uri("https://github.com/owner/repo/pull/42"),
+            Repository: new ItemRepository(Owner: "owner", Name: "repo", Url: new Uri("https://github.com/owner/repo")),
+            LastNotification: new LastNotification(Id: "1", Timestamp: new DateTimeOffset(year: 2024, month: 1, day: 1, hour: 0, minute: 0, second: 0, offset: TimeSpan.Zero)),
             Assignees: [],
             Labels: [],
             CommentBody: null,
@@ -103,7 +107,9 @@ public sealed class GitHubPollingWorkerTests : TestBase
             Number: 10,
             Title: "Test Issue",
             Status: "Open",
-            HtmlUrl: new Uri("https://github.com/owner/repo/issues/10"));
+            HtmlUrl: new Uri("https://github.com/owner/repo/issues/10"),
+            Repository: new ItemRepository(Owner: "owner", Name: "repo", Url: new Uri("https://github.com/owner/repo")),
+            LastNotification: new LastNotification(Id: "2", Timestamp: new DateTimeOffset(year: 2024, month: 1, day: 1, hour: 0, minute: 0, second: 0, offset: TimeSpan.Zero)));
     }
 
     private static IssueDetails BuildClosedIssueDetails()
@@ -112,7 +118,9 @@ public sealed class GitHubPollingWorkerTests : TestBase
             Number: 10,
             Title: "Test Issue",
             Status: "Closed",
-            HtmlUrl: new Uri("https://github.com/owner/repo/issues/10"));
+            HtmlUrl: new Uri("https://github.com/owner/repo/issues/10"),
+            Repository: new ItemRepository(Owner: "owner", Name: "repo", Url: new Uri("https://github.com/owner/repo")),
+            LastNotification: new LastNotification(Id: "2", Timestamp: new DateTimeOffset(year: 2024, month: 1, day: 1, hour: 0, minute: 0, second: 0, offset: TimeSpan.Zero)));
     }
 
     private GitHubPollingWorker CreateWorker(INotificationPoller poller, IPullRequestDetailFetcher fetcher, IIssueDetailFetcher? issueFetcher = null)

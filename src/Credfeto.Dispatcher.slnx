@@ -4,7 +4,9 @@
     <File Path="../Dockerfile" />
     <File Path="../README.md" />
     <File Path="../healthcheck" />
-    <File Path="CodeAnalysis.ruleset" />
+    <File Path="..\.ai-instructions" />
+    <File Path="..\.editorconfig" />
+    <File Path="..\.globalconfig" />
     <File Path="global.json" />
     <File Path="publish" />
   </Folder>

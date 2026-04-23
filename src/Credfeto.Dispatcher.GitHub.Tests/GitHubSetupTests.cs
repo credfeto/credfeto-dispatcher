@@ -44,4 +44,16 @@ public sealed class GitHubSetupTests : DependencyInjectionTestsBase
     {
         this.RequireServiceInCollectionFor<INotificationFilter, NotificationFilter>();
     }
+
+    [Fact]
+    public void PullRequestDetailFetcherShouldBeRegistered()
+    {
+        this.RequireService<IPullRequestDetailFetcher>();
+    }
+
+    [Fact]
+    public void PullRequestDetailFetcherShouldBeOfCorrectType()
+    {
+        this.RequireServiceInCollectionFor<IPullRequestDetailFetcher, PullRequestDetailFetcher>();
+    }
 }

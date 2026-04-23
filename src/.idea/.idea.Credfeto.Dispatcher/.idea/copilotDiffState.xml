@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CopilotDiffPersistence">
+    <option name="pendingDiffs">
+      <map>
+        <entry key="$PROJECT_DIR$/Credfeto.Dispatcher.Storage/Migrations/AddPriorityAndStateColumns.cs">
+          <value>
+            <PendingDiffInfo>
+              <option name="filePath" value="$PROJECT_DIR$/Credfeto.Dispatcher.Storage/Migrations/AddPriorityAndStateColumns.cs" />
+              <option name="updatedContent" value="using System;&#10;using System.Diagnostics.CodeAnalysis;&#10;using Microsoft.EntityFrameworkCore;&#10;using Microsoft.EntityFrameworkCore.Infrastructure;&#10;using Microsoft.EntityFrameworkCore.Migrations;&#10;&#10;namespace Credfeto.Dispatcher.Storage.Migrations;&#10;&#10;[DbContext(typeof(DispatcherDbContext))]&#10;[Migration(&quot;20260424000000_AddPriorityAndStateColumns&quot;)]&#10;[SuppressMessage(&quot;Philips.CodeAnalysis.DuplicateCodeAnalyzer&quot;, &quot;PH2071:Duplicate shape found&quot;, Justification = &quot;Two tables with identical column schemas — refactoring is not applicable to EF Core migration structure.&quot;)]&#10;public sealed partial class AddPriorityAndStateColumns : Migration&#10;{&#10;    protected override void Up(MigrationBuilder migrationBuilder)&#10;    {&#10;        migrationBuilder.AddColumn&lt;string&gt;(&#10;            name: &quot;Priority&quot;,&#10;            table: &quot;PullRequests&quot;,&#10;            type: &quot;TEXT&quot;,&#10;            nullable: false,&#10;            defaultValue: &quot;Unknown&quot;);&#10;&#10;        migrationBuilder.AddColumn&lt;string&gt;(&#10;            name: &quot;State&quot;,&#10;            table: &quot;PullRequests&quot;,&#10;            type: &quot;TEXT&quot;,&#10;            nullable: true);&#10;&#10;        migrationBuilder.AddColumn&lt;string&gt;(&#10;            name: &quot;Priority&quot;,&#10;            table: &quot;Issues&quot;,&#10;            type: &quot;TEXT&quot;,&#10;            nullable: false,&#10;            defaultValue: &quot;Unknown&quot;);&#10;&#10;        migrationBuilder.AddColumn&lt;string&gt;(&#10;            name: &quot;State&quot;,&#10;            table: &quot;Issues&quot;,&#10;            type: &quot;TEXT&quot;,&#10;            nullable: true);&#10;    }&#10;&#10;    protected override void Down(MigrationBuilder migrationBuilder)&#10;    {&#10;        migrationBuilder.DropColumn(&#10;            name: &quot;Priority&quot;,&#10;            table: &quot;PullRequests&quot;);&#10;&#10;        migrationBuilder.DropColumn(&#10;            name: &quot;State&quot;,&#10;            table: &quot;PullRequests&quot;);&#10;&#10;        migrationBuilder.DropColumn(&#10;            name: &quot;Priority&quot;,&#10;            table: &quot;Issues&quot;);&#10;&#10;        migrationBuilder.DropColumn(&#10;            name: &quot;State&quot;,&#10;            table: &quot;Issues&quot;);&#10;    }&#10;}&#10;" />
+            </PendingDiffInfo>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+</project>

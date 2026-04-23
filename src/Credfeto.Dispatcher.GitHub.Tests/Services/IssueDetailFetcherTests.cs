@@ -22,7 +22,8 @@ public sealed class IssueDetailFetcherTests : TestBase
           "number": 10,
           "title": "Test Issue",
           "state": "open",
-          "html_url": "https://github.com/owner/repo/issues/10"
+          "html_url": "https://github.com/owner/repo/issues/10",
+          "labels": []
         }
         """;
 
@@ -32,7 +33,30 @@ public sealed class IssueDetailFetcherTests : TestBase
           "number": 10,
           "title": "Test Issue",
           "state": "closed",
-          "html_url": "https://github.com/owner/repo/issues/10"
+          "html_url": "https://github.com/owner/repo/issues/10",
+          "labels": []
+        }
+        """;
+
+    private const string IssueWithUrgentLabelJson =
+        """
+        {
+          "number": 10,
+          "title": "Test Issue",
+          "state": "open",
+          "html_url": "https://github.com/owner/repo/issues/10",
+          "labels": [{"name": "Urgent"}]
+        }
+        """;
+
+    private const string IssueWithHighLabelJson =
+        """
+        {
+          "number": 10,
+          "title": "Test Issue",
+          "state": "open",
+          "html_url": "https://github.com/owner/repo/issues/10",
+          "labels": [{"name": "High"}]
         }
         """;
 
@@ -197,5 +221,47 @@ public sealed class IssueDetailFetcherTests : TestBase
         Assert.Equal(
             expected: new DateTimeOffset(year: 2024, month: 1, day: 1, hour: 0, minute: 0, second: 0, offset: TimeSpan.Zero),
             actual: result.LastNotification.Timestamp);
+    }
+
+    [Fact]
+    public async Task DefaultsPriorityToUnknownWhenNoLabelsAsync()
+    {
+        using HttpClient client = CreateClient(HttpStatusCode.OK, OpenIssueJson);
+        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+
+        GitHubNotification notification = BuildNotification("Issue");
+
+        IssueDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
+
+        Assert.NotNull(result);
+        Assert.Equal(expected: "Unknown", actual: result.Priority);
+    }
+
+    [Fact]
+    public async Task SetsPriorityToUrgentFromLabelAsync()
+    {
+        using HttpClient client = CreateClient(HttpStatusCode.OK, IssueWithUrgentLabelJson);
+        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+
+        GitHubNotification notification = BuildNotification("Issue");
+
+        IssueDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
+
+        Assert.NotNull(result);
+        Assert.Equal(expected: "Urgent", actual: result.Priority);
+    }
+
+    [Fact]
+    public async Task SetsPriorityToHighFromLabelAsync()
+    {
+        using HttpClient client = CreateClient(HttpStatusCode.OK, IssueWithHighLabelJson);
+        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+
+        GitHubNotification notification = BuildNotification("Issue");
+
+        IssueDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
+
+        Assert.NotNull(result);
+        Assert.Equal(expected: "High", actual: result.Priority);
     }
 }

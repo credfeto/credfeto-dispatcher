@@ -10,6 +10,7 @@ public sealed record PullRequestDetails(
     string Title,
     string? Body,
     string Status,
+    string Priority,
     Uri HtmlUrl,
     ItemRepository Repository,
     LastNotification LastNotification,

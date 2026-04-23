@@ -64,6 +64,7 @@ public sealed class GitHubPollingWorkerTests : TestBase
             Title: "Test PR",
             Body: null,
             Status: "Open",
+            Priority: "Unknown",
             HtmlUrl: new Uri("https://github.com/owner/repo/pull/42"),
             Repository: new ItemRepository(Owner: "owner", Name: "repo", Url: new Uri("https://github.com/owner/repo")),
             LastNotification: new LastNotification(Id: "1", Timestamp: new DateTimeOffset(year: 2024, month: 1, day: 1, hour: 0, minute: 0, second: 0, offset: TimeSpan.Zero)),
@@ -82,6 +83,7 @@ public sealed class GitHubPollingWorkerTests : TestBase
             Title: "Test PR",
             Body: null,
             Status: "Closed",
+            Priority: "Unknown",
             HtmlUrl: new Uri("https://github.com/owner/repo/pull/42"),
             Repository: new ItemRepository(Owner: "owner", Name: "repo", Url: new Uri("https://github.com/owner/repo")),
             LastNotification: new LastNotification(Id: "1", Timestamp: new DateTimeOffset(year: 2024, month: 1, day: 1, hour: 0, minute: 0, second: 0, offset: TimeSpan.Zero)),
@@ -99,6 +101,7 @@ public sealed class GitHubPollingWorkerTests : TestBase
             Number: 10,
             Title: "Test Issue",
             Status: "Open",
+            Priority: "Unknown",
             HtmlUrl: new Uri("https://github.com/owner/repo/issues/10"),
             Repository: new ItemRepository(Owner: "owner", Name: "repo", Url: new Uri("https://github.com/owner/repo")),
             LastNotification: new LastNotification(Id: "2", Timestamp: new DateTimeOffset(year: 2024, month: 1, day: 1, hour: 0, minute: 0, second: 0, offset: TimeSpan.Zero)));
@@ -110,6 +113,7 @@ public sealed class GitHubPollingWorkerTests : TestBase
             Number: 10,
             Title: "Test Issue",
             Status: "Closed",
+            Priority: "Unknown",
             HtmlUrl: new Uri("https://github.com/owner/repo/issues/10"),
             Repository: new ItemRepository(Owner: "owner", Name: "repo", Url: new Uri("https://github.com/owner/repo")),
             LastNotification: new LastNotification(Id: "2", Timestamp: new DateTimeOffset(year: 2024, month: 1, day: 1, hour: 0, minute: 0, second: 0, offset: TimeSpan.Zero)));

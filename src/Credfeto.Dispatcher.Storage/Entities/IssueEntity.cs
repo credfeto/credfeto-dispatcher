@@ -12,6 +12,10 @@ public sealed class IssueEntity : INotificationEntity
 
     public string Status { get; set; } = string.Empty;
 
+    public string Priority { get; set; } = "Unknown";
+
+    public string? State { get; set; }
+
     public DateTimeOffset FirstSeen { get; set; }
 
     public DateTimeOffset LastUpdated { get; set; }

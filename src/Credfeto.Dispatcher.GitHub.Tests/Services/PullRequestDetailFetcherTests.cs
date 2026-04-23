@@ -173,6 +173,38 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     private const string EmptyArrayJson = "[]";
     private const string EmptyRunsJson = """{"workflow_runs": []}""";
 
+    private const string PrWithHighPriorityLabelJson =
+        """
+        {
+          "number": 42,
+          "title": "Test PR",
+          "body": null,
+          "state": "open",
+          "draft": false,
+          "html_url": "https://github.com/owner/repo/pull/42",
+          "assignees": [],
+          "labels": [{"name": "High"}],
+          "head": {"sha": "abc123"},
+          "base": {"ref": "main"}
+        }
+        """;
+
+    private const string PrWithUrgentPriorityLabelJson =
+        """
+        {
+          "number": 42,
+          "title": "Test PR",
+          "body": null,
+          "state": "open",
+          "draft": false,
+          "html_url": "https://github.com/owner/repo/pull/42",
+          "assignees": [],
+          "labels": [{"name": "Urgent"}],
+          "head": {"sha": "abc123"},
+          "base": {"ref": "main"}
+        }
+        """;
+
     private readonly System.Net.Http.IHttpClientFactory _httpClientFactory;
     private readonly IPullRequestDetailFetcher _fetcher;
 
@@ -649,5 +681,59 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         PullRequestComment truncatedComment = Assert.Single(result.Comments);
         Assert.Equal(expected: 301, actual: truncatedComment.Body.Length);
         Assert.True(truncatedComment.Body.EndsWith('\u2026'), userMessage: "Expected body to end with ellipsis");
+    }
+
+    [Fact]
+    public async Task DefaultsPriorityToUnknownWhenNoLabelsAsync()
+    {
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
+        using HttpClient reqChecksClient = CreateNotFoundClient();
+        using HttpClient commentsClient = CreateEmptyArrayClient();
+        using HttpClient reviewsClient = CreateEmptyArrayClient();
+        using HttpClient runsClient = CreateEmptyRunsClient();
+        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, reqChecksClient, commentsClient, reviewsClient, runsClient);
+
+        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
+
+        PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
+
+        Assert.NotNull(result);
+        Assert.Equal(expected: "Unknown", actual: result.Priority);
+    }
+
+    [Fact]
+    public async Task SetsPriorityToHighFromLabelAsync()
+    {
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, PrWithHighPriorityLabelJson);
+        using HttpClient reqChecksClient = CreateNotFoundClient();
+        using HttpClient commentsClient = CreateEmptyArrayClient();
+        using HttpClient reviewsClient = CreateEmptyArrayClient();
+        using HttpClient runsClient = CreateEmptyRunsClient();
+        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, reqChecksClient, commentsClient, reviewsClient, runsClient);
+
+        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
+
+        PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
+
+        Assert.NotNull(result);
+        Assert.Equal(expected: "High", actual: result.Priority);
+    }
+
+    [Fact]
+    public async Task SetsPriorityToUrgentFromLabelAsync()
+    {
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, PrWithUrgentPriorityLabelJson);
+        using HttpClient reqChecksClient = CreateNotFoundClient();
+        using HttpClient commentsClient = CreateEmptyArrayClient();
+        using HttpClient reviewsClient = CreateEmptyArrayClient();
+        using HttpClient runsClient = CreateEmptyRunsClient();
+        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, reqChecksClient, commentsClient, reviewsClient, runsClient);
+
+        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
+
+        PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
+
+        Assert.NotNull(result);
+        Assert.Equal(expected: "Urgent", actual: result.Priority);
     }
 }

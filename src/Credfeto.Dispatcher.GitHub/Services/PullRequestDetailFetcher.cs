@@ -8,6 +8,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.DataTypes;
+using Credfeto.Dispatcher.GitHub.Helpers;
 using Credfeto.Dispatcher.GitHub.Interfaces;
 using Credfeto.Dispatcher.GitHub.Models;
 
@@ -57,17 +58,20 @@ public sealed partial class PullRequestDetailFetcher : IPullRequestDetailFetcher
             cancellationToken: cancellationToken);
 
         IReadOnlyList<LinkedItem> linkedItems = ParseLinkedItems(pr.Body);
+        IReadOnlyList<string> labels = [..pr.Labels.Select(l => l.Name)];
+        string priority = PriorityHelper.DeterminePriority(labels);
 
         return new PullRequestDetails(
             Number: pr.Number,
             Title: pr.Title,
             Body: pr.Body is not null ? TruncateBody(pr.Body) : null,
             Status: DetermineStatus(pr),
+            Priority: priority,
             HtmlUrl: new Uri(pr.HtmlUrl),
             Repository: ItemRepository.FromNotification(notification),
             LastNotification: LastNotification.FromNotification(notification),
             Assignees: [..pr.Assignees.Select(u => u.Login)],
-            Labels: [..pr.Labels.Select(l => l.Name)],
+            Labels: labels,
             Comments: comments,
             Reviews: reviews,
             Runs: runs,

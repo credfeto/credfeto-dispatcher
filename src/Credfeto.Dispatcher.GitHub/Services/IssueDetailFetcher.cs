@@ -1,9 +1,12 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.DataTypes;
+using Credfeto.Dispatcher.GitHub.Helpers;
 using Credfeto.Dispatcher.GitHub.Interfaces;
 using Credfeto.Dispatcher.GitHub.Models;
 
@@ -35,10 +38,14 @@ public sealed class IssueDetailFetcher : IIssueDetailFetcher
             return null;
         }
 
+        IReadOnlyList<string> labels = [..issue.Labels.Select(l => l.Name)];
+        string priority = PriorityHelper.DeterminePriority(labels);
+
         return new IssueDetails(
             Number: issue.Number,
             Title: issue.Title,
             Status: DetermineStatus(issue),
+            Priority: priority,
             HtmlUrl: new Uri(issue.HtmlUrl),
             Repository: ItemRepository.FromNotification(notification),
             LastNotification: LastNotification.FromNotification(notification)

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text.Json.Serialization;
 
@@ -8,5 +9,6 @@ internal sealed record ApiIssue(
     [property: JsonPropertyName("number")] int Number,
     [property: JsonPropertyName("title")] string Title,
     [property: JsonPropertyName("state")] string State,
-    [property: JsonPropertyName("html_url")] string HtmlUrl
+    [property: JsonPropertyName("html_url")] string HtmlUrl,
+    [property: JsonPropertyName("labels")] IReadOnlyList<ApiLabel> Labels
 );

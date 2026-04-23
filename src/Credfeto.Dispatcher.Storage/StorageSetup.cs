@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Credfeto.Services.Startup.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -20,6 +21,6 @@ public static class StorageSetup
 
         return services
             .AddDbContextFactory<DispatcherDbContext>(options => options.UseSqlite($"Data Source={dbPath}"))
-            .AddHostedService<DatabaseMigrationService>();
+            .AddRunOnStartupTask<DatabaseMigrationService>();
     }
 }

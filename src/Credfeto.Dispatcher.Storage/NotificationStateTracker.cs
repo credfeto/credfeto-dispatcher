@@ -6,6 +6,7 @@ using Credfeto.Date.Interfaces;
 using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Interfaces;
 using Credfeto.Dispatcher.Storage.Entities;
+using Credfeto.Dispatcher.Storage.Helpers;
 using Microsoft.EntityFrameworkCore;
 
 namespace Credfeto.Dispatcher.Storage;
@@ -23,9 +24,30 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         this._currentTimeSource = currentTimeSource;
     }
 
-    public Task<bool> ShouldSkipPullRequestAsync(GitHubNotification notification, PullRequestDetails details, CancellationToken cancellationToken)
+    [SuppressMessage("Philips.CodeAnalysis.DuplicateCodeAnalyzer", "PH2071:Duplicate shape found", Justification = "Structurally identical but operating on different entity types (PullRequestEntity vs IssueEntity).")]
+    public async Task<bool> ShouldSkipPullRequestAsync(GitHubNotification notification, PullRequestDetails details, CancellationToken cancellationToken)
     {
-        return Task.FromResult(IsClosedStatus(details.Status));
+        // Skip if closed and already marked as closed
+        if (IsClosedStatus(details.Status))
+        {
+            return true;
+        }
+
+        // Skip if state hasn't changed
+        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(cancellationToken);
+        string repository = notification.Repository.FullName;
+        PullRequestEntity? existing = await context.PullRequests.FindAsync(keyValues: [repository, details.Number], cancellationToken: cancellationToken);
+
+        if (existing is null)
+        {
+            // New PR - don't skip
+            return false;
+        }
+
+        string newState = NotificationStateSerializer.SerializePullRequest(details);
+        bool stateChanged = !string.Equals(a: existing.State, b: newState, comparisonType: StringComparison.Ordinal);
+
+        return !stateChanged;
     }
 
     [SuppressMessage("Philips.CodeAnalysis.DuplicateCodeAnalyzer", "PH2071:Duplicate shape found", Justification = "Structurally identical but operating on different entity types (PullRequestEntity vs IssueEntity).")]
@@ -35,22 +57,47 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         string repository = notification.Repository.FullName;
         PullRequestEntity? existing = await context.PullRequests.FindAsync(keyValues: [repository, details.Number], cancellationToken: cancellationToken);
         DateTimeOffset now = this._currentTimeSource.UtcNow();
+        string newState = NotificationStateSerializer.SerializePullRequest(details);
 
         if (existing is null)
         {
-            context.PullRequests.Add(CreatePullRequestEntity(repository: repository, id: details.Number, status: details.Status, now: now));
+            PullRequestEntity entity = CreatePullRequestEntity(repository: repository, id: details.Number, status: details.Status, priority: details.Priority, state: newState, now: now);
+            context.PullRequests.Add(entity);
         }
         else
         {
+            existing.State = newState;
+            existing.Priority = details.Priority;
             UpdateEntityStatus(entity: existing, status: details.Status, now: now);
         }
 
         await context.SaveChangesAsync(cancellationToken);
     }
 
-    public Task<bool> ShouldSkipIssueAsync(GitHubNotification notification, IssueDetails details, CancellationToken cancellationToken)
+    [SuppressMessage("Philips.CodeAnalysis.DuplicateCodeAnalyzer", "PH2071:Duplicate shape found", Justification = "Structurally identical but operating on different entity types (PullRequestEntity vs IssueEntity).")]
+    public async Task<bool> ShouldSkipIssueAsync(GitHubNotification notification, IssueDetails details, CancellationToken cancellationToken)
     {
-        return Task.FromResult(IsClosedStatus(details.Status));
+        // Skip if closed and already marked as closed
+        if (IsClosedStatus(details.Status))
+        {
+            return true;
+        }
+
+        // Skip if state hasn't changed
+        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(cancellationToken);
+        string repository = notification.Repository.FullName;
+        IssueEntity? existing = await context.Issues.FindAsync(keyValues: [repository, details.Number], cancellationToken: cancellationToken);
+
+        if (existing is null)
+        {
+            // New issue - don't skip
+            return false;
+        }
+
+        string newState = NotificationStateSerializer.SerializeIssue(details);
+        bool stateChanged = !string.Equals(a: existing.State, b: newState, comparisonType: StringComparison.Ordinal);
+
+        return !stateChanged;
     }
 
     [SuppressMessage("Philips.CodeAnalysis.DuplicateCodeAnalyzer", "PH2071:Duplicate shape found", Justification = "Structurally identical but operating on different entity types (PullRequestEntity vs IssueEntity).")]
@@ -60,13 +107,17 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         string repository = notification.Repository.FullName;
         IssueEntity? existing = await context.Issues.FindAsync(keyValues: [repository, details.Number], cancellationToken: cancellationToken);
         DateTimeOffset now = this._currentTimeSource.UtcNow();
+        string newState = NotificationStateSerializer.SerializeIssue(details);
 
         if (existing is null)
         {
-            context.Issues.Add(CreateIssueEntity(repository: repository, id: details.Number, status: details.Status, now: now));
+            IssueEntity entity = CreateIssueEntity(repository: repository, id: details.Number, status: details.Status, priority: details.Priority, state: newState, now: now);
+            context.Issues.Add(entity);
         }
         else
         {
+            existing.State = newState;
+            existing.Priority = details.Priority;
             UpdateEntityStatus(entity: existing, status: details.Status, now: now);
         }
 
@@ -78,26 +129,30 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         return string.Equals(a: status, b: ClosedStatus, comparisonType: StringComparison.OrdinalIgnoreCase);
     }
 
-    private static PullRequestEntity CreatePullRequestEntity(string repository, int id, string status, in DateTimeOffset now)
+    private static PullRequestEntity CreatePullRequestEntity(string repository, int id, string status, string priority, string state, in DateTimeOffset now)
     {
         return new PullRequestEntity
         {
             Repository = repository,
             Id = id,
             Status = status,
+            Priority = priority,
+            State = state,
             FirstSeen = now,
             LastUpdated = now,
             WhenClosed = IsClosedStatus(status) ? now : null,
         };
     }
 
-    private static IssueEntity CreateIssueEntity(string repository, int id, string status, in DateTimeOffset now)
+    private static IssueEntity CreateIssueEntity(string repository, int id, string status, string priority, string state, in DateTimeOffset now)
     {
         return new IssueEntity
         {
             Repository = repository,
             Id = id,
             Status = status,
+            Priority = priority,
+            State = state,
             FirstSeen = now,
             LastUpdated = now,
             WhenClosed = IsClosedStatus(status) ? now : null,

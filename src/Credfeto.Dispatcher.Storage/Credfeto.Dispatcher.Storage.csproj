@@ -43,6 +43,10 @@
     <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-xhfc-gr8f-ffwc" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Credfeto.Dispatcher.GitHub.Interfaces\Credfeto.Dispatcher.GitHub.Interfaces.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Credfeto.Date.Interfaces" Version="1.1.150.1668" />
     <PackageReference Include="Credfeto.Services.Startup.Interfaces" Version="1.1.143.1554" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.6" />

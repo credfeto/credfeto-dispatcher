@@ -91,8 +91,40 @@ When writing tests with `FunFair.Test.Common.TestBase`, use the helper methods p
 - Never call `Substitute.For<T>()` directly in test classes that derive from `TestBase` or `DependencyInjectionTestsBase`.
 - Use `GetSubstitute<T>()` (no `this.` prefix — it is a static method) for all interface/class mocks.
 - Use `this.GetTypedLogger<T>()` (with `this.` prefix — it is an instance method) for `ILogger<T>` mocks.
-- If a mock is needed inside a `static` method (e.g. a DI registration factory passed to a base constructor), create a concrete no-op inner class instead of using `Substitute.For<T>()`.
 - Remove unused `using NSubstitute;` statements from files where all `Substitute.For<>()` calls have been replaced.
+
+## DI Setup Test Patterns
+
+When writing DI setup tests that derive from `DependencyInjectionTestsBase`, use `AddMockedService<T>()` from `FunFair.Test.Common` to register mocks.
+
+### Registering mocked services
+
+Use `.AddMockedService<T>()` instead of creating concrete inner classes or calling `Substitute.For<T>()` manually:
+
+```csharp
+// ✅ Correct
+private static IServiceCollection Configure(IServiceCollection services)
+{
+    return services.AddMyModule()
+                   .AddMockedService<IFoo>()
+                   .AddMockedService<IBar>();
+}
+```
+
+### Registering mocked IOptions\<T\>
+
+Use `.AddMockedService<IOptions<TOptions>>(static o => o.Value.Returns(new TOptions()))` instead of `Options.Create(...)`:
+
+```csharp
+// ✅ Correct
+.AddMockedService<IOptions<MyOptions>>(static o => o.Value.Returns(new MyOptions()))
+
+// ❌ Wrong
+.AddSingleton<IOptions<MyOptions>>(Options.Create(new MyOptions()))
+```
+
+- Never create concrete no-op inner classes to satisfy DI mocking in setup tests.
+- `GetSubstitute<T>()` is safe to call from `static` Configure methods (it is a static method).
 
 ## Source File Organisation
 

@@ -1,7 +1,10 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace Credfeto.Dispatcher.Storage.Migrations;
 
+[DbContext(typeof(DispatcherDbContext))]
 [Migration("20260423000000_InitialCreate")]
 public sealed partial class InitialCreate : Migration
 {

@@ -1,10 +1,13 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace Credfeto.Dispatcher.Storage.Migrations;
 
-[Migration("20260423100000_AddPullRequestAndIssueTables")]
+[DbContext(typeof(DispatcherDbContext))]
+[Migration("20260423130000_AddPullRequestAndIssueTables")]
 [SuppressMessage("Philips.CodeAnalysis.DuplicateCodeAnalyzer", "PH2071:Duplicate shape found", Justification = "Two tables with identical column schemas — refactoring is not applicable to EF Core migration structure.")]
 public sealed partial class AddPullRequestAndIssueTables : Migration
 {

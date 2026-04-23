@@ -41,7 +41,7 @@ public sealed class IssueDetailFetcherTests : TestBase
 
     public IssueDetailFetcherTests()
     {
-        this._httpClientFactory = Substitute.For<System.Net.Http.IHttpClientFactory>();
+        this._httpClientFactory = GetSubstitute<System.Net.Http.IHttpClientFactory>();
         this._fetcher = new IssueDetailFetcher(this._httpClientFactory);
     }
 

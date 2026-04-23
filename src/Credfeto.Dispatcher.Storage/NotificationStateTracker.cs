@@ -32,7 +32,9 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(cancellationToken);
         PullRequestEntity? existing = await context.PullRequests.FindAsync(keyValues: [repository, pullRequestNumber], cancellationToken: cancellationToken);
 
-        return existing is not null && IsClosedStatus(existing.Status);
+        return existing is not null &&
+               string.Equals(existing.Status, currentStatus, StringComparison.OrdinalIgnoreCase) &&
+               IsClosedStatus(existing.Status);
     }
 
     [SuppressMessage("Philips.CodeAnalysis.DuplicateCodeAnalyzer", "PH2071:Duplicate shape found", Justification = "Structurally identical but operating on different entity types (PullRequestEntity vs IssueEntity).")]
@@ -64,7 +66,9 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(cancellationToken);
         IssueEntity? existing = await context.Issues.FindAsync(keyValues: [repository, issueNumber], cancellationToken: cancellationToken);
 
-        return existing is not null && IsClosedStatus(existing.Status);
+        return existing is not null &&
+               string.Equals(existing.Status, currentStatus, StringComparison.OrdinalIgnoreCase) &&
+               IsClosedStatus(existing.Status);
     }
 
     [SuppressMessage("Philips.CodeAnalysis.DuplicateCodeAnalyzer", "PH2071:Duplicate shape found", Justification = "Structurally identical but operating on different entity types (PullRequestEntity vs IssueEntity).")]

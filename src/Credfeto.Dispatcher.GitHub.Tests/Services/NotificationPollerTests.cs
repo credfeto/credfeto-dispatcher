@@ -119,15 +119,15 @@ public sealed class NotificationPollerTests : TestBase
     }
 
     [Fact]
-    public async Task PollAsyncReturnsCachedResultOnSecondNotModifiedResponseAsync()
+    public async Task PollAsyncReturnsEmptyListOnSecondNotModifiedResponseAsync()
     {
         this._httpClientFactory.MockCreateClientWithResponse(clientName: "GitHub", httpStatusCode: HttpStatusCode.OK, responseMessage: NotificationJson);
-        IReadOnlyList<GitHubNotification> firstResult = await this._poller.PollAsync(this.CancellationToken());
+        await this._poller.PollAsync(this.CancellationToken());
 
         this._httpClientFactory.MockCreateClientWithResponse(clientName: "GitHub", httpStatusCode: HttpStatusCode.NotModified);
         IReadOnlyList<GitHubNotification> secondResult = await this._poller.PollAsync(this.CancellationToken());
 
-        Assert.Equal(expected: firstResult.Count, actual: secondResult.Count);
+        Assert.Empty(secondResult);
     }
 
     [Fact]

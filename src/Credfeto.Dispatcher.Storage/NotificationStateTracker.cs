@@ -22,17 +22,9 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         this._currentTimeSource = currentTimeSource;
     }
 
-    public async Task<bool> ShouldSkipPullRequestAsync(string repository, int pullRequestNumber, string currentStatus, CancellationToken cancellationToken)
+    public Task<bool> ShouldSkipPullRequestAsync(string repository, int pullRequestNumber, string currentStatus, CancellationToken cancellationToken)
     {
-        if (!IsClosedStatus(currentStatus))
-        {
-            return false;
-        }
-
-        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(cancellationToken);
-        PullRequestEntity? existing = await context.PullRequests.FindAsync(keyValues: [repository, pullRequestNumber], cancellationToken: cancellationToken);
-
-        return existing is not null && IsClosedStatus(existing.Status);
+        return Task.FromResult(IsClosedStatus(currentStatus));
     }
 
     [SuppressMessage("Philips.CodeAnalysis.DuplicateCodeAnalyzer", "PH2071:Duplicate shape found", Justification = "Structurally identical but operating on different entity types (PullRequestEntity vs IssueEntity).")]
@@ -54,17 +46,9 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         await context.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task<bool> ShouldSkipIssueAsync(string repository, int issueNumber, string currentStatus, CancellationToken cancellationToken)
+    public Task<bool> ShouldSkipIssueAsync(string repository, int issueNumber, string currentStatus, CancellationToken cancellationToken)
     {
-        if (!IsClosedStatus(currentStatus))
-        {
-            return false;
-        }
-
-        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(cancellationToken);
-        IssueEntity? existing = await context.Issues.FindAsync(keyValues: [repository, issueNumber], cancellationToken: cancellationToken);
-
-        return existing is not null && IsClosedStatus(existing.Status);
+        return Task.FromResult(IsClosedStatus(currentStatus));
     }
 
     [SuppressMessage("Philips.CodeAnalysis.DuplicateCodeAnalyzer", "PH2071:Duplicate shape found", Justification = "Structurally identical but operating on different entity types (PullRequestEntity vs IssueEntity).")]

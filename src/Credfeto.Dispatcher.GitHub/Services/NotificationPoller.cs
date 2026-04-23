@@ -22,7 +22,6 @@ public sealed class NotificationPoller : INotificationPoller
     private readonly IETagStore _eTagStore;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<NotificationPoller> _logger;
-    private IReadOnlyList<GitHubNotification> _lastResult = [];
 
     public NotificationPoller(IHttpClientFactory httpClientFactory, IETagStore eTagStore, ILogger<NotificationPoller> logger)
     {
@@ -70,7 +69,7 @@ public sealed class NotificationPoller : INotificationPoller
         {
             this._logger.LogPollNotModified();
 
-            return this._lastResult;
+            return [];
         }
 
         _ = response.EnsureSuccessStatusCode();
@@ -85,10 +84,9 @@ public sealed class NotificationPoller : INotificationPoller
 
         if (apiNotifications is null)
         {
-            this._lastResult = [];
             this._logger.LogPollNotificationsReceived(count: 0);
 
-            return this._lastResult;
+            return [];
         }
 
         List<GitHubNotification> notifications = new(apiNotifications.Length);
@@ -111,8 +109,6 @@ public sealed class NotificationPoller : INotificationPoller
 
         this._logger.LogPollNotificationsReceived(count: notifications.Count);
 
-        this._lastResult = notifications;
-
-        return this._lastResult;
+        return notifications;
     }
 }

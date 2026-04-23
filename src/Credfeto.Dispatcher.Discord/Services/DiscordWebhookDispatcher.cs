@@ -55,9 +55,27 @@ public sealed class DiscordWebhookDispatcher : IDiscordDispatcher
 
         foreach (DiscordEmbed embed in message.Embeds)
         {
-            embeds.Add(new DiscordWebhookEmbed(Title: embed.Title, Description: embed.Description, Url: embed.Url.ToString(), Color: embed.Color));
+            IReadOnlyList<DiscordWebhookField>? fields = MapFields(embed.Fields);
+            embeds.Add(new DiscordWebhookEmbed(Title: embed.Title, Description: embed.Description, Url: embed.Url.ToString(), Color: embed.Color, Fields: fields));
         }
 
         return new DiscordWebhookPayload(Content: message.Content, Embeds: embeds);
+    }
+
+    private static IReadOnlyList<DiscordWebhookField>? MapFields(IReadOnlyList<Discord.DataTypes.DiscordEmbedField>? fields)
+    {
+        if (fields is null || fields.Count == 0)
+        {
+            return null;
+        }
+
+        DiscordWebhookField[] result = new DiscordWebhookField[fields.Count];
+
+        for (int i = 0; i < fields.Count; i++)
+        {
+            result[i] = new DiscordWebhookField(Name: fields[i].Name, Value: fields[i].Value, Inline: fields[i].Inline);
+        }
+
+        return result;
     }
 }

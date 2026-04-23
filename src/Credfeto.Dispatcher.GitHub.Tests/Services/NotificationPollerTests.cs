@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Net;
+using System.Net.Http;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Interfaces;
 using Credfeto.Dispatcher.GitHub.Services;
+using Credfeto.Dispatcher.GitHub.Tests.Helpers;
 using FunFair.Test.Common;
 using FunFair.Test.Common.Extensions;
 using Microsoft.Extensions.Logging;
@@ -36,13 +38,15 @@ public sealed class NotificationPollerTests : TestBase
         ]
         """;
 
+    private readonly IETagStore _eTagStore;
     private readonly System.Net.Http.IHttpClientFactory _httpClientFactory;
     private readonly INotificationPoller _poller;
 
     public NotificationPollerTests()
     {
         this._httpClientFactory = Substitute.For<System.Net.Http.IHttpClientFactory>();
-        this._poller = new NotificationPoller(httpClientFactory: this._httpClientFactory, logger: Substitute.For<ILogger<NotificationPoller>>());
+        this._eTagStore = Substitute.For<IETagStore>();
+        this._poller = new NotificationPoller(httpClientFactory: this._httpClientFactory, eTagStore: this._eTagStore, logger: Substitute.For<ILogger<NotificationPoller>>());
     }
 
     [Fact]
@@ -196,5 +200,50 @@ public sealed class NotificationPollerTests : TestBase
         IReadOnlyList<GitHubNotification> result = await this._poller.PollAsync(this.CancellationToken());
 
         Assert.Equal(expected: new Uri("about:blank"), actual: result[0].Subject.Url);
+    }
+
+    [Fact]
+    public async Task PollAsyncLoadsETagFromStoreOnFirstCallAsync()
+    {
+        this._httpClientFactory.MockCreateClientWithResponse(clientName: "GitHub", httpStatusCode: HttpStatusCode.OK, responseMessage: NotificationJson);
+
+        await this._poller.PollAsync(this.CancellationToken());
+
+        await this._eTagStore.Received(1)
+                  .GetETagAsync(key: "github.notifications", cancellationToken: this.CancellationToken());
+    }
+
+    [Fact]
+    public async Task PollAsyncSavesETagToStoreWhenResponseIncludesETagAsync()
+    {
+        const string eTagJson =
+            """
+            [
+              {
+                "id": "3",
+                "reason": "mention",
+                "subject": {
+                  "title": "A PR",
+                  "url": "https://api.github.com/repos/owner/repo/pulls/3",
+                  "type": "PullRequest"
+                },
+                "repository": {
+                  "full_name": "owner/repo",
+                  "html_url": "https://github.com/owner/repo"
+                },
+                "updated_at": "2024-01-01T00:00:00Z",
+                "unread": true
+              }
+            ]
+            """;
+
+        using FixedResponseHandler handler = new(statusCode: HttpStatusCode.OK, content: eTagJson, eTag: "\"new-etag\"");
+        using HttpClient httpClient = new(handler) { BaseAddress = new Uri("https://api.github.com/") };
+        this._httpClientFactory.CreateClient("GitHub").Returns(httpClient);
+
+        await this._poller.PollAsync(this.CancellationToken());
+
+        await this._eTagStore.Received(1)
+                  .SaveETagAsync(key: "github.notifications", eTag: "\"new-etag\"", cancellationToken: this.CancellationToken());
     }
 }

@@ -16,45 +16,49 @@ namespace Credfeto.Dispatcher.GitHub.Services;
 
 public sealed class NotificationPoller : INotificationPoller
 {
+    private const string ETagKey = "github.notifications";
     private static readonly Uri NotificationsRelativeUri = new(uriString: "notifications", uriKind: UriKind.Relative);
 
+    private readonly IETagStore _eTagStore;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<NotificationPoller> _logger;
-    private string? _eTag;
     private IReadOnlyList<GitHubNotification> _lastResult = [];
 
-    public NotificationPoller(IHttpClientFactory httpClientFactory, ILogger<NotificationPoller> logger)
+    public NotificationPoller(IHttpClientFactory httpClientFactory, IETagStore eTagStore, ILogger<NotificationPoller> logger)
     {
         this._httpClientFactory = httpClientFactory;
+        this._eTagStore = eTagStore;
         this._logger = logger;
     }
 
     public async ValueTask<IReadOnlyList<GitHubNotification>> PollAsync(CancellationToken cancellationToken)
     {
-        if (this._eTag is null)
+        string? eTag = await this._eTagStore.GetETagAsync(key: ETagKey, cancellationToken: cancellationToken);
+
+        if (eTag is null)
         {
             this._logger.LogPollingFirstCall();
         }
         else
         {
-            this._logger.LogPollingWithETag(eTag: this._eTag);
+            this._logger.LogPollingWithETag(eTag: eTag);
         }
 
         HttpClient httpClient = this._httpClientFactory.CreateClient("GitHub");
 
-        using HttpRequestMessage request = this.BuildRequest();
+        using HttpRequestMessage request = BuildRequest(eTag);
         using HttpResponseMessage response = await httpClient.SendAsync(request: request, cancellationToken: cancellationToken);
 
         return await this.ProcessResponseAsync(response: response, cancellationToken: cancellationToken);
     }
 
-    private HttpRequestMessage BuildRequest()
+    private static HttpRequestMessage BuildRequest(string? eTag)
     {
         HttpRequestMessage request = new(method: HttpMethod.Get, requestUri: NotificationsRelativeUri);
 
-        if (this._eTag is not null)
+        if (eTag is not null)
         {
-            request.Headers.IfNoneMatch.Add(new EntityTagHeaderValue(this._eTag));
+            request.Headers.IfNoneMatch.Add(new EntityTagHeaderValue(eTag));
         }
 
         return request;
@@ -73,7 +77,7 @@ public sealed class NotificationPoller : INotificationPoller
 
         if (response.Headers.ETag is not null)
         {
-            this._eTag = response.Headers.ETag.Tag;
+            await this._eTagStore.SaveETagAsync(key: ETagKey, eTag: response.Headers.ETag.Tag, cancellationToken: cancellationToken);
         }
 
         string json = await response.Content.ReadAsStringAsync(cancellationToken);

@@ -4,6 +4,7 @@ using Credfeto.Dispatcher.GitHub.Services;
 using FunFair.Test.Common;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using NSubstitute;
 using Xunit;
 
 namespace Credfeto.Dispatcher.GitHub.Tests;
@@ -18,7 +19,8 @@ public sealed class GitHubSetupTests : DependencyInjectionTestsBase
     private static IServiceCollection Configure(IServiceCollection services)
     {
         return services.AddGitHub()
-                       .AddSingleton<IOptions<GitHubOptions>>(Options.Create(new GitHubOptions()));
+                       .AddSingleton<IOptions<GitHubOptions>>(Options.Create(new GitHubOptions()))
+                       .AddSingleton(Substitute.For<IETagStore>());
     }
 
     [Fact]

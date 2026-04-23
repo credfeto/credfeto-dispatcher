@@ -25,6 +25,10 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Structured `ILogger<T>` logging throughout the polling and dispatch pipeline: worker startup/shutdown, poll cycles (ETag sent, 304 Not Modified or notification count), per-notification debug entries, filter pass/drop decisions, dispatch to Discord, and Discord webhook non-success warnings
 - Post startup and GitHub auth status messages to Discord on launch
 - AllowedRepos filter option to restrict notifications to specific repositories only
+- Pull request detail enrichment: `IPullRequestDetailFetcher` service that fetches PR title, status (Open/Draft/Closed), assignees, labels, latest comment (for `comment` reason), last CHANGES_REQUESTED review (for `review_requested` reason), and failed CI workflow run (for `ci_activity` reason)
+- `DiscordEmbedField` type and `Fields` collection on `DiscordEmbed` to support Discord embed field sections
+- Rich PR notification embeds in Discord with Status, Reason, Assignees, Labels, and context-specific fields
+- `FixedResponseHandler` HTTP test helper and comprehensive `PullRequestDetailFetcherTests` covering all enrichment paths, status determination, body truncation, and error cases
 ### Fixed
 - Removed unused `Mediator` runtime package reference from `Credfeto.Dispatcher.Server` — `Mediator.SourceGenerator` source generator is sufficient; no separate runtime package is needed for a simple background service
 - Updated gitleaks configuration to suppress false positive secret detection caused by logging extension class name matching the GitHub token regex pattern

@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
@@ -35,11 +37,26 @@ public sealed class IssueDetailFetcher : IIssueDetailFetcher
             return null;
         }
 
+        IReadOnlyList<string> assignees = issue.Assignees is { Count: > 0 }
+            ? issue.Assignees.Select(a => a.Login)
+                   .ToList()
+            : [];
+
+        IReadOnlyList<string> labels = issue.Labels is { Count: > 0 }
+            ? issue.Labels.Select(l => l.Name)
+                   .ToList()
+            : [];
+
+        Uri? linkedPullRequestUrl = issue.PullRequest is not null ? new Uri(issue.PullRequest.HtmlUrl) : null;
+
         return new IssueDetails(
             Number: issue.Number,
             Title: issue.Title,
             Status: DetermineStatus(issue),
-            HtmlUrl: new Uri(issue.HtmlUrl)
+            HtmlUrl: new Uri(issue.HtmlUrl),
+            Assignees: assignees,
+            Labels: labels,
+            LinkedPullRequestUrl: linkedPullRequestUrl
         );
     }
 

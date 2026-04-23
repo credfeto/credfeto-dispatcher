@@ -103,7 +103,10 @@ public sealed class GitHubPollingWorkerTests : TestBase
             Number: 10,
             Title: "Test Issue",
             Status: "Open",
-            HtmlUrl: new Uri("https://github.com/owner/repo/issues/10"));
+            HtmlUrl: new Uri("https://github.com/owner/repo/issues/10"),
+            Assignees: [],
+            Labels: [],
+            LinkedPullRequestUrl: null);
     }
 
     private static IssueDetails BuildClosedIssueDetails()
@@ -112,7 +115,10 @@ public sealed class GitHubPollingWorkerTests : TestBase
             Number: 10,
             Title: "Test Issue",
             Status: "Closed",
-            HtmlUrl: new Uri("https://github.com/owner/repo/issues/10"));
+            HtmlUrl: new Uri("https://github.com/owner/repo/issues/10"),
+            Assignees: [],
+            Labels: [],
+            LinkedPullRequestUrl: null);
     }
 
     private GitHubPollingWorker CreateWorker(INotificationPoller poller, IPullRequestDetailFetcher fetcher, IIssueDetailFetcher? issueFetcher = null)
@@ -172,7 +178,7 @@ public sealed class GitHubPollingWorkerTests : TestBase
     }
 
     [Fact]
-    public async Task IssueNotificationUsesBasicMessageContentAsync()
+    public async Task IssueNotificationUsesRichMessageContentAsync()
     {
         GitHubNotification notification = BuildIssueNotification();
 
@@ -184,7 +190,7 @@ public sealed class GitHubPollingWorkerTests : TestBase
             fetcher: new FakeFetcher(result: null),
             issueFetcher: new FakeIssueFetcher(BuildOpenIssueDetails()));
 
-        Assert.Equal(expected: "[owner/repo] Issue", actual: captured.Content);
+        Assert.Equal(expected: "[owner/repo] Issue #10 (mention) https://github.com/owner/repo/issues/10", actual: captured.Content);
     }
 
     [Fact]

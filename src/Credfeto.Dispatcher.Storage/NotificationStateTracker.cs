@@ -117,22 +117,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         };
     }
 
-    private static void UpdateEntityStatus(PullRequestEntity entity, string status, in DateTimeOffset now)
-    {
-        entity.Status = status;
-        entity.LastUpdated = now;
-
-        if (IsClosedStatus(status))
-        {
-            entity.WhenClosed ??= now;
-        }
-        else
-        {
-            entity.WhenClosed = null;
-        }
-    }
-
-    private static void UpdateEntityStatus(IssueEntity entity, string status, in DateTimeOffset now)
+    private static void UpdateEntityStatus(INotificationEntity entity, string status, in DateTimeOffset now)
     {
         entity.Status = status;
         entity.LastUpdated = now;

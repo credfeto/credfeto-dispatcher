@@ -372,5 +372,3 @@ dotnet-tools.json
 /build/
 /coverage/
 node_modules
-# SQLite database files
-src/Credfeto.Dispatcher.Server/data/

@@ -44,6 +44,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Replaced try/finally pattern with using declaration for HttpResponseMessage disposal
 - Updated X-GitHub-Api-Version header to 2026-03-10
 - Simplified DiscordWebhookDispatcher.SendAsync to use PostAsync directly instead of manually building HttpRequestMessage
+- Simplified `INotificationStateTracker` interface: methods now accept `GitHubNotification` and `PullRequestDetails`/`IssueDetails` objects instead of individual scalar parameters, reducing call-site verbosity
 ### Deprecated
 ### Removed
 ### Security

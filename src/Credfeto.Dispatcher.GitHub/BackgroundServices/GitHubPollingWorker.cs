@@ -127,9 +127,8 @@ public sealed class GitHubPollingWorker : BackgroundService
         }
 
         if (!await this._notificationStateTracker.ShouldSkipPullRequestAsync(
-                repository: notification.Repository.FullName,
-                pullRequestNumber: details.Number,
-                currentStatus: details.Status,
+                notification: notification,
+                details: details,
                 cancellationToken: cancellationToken))
         {
             DiscordMessage message = BuildPullRequestMessage(notification: notification, details: details);
@@ -141,9 +140,8 @@ public sealed class GitHubPollingWorker : BackgroundService
         }
 
         await this._notificationStateTracker.UpdatePullRequestStateAsync(
-            repository: notification.Repository.FullName,
-            pullRequestNumber: details.Number,
-            status: details.Status,
+            notification: notification,
+            details: details,
             cancellationToken: cancellationToken);
 
         return true;
@@ -159,9 +157,8 @@ public sealed class GitHubPollingWorker : BackgroundService
         }
 
         if (!await this._notificationStateTracker.ShouldSkipIssueAsync(
-                repository: notification.Repository.FullName,
-                issueNumber: details.Number,
-                currentStatus: details.Status,
+                notification: notification,
+                details: details,
                 cancellationToken: cancellationToken))
         {
             DiscordMessage message = BuildBasicMessage(notification);
@@ -173,9 +170,8 @@ public sealed class GitHubPollingWorker : BackgroundService
         }
 
         await this._notificationStateTracker.UpdateIssueStateAsync(
-            repository: notification.Repository.FullName,
-            issueNumber: details.Number,
-            status: details.Status,
+            notification: notification,
+            details: details,
             cancellationToken: cancellationToken);
 
         return true;

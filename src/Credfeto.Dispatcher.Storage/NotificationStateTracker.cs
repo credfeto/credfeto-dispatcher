@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Date.Interfaces;
+using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Interfaces;
 using Credfeto.Dispatcher.Storage.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -22,49 +23,51 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         this._currentTimeSource = currentTimeSource;
     }
 
-    public Task<bool> ShouldSkipPullRequestAsync(string repository, int pullRequestNumber, string currentStatus, CancellationToken cancellationToken)
+    public Task<bool> ShouldSkipPullRequestAsync(GitHubNotification notification, PullRequestDetails details, CancellationToken cancellationToken)
     {
-        return Task.FromResult(IsClosedStatus(currentStatus));
+        return Task.FromResult(IsClosedStatus(details.Status));
     }
 
     [SuppressMessage("Philips.CodeAnalysis.DuplicateCodeAnalyzer", "PH2071:Duplicate shape found", Justification = "Structurally identical but operating on different entity types (PullRequestEntity vs IssueEntity).")]
-    public async Task UpdatePullRequestStateAsync(string repository, int pullRequestNumber, string status, CancellationToken cancellationToken)
+    public async Task UpdatePullRequestStateAsync(GitHubNotification notification, PullRequestDetails details, CancellationToken cancellationToken)
     {
         await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(cancellationToken);
-        PullRequestEntity? existing = await context.PullRequests.FindAsync(keyValues: [repository, pullRequestNumber], cancellationToken: cancellationToken);
+        string repository = notification.Repository.FullName;
+        PullRequestEntity? existing = await context.PullRequests.FindAsync(keyValues: [repository, details.Number], cancellationToken: cancellationToken);
         DateTimeOffset now = this._currentTimeSource.UtcNow();
 
         if (existing is null)
         {
-            context.PullRequests.Add(CreatePullRequestEntity(repository: repository, id: pullRequestNumber, status: status, now: now));
+            context.PullRequests.Add(CreatePullRequestEntity(repository: repository, id: details.Number, status: details.Status, now: now));
         }
         else
         {
-            UpdateEntityStatus(entity: existing, status: status, now: now);
+            UpdateEntityStatus(entity: existing, status: details.Status, now: now);
         }
 
         await context.SaveChangesAsync(cancellationToken);
     }
 
-    public Task<bool> ShouldSkipIssueAsync(string repository, int issueNumber, string currentStatus, CancellationToken cancellationToken)
+    public Task<bool> ShouldSkipIssueAsync(GitHubNotification notification, IssueDetails details, CancellationToken cancellationToken)
     {
-        return Task.FromResult(IsClosedStatus(currentStatus));
+        return Task.FromResult(IsClosedStatus(details.Status));
     }
 
     [SuppressMessage("Philips.CodeAnalysis.DuplicateCodeAnalyzer", "PH2071:Duplicate shape found", Justification = "Structurally identical but operating on different entity types (PullRequestEntity vs IssueEntity).")]
-    public async Task UpdateIssueStateAsync(string repository, int issueNumber, string status, CancellationToken cancellationToken)
+    public async Task UpdateIssueStateAsync(GitHubNotification notification, IssueDetails details, CancellationToken cancellationToken)
     {
         await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(cancellationToken);
-        IssueEntity? existing = await context.Issues.FindAsync(keyValues: [repository, issueNumber], cancellationToken: cancellationToken);
+        string repository = notification.Repository.FullName;
+        IssueEntity? existing = await context.Issues.FindAsync(keyValues: [repository, details.Number], cancellationToken: cancellationToken);
         DateTimeOffset now = this._currentTimeSource.UtcNow();
 
         if (existing is null)
         {
-            context.Issues.Add(CreateIssueEntity(repository: repository, id: issueNumber, status: status, now: now));
+            context.Issues.Add(CreateIssueEntity(repository: repository, id: details.Number, status: details.Status, now: now));
         }
         else
         {
-            UpdateEntityStatus(entity: existing, status: status, now: now);
+            UpdateEntityStatus(entity: existing, status: details.Status, now: now);
         }
 
         await context.SaveChangesAsync(cancellationToken);

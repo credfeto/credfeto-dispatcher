@@ -299,6 +299,11 @@ appsettings-test-local.json
 src/Content
 src/Data
 
+# SQLite database files
+*.db
+*.db-shm
+*.db-wal
+
 /.gtm/
 
 # Redgate

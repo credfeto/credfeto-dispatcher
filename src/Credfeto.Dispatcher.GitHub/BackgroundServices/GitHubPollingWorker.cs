@@ -160,7 +160,7 @@ public sealed class GitHubPollingWorker : BackgroundService
             Fields: fields
         );
 
-        return new DiscordMessage(Content: $"[{notification.Repository.FullName}] Pull Request", Embeds: [embed]);
+        return new DiscordMessage(Content: $"[{notification.Repository.FullName}] PR #{details.Number} ({notification.Reason}) {details.HtmlUrl}", Embeds: [embed]);
     }
 
     private static string FormatReason(string reason)

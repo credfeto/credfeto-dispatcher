@@ -61,13 +61,14 @@ public sealed class NotificationStateTracker : INotificationStateTracker
 
         if (existing is null)
         {
-            PullRequestEntity entity = CreatePullRequestEntity(repository: repository, id: details.Number, status: details.Status, priority: details.Priority, state: newState, now: now);
+            PullRequestEntity entity = CreatePullRequestEntity(repository: repository, id: details.Number, status: details.Status, priority: details.Priority, onHold: details.OnHold, state: newState, now: now);
             context.PullRequests.Add(entity);
         }
         else
         {
             existing.State = newState;
             existing.Priority = details.Priority;
+            existing.OnHold = details.OnHold;
             UpdateEntityStatus(entity: existing, status: details.Status, now: now);
         }
 
@@ -111,13 +112,14 @@ public sealed class NotificationStateTracker : INotificationStateTracker
 
         if (existing is null)
         {
-            IssueEntity entity = CreateIssueEntity(repository: repository, id: details.Number, status: details.Status, priority: details.Priority, state: newState, now: now);
+            IssueEntity entity = CreateIssueEntity(repository: repository, id: details.Number, status: details.Status, priority: details.Priority, onHold: details.OnHold, state: newState, now: now);
             context.Issues.Add(entity);
         }
         else
         {
             existing.State = newState;
             existing.Priority = details.Priority;
+            existing.OnHold = details.OnHold;
             UpdateEntityStatus(entity: existing, status: details.Status, now: now);
         }
 
@@ -129,7 +131,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         return string.Equals(a: status, b: ClosedStatus, comparisonType: StringComparison.OrdinalIgnoreCase);
     }
 
-    private static PullRequestEntity CreatePullRequestEntity(string repository, int id, string status, string priority, string state, in DateTimeOffset now)
+    private static PullRequestEntity CreatePullRequestEntity(string repository, int id, string status, string priority, bool onHold, string state, in DateTimeOffset now)
     {
         return new PullRequestEntity
         {
@@ -137,6 +139,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
             Id = id,
             Status = status,
             Priority = priority,
+            OnHold = onHold,
             State = state,
             FirstSeen = now,
             LastUpdated = now,
@@ -144,7 +147,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         };
     }
 
-    private static IssueEntity CreateIssueEntity(string repository, int id, string status, string priority, string state, in DateTimeOffset now)
+    private static IssueEntity CreateIssueEntity(string repository, int id, string status, string priority, bool onHold, string state, in DateTimeOffset now)
     {
         return new IssueEntity
         {
@@ -152,6 +155,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
             Id = id,
             Status = status,
             Priority = priority,
+            OnHold = onHold,
             State = state,
             FirstSeen = now,
             LastUpdated = now,

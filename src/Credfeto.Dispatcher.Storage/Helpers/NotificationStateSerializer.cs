@@ -29,6 +29,7 @@ public static class NotificationStateSerializer
                 details.Body,
                 details.Status,
                 details.Priority,
+                details.OnHold,
                 details.Assignees,
                 details.Labels,
                 details.LinkedItems,
@@ -50,7 +51,8 @@ public static class NotificationStateSerializer
                 details.Number,
                 details.Title,
                 details.Status,
-                details.Priority
+                details.Priority,
+                details.OnHold
             },
             Options);
     }

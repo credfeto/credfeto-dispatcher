@@ -9,6 +9,7 @@ public sealed record IssueDetails(
     string Title,
     string Status,
     string Priority,
+    bool OnHold,
     Uri HtmlUrl,
     ItemRepository Repository,
     LastNotification LastNotification

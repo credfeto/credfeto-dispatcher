@@ -11,6 +11,7 @@ public sealed record PullRequestDetails(
     string? Body,
     string Status,
     string Priority,
+    bool OnHold,
     Uri HtmlUrl,
     ItemRepository Repository,
     LastNotification LastNotification,

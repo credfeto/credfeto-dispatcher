@@ -14,6 +14,8 @@ public sealed class IssueEntity : INotificationEntity
 
     public string Priority { get; set; } = "Unknown";
 
+    public bool OnHold { get; set; }
+
     public string? State { get; set; }
 
     public DateTimeOffset FirstSeen { get; set; }

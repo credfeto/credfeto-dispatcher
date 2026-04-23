@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Credfeto.Dispatcher.GitHub.Configuration;
 using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Helpers;
 using Credfeto.Dispatcher.GitHub.Interfaces;
@@ -23,10 +24,12 @@ public sealed partial class PullRequestDetailFetcher : IPullRequestDetailFetcher
     private static partial Regex LinkedItemRegex();
 
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly GitHubFilterOptions _filterOptions;
 
-    public PullRequestDetailFetcher(IHttpClientFactory httpClientFactory)
+    public PullRequestDetailFetcher(IHttpClientFactory httpClientFactory, GitHubFilterOptions filterOptions)
     {
         this._httpClientFactory = httpClientFactory;
+        this._filterOptions = filterOptions;
     }
 
     public async ValueTask<PullRequestDetails?> FetchAsync(GitHubNotification notification, CancellationToken cancellationToken)
@@ -60,6 +63,7 @@ public sealed partial class PullRequestDetailFetcher : IPullRequestDetailFetcher
         IReadOnlyList<LinkedItem> linkedItems = ParseLinkedItems(pr.Body);
         IReadOnlyList<string> labels = [..pr.Labels.Select(l => l.Name)];
         string priority = PriorityHelper.DeterminePriority(labels);
+        bool onHold = OnHoldHelper.IsOnHold(labels, this._filterOptions.NoWorkFilter);
 
         return new PullRequestDetails(
             Number: pr.Number,
@@ -67,6 +71,7 @@ public sealed partial class PullRequestDetailFetcher : IPullRequestDetailFetcher
             Body: pr.Body is not null ? TruncateBody(pr.Body) : null,
             Status: DetermineStatus(pr),
             Priority: priority,
+            OnHold: onHold,
             HtmlUrl: new Uri(pr.HtmlUrl),
             Repository: ItemRepository.FromNotification(notification),
             LastNotification: LastNotification.FromNotification(notification),

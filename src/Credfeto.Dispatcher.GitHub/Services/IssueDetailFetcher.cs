@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Credfeto.Dispatcher.GitHub.Configuration;
 using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Helpers;
 using Credfeto.Dispatcher.GitHub.Interfaces;
@@ -17,10 +18,12 @@ public sealed class IssueDetailFetcher : IIssueDetailFetcher
     private const string IssueType = "Issue";
 
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly GitHubFilterOptions _filterOptions;
 
-    public IssueDetailFetcher(IHttpClientFactory httpClientFactory)
+    public IssueDetailFetcher(IHttpClientFactory httpClientFactory, GitHubFilterOptions filterOptions)
     {
         this._httpClientFactory = httpClientFactory;
+        this._filterOptions = filterOptions;
     }
 
     public async ValueTask<IssueDetails?> FetchAsync(GitHubNotification notification, CancellationToken cancellationToken)
@@ -40,12 +43,14 @@ public sealed class IssueDetailFetcher : IIssueDetailFetcher
 
         IReadOnlyList<string> labels = [..issue.Labels.Select(l => l.Name)];
         string priority = PriorityHelper.DeterminePriority(labels);
+        bool onHold = OnHoldHelper.IsOnHold(labels, this._filterOptions.NoWorkFilter);
 
         return new IssueDetails(
             Number: issue.Number,
             Title: issue.Title,
             Status: DetermineStatus(issue),
             Priority: priority,
+            OnHold: onHold,
             HtmlUrl: new Uri(issue.HtmlUrl),
             Repository: ItemRepository.FromNotification(notification),
             LastNotification: LastNotification.FromNotification(notification)

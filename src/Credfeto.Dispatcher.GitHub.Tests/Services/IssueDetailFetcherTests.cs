@@ -66,7 +66,11 @@ public sealed class IssueDetailFetcherTests : TestBase
     public IssueDetailFetcherTests()
     {
         this._httpClientFactory = GetSubstitute<System.Net.Http.IHttpClientFactory>();
-        this._fetcher = new IssueDetailFetcher(this._httpClientFactory);
+        GitHub.Configuration.GitHubFilterOptions filterOptions = new()
+        {
+            NoWorkFilter = []
+        };
+        this._fetcher = new IssueDetailFetcher(this._httpClientFactory, filterOptions);
     }
 
     private static HttpClient CreateClient(HttpStatusCode statusCode, string? content = null)

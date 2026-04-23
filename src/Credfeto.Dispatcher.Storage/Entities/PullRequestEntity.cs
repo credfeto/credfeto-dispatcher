@@ -4,7 +4,7 @@ using System.Diagnostics;
 namespace Credfeto.Dispatcher.Storage.Entities;
 
 [DebuggerDisplay("{Repository}#{Id}: {Status}")]
-public sealed class PullRequestEntity
+public sealed class PullRequestEntity : INotificationEntity
 {
     public string Repository { get; set; } = string.Empty;
 

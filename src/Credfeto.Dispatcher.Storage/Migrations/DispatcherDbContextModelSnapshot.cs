@@ -34,24 +34,24 @@ internal sealed class DispatcherDbContextModelSnapshot : ModelSnapshot
         {
             b.HasKey(e => new { e.Repository, e.Id });
             b.ToTable("PullRequests");
-            b.Property(e => e.Repository);
-            b.Property(e => e.Id);
-            b.Property(e => e.Status);
-            b.Property(e => e.FirstSeen);
-            b.Property(e => e.LastUpdated);
-            b.Property(e => e.WhenClosed);
+            b.Property(e => e.Repository).HasColumnType("TEXT");
+            b.Property(e => e.Id).HasColumnType("INTEGER");
+            b.Property(e => e.Status).IsRequired().HasColumnType("TEXT");
+            b.Property(e => e.FirstSeen).HasColumnType("TEXT");
+            b.Property(e => e.LastUpdated).HasColumnType("TEXT");
+            b.Property(e => e.WhenClosed).HasColumnType("TEXT");
         });
 
         modelBuilder.Entity<IssueEntity>(b =>
         {
             b.HasKey(e => new { e.Repository, e.Id });
             b.ToTable("Issues");
-            b.Property(e => e.Repository);
-            b.Property(e => e.Id);
-            b.Property(e => e.Status);
-            b.Property(e => e.FirstSeen);
-            b.Property(e => e.LastUpdated);
-            b.Property(e => e.WhenClosed);
+            b.Property(e => e.Repository).HasColumnType("TEXT");
+            b.Property(e => e.Id).HasColumnType("INTEGER");
+            b.Property(e => e.Status).IsRequired().HasColumnType("TEXT");
+            b.Property(e => e.FirstSeen).HasColumnType("TEXT");
+            b.Property(e => e.LastUpdated).HasColumnType("TEXT");
+            b.Property(e => e.WhenClosed).HasColumnType("TEXT");
         });
     }
 }

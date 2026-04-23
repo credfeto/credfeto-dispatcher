@@ -1,5 +1,6 @@
-using System;
 using System.IO;
+using Credfeto.Dispatcher.GitHub.Interfaces;
+using Credfeto.Dispatcher.Storage.Services;
 using Credfeto.Services.Startup.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,6 +22,7 @@ public static class StorageSetup
 
         return services
             .AddDbContextFactory<DispatcherDbContext>(options => options.UseSqlite($"Data Source={dbPath}"))
-            .AddRunOnStartupTask<DatabaseMigrationService>();
+            .AddRunOnStartupTask<DatabaseMigrationService>()
+            .AddSingleton<IETagStore, ETagStore>();
     }
 }

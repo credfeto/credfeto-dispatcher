@@ -4,6 +4,7 @@ using Credfeto.Dispatcher.Discord.Services;
 using FunFair.Test.Common;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using NSubstitute;
 using Xunit;
 
 namespace Credfeto.Dispatcher.Discord.Tests;
@@ -18,7 +19,7 @@ public sealed class DiscordSetupTests : DependencyInjectionTestsBase
     private static IServiceCollection Configure(IServiceCollection services)
     {
         return services.AddDiscord()
-                       .AddSingleton<IOptions<DiscordOptions>>(Options.Create(new DiscordOptions()));
+                       .AddMockedService<IOptions<DiscordOptions>>(static o => o.Value.Returns(new DiscordOptions()));
     }
 
     [Fact]

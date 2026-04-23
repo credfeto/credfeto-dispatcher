@@ -5,9 +5,7 @@ using Credfeto.Dispatcher.GitHub.Interfaces;
 using Credfeto.Dispatcher.GitHub.Services;
 using FunFair.Test.Common;
 using FunFair.Test.Common.Helpers;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using NSubstitute;
 using Xunit;
 
 namespace Credfeto.Dispatcher.GitHub.Tests.Services;
@@ -16,9 +14,9 @@ public sealed class NotificationFilterTests : TestBase
 {
     private static readonly NotificationSubject DefaultSubject = new(Title: "Test", Url: new Uri("https://api.github.com/repos/owner/repo/pulls/1"), Type: "PullRequest");
 
-    private static INotificationFilter BuildFilter(GitHubOptions options)
+    private INotificationFilter BuildFilter(GitHubOptions options)
     {
-        return new NotificationFilter(options: Options.Create(options), logger: Substitute.For<ILogger<NotificationFilter>>());
+        return new NotificationFilter(options: Options.Create(options), logger: this.GetTypedLogger<NotificationFilter>());
     }
 
     private static GitHubNotification BuildNotification(string reason = "mention", string repoFullName = "owner/repo")
@@ -38,7 +36,7 @@ public sealed class NotificationFilterTests : TestBase
     [Fact]
     public void ShouldDispatchReturnsTrueWhenNoFiltersConfigured()
     {
-        INotificationFilter filter = BuildFilter(new GitHubOptions());
+        INotificationFilter filter = this.BuildFilter(new GitHubOptions());
         GitHubNotification notification = BuildNotification();
 
         bool result = filter.ShouldDispatch(notification);
@@ -53,7 +51,7 @@ public sealed class NotificationFilterTests : TestBase
         {
             Filter = new GitHubFilterOptions { Reasons = ["mention"] }
         };
-        INotificationFilter filter = BuildFilter(options);
+        INotificationFilter filter = this.BuildFilter(options);
         GitHubNotification notification = BuildNotification(reason: "mention");
 
         bool result = filter.ShouldDispatch(notification);
@@ -68,7 +66,7 @@ public sealed class NotificationFilterTests : TestBase
         {
             Filter = new GitHubFilterOptions { Reasons = ["mention"] }
         };
-        INotificationFilter filter = BuildFilter(options);
+        INotificationFilter filter = this.BuildFilter(options);
         GitHubNotification notification = BuildNotification(reason: "subscribed");
 
         bool result = filter.ShouldDispatch(notification);
@@ -83,7 +81,7 @@ public sealed class NotificationFilterTests : TestBase
         {
             Filter = new GitHubFilterOptions { Reasons = ["MENTION"] }
         };
-        INotificationFilter filter = BuildFilter(options);
+        INotificationFilter filter = this.BuildFilter(options);
         GitHubNotification notification = BuildNotification(reason: "mention");
 
         bool result = filter.ShouldDispatch(notification);
@@ -98,7 +96,7 @@ public sealed class NotificationFilterTests : TestBase
         {
             Filter = new GitHubFilterOptions { AllowedOwners = ["owner"] }
         };
-        INotificationFilter filter = BuildFilter(options);
+        INotificationFilter filter = this.BuildFilter(options);
         GitHubNotification notification = BuildNotification(repoFullName: "owner/repo");
 
         bool result = filter.ShouldDispatch(notification);
@@ -113,7 +111,7 @@ public sealed class NotificationFilterTests : TestBase
         {
             Filter = new GitHubFilterOptions { AllowedOwners = ["allowed-owner"] }
         };
-        INotificationFilter filter = BuildFilter(options);
+        INotificationFilter filter = this.BuildFilter(options);
         GitHubNotification notification = BuildNotification(repoFullName: "other-owner/repo");
 
         bool result = filter.ShouldDispatch(notification);
@@ -128,7 +126,7 @@ public sealed class NotificationFilterTests : TestBase
         {
             Filter = new GitHubFilterOptions { AllowedOwners = ["OWNER"] }
         };
-        INotificationFilter filter = BuildFilter(options);
+        INotificationFilter filter = this.BuildFilter(options);
         GitHubNotification notification = BuildNotification(repoFullName: "owner/repo");
 
         bool result = filter.ShouldDispatch(notification);
@@ -143,7 +141,7 @@ public sealed class NotificationFilterTests : TestBase
         {
             Filter = new GitHubFilterOptions { ExcludedRepos = ["owner/other-repo"] }
         };
-        INotificationFilter filter = BuildFilter(options);
+        INotificationFilter filter = this.BuildFilter(options);
         GitHubNotification notification = BuildNotification(repoFullName: "owner/repo");
 
         bool result = filter.ShouldDispatch(notification);
@@ -158,7 +156,7 @@ public sealed class NotificationFilterTests : TestBase
         {
             Filter = new GitHubFilterOptions { ExcludedRepos = ["owner/repo"] }
         };
-        INotificationFilter filter = BuildFilter(options);
+        INotificationFilter filter = this.BuildFilter(options);
         GitHubNotification notification = BuildNotification(repoFullName: "owner/repo");
 
         bool result = filter.ShouldDispatch(notification);
@@ -173,7 +171,7 @@ public sealed class NotificationFilterTests : TestBase
         {
             Filter = new GitHubFilterOptions { ExcludedRepos = ["OWNER/REPO"] }
         };
-        INotificationFilter filter = BuildFilter(options);
+        INotificationFilter filter = this.BuildFilter(options);
         GitHubNotification notification = BuildNotification(repoFullName: "owner/repo");
 
         bool result = filter.ShouldDispatch(notification);
@@ -188,7 +186,7 @@ public sealed class NotificationFilterTests : TestBase
         {
             Filter = new GitHubFilterOptions { AllowedOwners = ["owner"] }
         };
-        INotificationFilter filter = BuildFilter(options);
+        INotificationFilter filter = this.BuildFilter(options);
 
         NotificationRepository repository = new(FullName: "owner", Url: new Uri("https://github.com/owner"));
         GitHubNotification notification = new(Id: "1", Reason: "mention", Subject: DefaultSubject, Repository: repository, UpdatedAt: TimeSources.Past.UtcNowAsOffset, Unread: true);
@@ -208,7 +206,7 @@ public sealed class NotificationFilterTests : TestBase
         {
             Filter = new GitHubFilterOptions { Reasons = ["mention", "review_requested", "assign"] }
         };
-        INotificationFilter filter = BuildFilter(options);
+        INotificationFilter filter = this.BuildFilter(options);
         GitHubNotification notification = BuildNotification(reason: reason);
 
         bool result = filter.ShouldDispatch(notification);
@@ -219,7 +217,7 @@ public sealed class NotificationFilterTests : TestBase
     [Fact]
     public void ShouldDispatchReturnsTrueWhenAllowedReposIsEmpty()
     {
-        INotificationFilter filter = BuildFilter(new GitHubOptions());
+        INotificationFilter filter = this.BuildFilter(new GitHubOptions());
         GitHubNotification notification = BuildNotification(repoFullName: "owner/any-repo");
 
         bool result = filter.ShouldDispatch(notification);
@@ -234,7 +232,7 @@ public sealed class NotificationFilterTests : TestBase
         {
             Filter = new GitHubFilterOptions { AllowedRepos = ["owner/repo"] }
         };
-        INotificationFilter filter = BuildFilter(options);
+        INotificationFilter filter = this.BuildFilter(options);
         GitHubNotification notification = BuildNotification(repoFullName: "owner/repo");
 
         bool result = filter.ShouldDispatch(notification);
@@ -249,7 +247,7 @@ public sealed class NotificationFilterTests : TestBase
         {
             Filter = new GitHubFilterOptions { AllowedRepos = ["owner/repo"] }
         };
-        INotificationFilter filter = BuildFilter(options);
+        INotificationFilter filter = this.BuildFilter(options);
         GitHubNotification notification = BuildNotification(repoFullName: "owner/other-repo");
 
         bool result = filter.ShouldDispatch(notification);
@@ -264,7 +262,7 @@ public sealed class NotificationFilterTests : TestBase
         {
             Filter = new GitHubFilterOptions { AllowedRepos = ["OWNER/REPO"] }
         };
-        INotificationFilter filter = BuildFilter(options);
+        INotificationFilter filter = this.BuildFilter(options);
         GitHubNotification notification = BuildNotification(repoFullName: "owner/repo");
 
         bool result = filter.ShouldDispatch(notification);
@@ -279,7 +277,7 @@ public sealed class NotificationFilterTests : TestBase
         {
             Filter = new GitHubFilterOptions { AllowedRepos = ["owner/repo-a", "owner/repo-b"] }
         };
-        INotificationFilter filter = BuildFilter(options);
+        INotificationFilter filter = this.BuildFilter(options);
         GitHubNotification notificationA = BuildNotification(repoFullName: "owner/repo-a");
         GitHubNotification notificationB = BuildNotification(repoFullName: "owner/repo-b");
         GitHubNotification notificationC = BuildNotification(repoFullName: "owner/repo-c");

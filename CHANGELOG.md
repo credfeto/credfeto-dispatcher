@@ -31,6 +31,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - `FixedResponseHandler` HTTP test helper and comprehensive `PullRequestDetailFetcherTests` covering all enrichment paths, status determination, body truncation, and error cases
 - PR number, reason, and HTML URL included in the Discord message `Content` field for pull request notifications, making them actionable without reading the embed (e.g. `[owner/repo] PR #42 (mention) https://github.com/owner/repo/pull/42`)
 - `GitHubPollingWorkerTests` covering Content field format, fallback to basic message when fetcher returns null, issue notification format, and filtered notification not dispatched
+- SQLite database infrastructure using Entity Framework Core with automatic migration on startup; data folder created next to the application executable and git-ignored
 ### Fixed
 - Removed unused `Mediator` runtime package reference from `Credfeto.Dispatcher.Server` — `Mediator.SourceGenerator` source generator is sufficient; no separate runtime package is needed for a simple background service
 - Updated gitleaks configuration to suppress false positive secret detection caused by logging extension class name matching the GitHub token regex pattern

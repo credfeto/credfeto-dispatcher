@@ -7,6 +7,7 @@ using Credfeto.Dispatcher.Discord;
 using Credfeto.Dispatcher.Discord.Configuration;
 using Credfeto.Dispatcher.GitHub;
 using Credfeto.Dispatcher.GitHub.Configuration;
+using Credfeto.Dispatcher.Storage;
 using Credfeto.Random;
 using Credfeto.Services.Startup;
 using Microsoft.Extensions.Configuration;
@@ -98,6 +99,7 @@ internal static class ServerStartup
             .AddDate()
             .AddRandomNumbers()
             .AddRunOnStartupServices()
+            .AddStorage(builder.Environment)
             .AddGitHub()
             .AddDiscord();
 

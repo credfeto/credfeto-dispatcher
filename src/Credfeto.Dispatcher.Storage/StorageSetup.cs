@@ -24,6 +24,7 @@ public static class StorageSetup
             .AddDbContextFactory<DispatcherDbContext>(options => options.UseSqlite($"Data Source={dbPath}"))
             .AddRunOnStartupTask<DatabaseMigrationService>()
             .AddSingleton<IETagStore, ETagStore>()
-            .AddSingleton<INotificationStateTracker, NotificationStateTracker>();
+            .AddSingleton<INotificationStateTracker, NotificationStateTracker>()
+            .AddSingleton<IPendingNotificationStore, PendingNotificationStore>();
     }
 }

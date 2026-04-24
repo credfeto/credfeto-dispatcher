@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics.CodeAnalysis;
 using Credfeto.Dispatcher.Storage.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -18,6 +19,8 @@ public sealed class DispatcherDbContext : DbContext
 
     public DbSet<IssueEntity> Issues => this.Set<IssueEntity>();
 
+    public DbSet<NotificationQueueEntity> NotificationQueue => this.Set<NotificationQueueEntity>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<PullRequestEntity>()
@@ -25,5 +28,19 @@ public sealed class DispatcherDbContext : DbContext
 
         modelBuilder.Entity<IssueEntity>()
                     .HasKey(e => new { e.Repository, e.Id });
+
+        modelBuilder.Entity<NotificationQueueEntity>()
+                    .HasKey(e => e.SubjectUrl);
+
+        modelBuilder.Entity<NotificationQueueEntity>()
+                    .Property(e => e.SubjectUrl)
+                    .HasConversion(v => v.AbsoluteUri, v => new Uri(v, UriKind.Absolute));
+
+        modelBuilder.Entity<NotificationQueueEntity>()
+                    .Property(e => e.RepositoryUrl)
+                    .HasConversion(v => v.AbsoluteUri, v => new Uri(v, UriKind.Absolute));
+
+        modelBuilder.Entity<NotificationQueueEntity>()
+                    .HasIndex(e => e.DispatchAfter);
     }
 }

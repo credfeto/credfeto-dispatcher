@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics.CodeAnalysis;
 using Credfeto.Dispatcher.Storage.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -30,6 +31,14 @@ public sealed class DispatcherDbContext : DbContext
 
         modelBuilder.Entity<NotificationQueueEntity>()
                     .HasKey(e => e.SubjectUrl);
+
+        modelBuilder.Entity<NotificationQueueEntity>()
+                    .Property(e => e.SubjectUrl)
+                    .HasConversion(v => v.AbsoluteUri, v => new Uri(v, UriKind.Absolute));
+
+        modelBuilder.Entity<NotificationQueueEntity>()
+                    .Property(e => e.RepositoryUrl)
+                    .HasConversion(v => v.AbsoluteUri, v => new Uri(v, UriKind.Absolute));
 
         modelBuilder.Entity<NotificationQueueEntity>()
                     .HasIndex(e => e.DispatchAfter);

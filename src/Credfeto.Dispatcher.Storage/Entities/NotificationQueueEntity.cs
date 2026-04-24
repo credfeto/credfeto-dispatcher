@@ -6,13 +6,13 @@ namespace Credfeto.Dispatcher.Storage.Entities;
 [DebuggerDisplay("{Repository}/{SubjectType}: {SubjectTitle}")]
 public sealed class NotificationQueueEntity
 {
-    public string SubjectUrl { get; set; } = string.Empty;
+    public Uri SubjectUrl { get; set; } = new(uriString: "about:blank");
 
     public string NotificationId { get; set; } = string.Empty;
 
     public string Repository { get; set; } = string.Empty;
 
-    public string RepositoryUrl { get; set; } = string.Empty;
+    public Uri RepositoryUrl { get; set; } = new(uriString: "about:blank");
 
     public string SubjectType { get; set; } = string.Empty;
 

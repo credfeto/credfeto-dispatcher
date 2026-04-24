@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using Credfeto.Dispatcher.Storage.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace Credfeto.Dispatcher.Storage.Migrations;
 
@@ -59,10 +60,15 @@ internal sealed class DispatcherDbContextModelSnapshot : ModelSnapshot
             b.HasKey(e => e.SubjectUrl);
             b.ToTable("NotificationQueue");
             b.HasIndex(e => e.DispatchAfter).HasDatabaseName("IX_NotificationQueue_DispatchAfter");
-            b.Property(e => e.SubjectUrl).HasColumnType("TEXT");
+            b.Property(e => e.SubjectUrl)
+             .HasColumnType("TEXT")
+             .HasConversion(new ValueConverter<Uri, string>(v => v.AbsoluteUri, v => new Uri(v, UriKind.Absolute)));
             b.Property(e => e.NotificationId).IsRequired().HasColumnType("TEXT");
             b.Property(e => e.Repository).IsRequired().HasColumnType("TEXT");
-            b.Property(e => e.RepositoryUrl).IsRequired().HasColumnType("TEXT");
+            b.Property(e => e.RepositoryUrl)
+             .IsRequired()
+             .HasColumnType("TEXT")
+             .HasConversion(new ValueConverter<Uri, string>(v => v.AbsoluteUri, v => new Uri(v, UriKind.Absolute)));
             b.Property(e => e.SubjectType).IsRequired().HasColumnType("TEXT");
             b.Property(e => e.SubjectTitle).IsRequired().HasColumnType("TEXT");
             b.Property(e => e.Reason).IsRequired().HasColumnType("TEXT");

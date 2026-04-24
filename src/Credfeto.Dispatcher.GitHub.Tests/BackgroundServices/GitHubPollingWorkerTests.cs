@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Credfeto.Date.Interfaces;
 using Credfeto.Dispatcher.Discord.DataTypes;
 using Credfeto.Dispatcher.Discord.Interfaces;
 using Credfeto.Dispatcher.GitHub.BackgroundServices;
@@ -123,6 +124,9 @@ public sealed class GitHubPollingWorkerTests : TestBase
 
     private GitHubPollingWorker CreateWorker(INotificationPoller poller, IPullRequestDetailFetcher fetcher, IIssueDetailFetcher? issueFetcher = null)
     {
+        ICurrentTimeSource currentTimeSource = GetSubstitute<ICurrentTimeSource>();
+        currentTimeSource.UtcNow().Returns(DateTimeOffset.UtcNow);
+
         return new GitHubPollingWorker(
             poller: poller,
             notificationFilter: this._filter,
@@ -130,7 +134,10 @@ public sealed class GitHubPollingWorkerTests : TestBase
             pullRequestDetailFetcher: fetcher,
             issueDetailFetcher: issueFetcher ?? new FakeIssueFetcher(result: null),
             notificationStateTracker: this._stateTracker,
+            pendingNotificationStore: new FakePendingNotificationStore(),
+            currentTimeSource: currentTimeSource,
             options: Options.Create(new GitHubOptions { PollIntervalSeconds = 30 }),
+            notificationQueueOptions: Options.Create(new NotificationQueueOptions { DelaySeconds = 0 }),
             logger: this.GetTypedLogger<GitHubPollingWorker>());
     }
 
@@ -269,7 +276,6 @@ public sealed class GitHubPollingWorkerTests : TestBase
         this._filter.ShouldDispatch(notification)
                     .Returns(true);
 
-        // State tracker returns true (closed = always skip), so no dispatch should happen
         this._stateTracker.ShouldSkipPullRequestAsync(
                               repository: Arg.Any<string>(),
                               pullRequestNumber: Arg.Any<int>(),
@@ -328,6 +334,36 @@ public sealed class GitHubPollingWorkerTests : TestBase
         public ValueTask<IssueDetails?> FetchAsync(GitHubNotification notification, CancellationToken cancellationToken)
         {
             return ValueTask.FromResult(this._result);
+        }
+    }
+
+    private sealed class FakePendingNotificationStore : IPendingNotificationStore
+    {
+        private readonly List<GitHubNotification> _pending = [];
+
+        public Task EnqueueAsync(GitHubNotification notification, DateTimeOffset dispatchAfter, CancellationToken cancellationToken)
+        {
+            this._pending.RemoveAll(n => n.Subject.Url == notification.Subject.Url);
+            this._pending.Add(notification);
+
+            return Task.CompletedTask;
+        }
+
+        public Task RemoveIfPresentAsync(GitHubNotification notification, CancellationToken cancellationToken)
+        {
+            this._pending.RemoveAll(n => n.Subject.Url == notification.Subject.Url);
+
+            return Task.CompletedTask;
+        }
+
+        public Task<IReadOnlyList<GitHubNotification>> GetReadyItemsAsync(DateTimeOffset now, CancellationToken cancellationToken)
+        {
+            return Task.FromResult<IReadOnlyList<GitHubNotification>>([.. this._pending]);
+        }
+
+        public Task RemoveAsync(GitHubNotification notification, CancellationToken cancellationToken)
+        {
+            return this.RemoveIfPresentAsync(notification: notification, cancellationToken: cancellationToken);
         }
     }
 

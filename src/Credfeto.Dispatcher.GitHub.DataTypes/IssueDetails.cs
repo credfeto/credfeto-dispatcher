@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 
 namespace Credfeto.Dispatcher.GitHub.DataTypes;
@@ -8,5 +9,8 @@ public sealed record IssueDetails(
     int Number,
     string Title,
     string Status,
-    Uri HtmlUrl
+    Uri HtmlUrl,
+    IReadOnlyList<string> Assignees,
+    IReadOnlyList<string> Labels,
+    Uri? LinkedPullRequestUrl
 );

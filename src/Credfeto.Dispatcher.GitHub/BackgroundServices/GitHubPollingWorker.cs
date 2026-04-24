@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.Discord.DataTypes;
@@ -149,6 +150,7 @@ public sealed class GitHubPollingWorker : BackgroundService
         return true;
     }
 
+    [SuppressMessage("Philips.CodeAnalysis.DuplicateCodeAnalyzer", "PH2071:Duplicate shape found", Justification = "Structurally identical to TryProcessPullRequestNotificationAsync but operates on issues.")]
     private async ValueTask<bool> TryProcessIssueNotificationAsync(GitHubNotification notification, CancellationToken cancellationToken)
     {
         IssueDetails? details = await this._issueDetailFetcher.FetchAsync(notification: notification, cancellationToken: cancellationToken);
@@ -164,7 +166,7 @@ public sealed class GitHubPollingWorker : BackgroundService
                 currentStatus: details.Status,
                 cancellationToken: cancellationToken))
         {
-            DiscordMessage message = BuildBasicMessage(notification);
+            DiscordMessage message = BuildIssueMessage(notification: notification, details: details);
             await this._discordDispatcher.SendAsync(message: message, cancellationToken: cancellationToken);
         }
         else
@@ -193,6 +195,42 @@ public sealed class GitHubPollingWorker : BackgroundService
         return new DiscordMessage(Content: $"[{notification.Repository.FullName}] {notification.Subject.Type}", Embeds: [embed]);
     }
 
+    [SuppressMessage("Philips.CodeAnalysis.DuplicateCodeAnalyzer", "PH2071:Duplicate shape found", Justification = "Structurally identical to BuildPullRequestMessage but builds messages for issues.")]
+    private static DiscordMessage BuildIssueMessage(GitHubNotification notification, IssueDetails details)
+    {
+        List<DiscordEmbedField> fields =
+        [
+            new DiscordEmbedField(Name: "Status", Value: details.Status, Inline: true),
+            new DiscordEmbedField(Name: "Reason", Value: FormatReason(notification.Reason), Inline: true),
+        ];
+
+        if (details.Assignees.Count > 0)
+        {
+            fields.Add(new DiscordEmbedField(Name: "Assigned to", Value: string.Join(separator: ", ", values: details.Assignees), Inline: true));
+        }
+
+        if (details.Labels.Count > 0)
+        {
+            fields.Add(new DiscordEmbedField(Name: "Labels", Value: string.Join(separator: ", ", values: details.Labels), Inline: true));
+        }
+
+        if (details.LinkedPullRequestUrl is not null)
+        {
+            fields.Add(new DiscordEmbedField(Name: "Linked PR", Value: $"[View PR]({details.LinkedPullRequestUrl})", Inline: false));
+        }
+
+        DiscordEmbed embed = new(
+            Title: details.Title,
+            Description: $"Issue #{details.Number} in {notification.Repository.FullName}",
+            Url: details.HtmlUrl,
+            Color: EmbedColour,
+            Fields: fields
+        );
+
+        return new DiscordMessage(Content: $"[{notification.Repository.FullName}] Issue #{details.Number} ({notification.Reason}) {details.HtmlUrl}", Embeds: [embed]);
+    }
+
+    [SuppressMessage("Philips.CodeAnalysis.DuplicateCodeAnalyzer", "PH2071:Duplicate shape found", Justification = "Structurally identical to BuildIssueMessage but builds messages for pull requests.")]
     private static DiscordMessage BuildPullRequestMessage(GitHubNotification notification, PullRequestDetails details)
     {
         List<DiscordEmbedField> fields =

@@ -34,6 +34,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - SQLite database infrastructure using Entity Framework Core with automatic migration on startup; data folder created next to the application executable and git-ignored
 - Persist GitHub notifications API ETag in database to resume polling after restart (#21)
 - Track notification state (open/closed) for pull requests and issues in database to suppress repeated Discord notifications for already-closed items (#26)
+- Rich issue notification embeds in Discord with Status, Reason, Assignees, Labels, and Linked PR fields; `IssueDetails` enriched with `Assignees`, `Labels`, and `LinkedPullRequestUrl` populated from the GitHub Issues API (#16)
 ### Fixed
 - Removed unused `Mediator` runtime package reference from `Credfeto.Dispatcher.Server` — `Mediator.SourceGenerator` source generator is sufficient; no separate runtime package is needed for a simple background service
 - Updated gitleaks configuration to suppress false positive secret detection caused by logging extension class name matching the GitHub token regex pattern

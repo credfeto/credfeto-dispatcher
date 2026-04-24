@@ -55,6 +55,11 @@ internal sealed class DispatcherDbContextModelSnapshot : ModelSnapshot
             b.Property(e => e.WhenClosed).HasColumnType("TEXT");
         });
 
+        ConfigureNotificationQueueEntity(modelBuilder);
+    }
+
+    private static void ConfigureNotificationQueueEntity(ModelBuilder modelBuilder)
+    {
         modelBuilder.Entity<NotificationQueueEntity>(b =>
         {
             b.HasKey(e => e.SubjectUrl);

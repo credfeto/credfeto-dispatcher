@@ -53,5 +53,22 @@ internal sealed class DispatcherDbContextModelSnapshot : ModelSnapshot
             b.Property(e => e.LastUpdated).HasColumnType("TEXT");
             b.Property(e => e.WhenClosed).HasColumnType("TEXT");
         });
+
+        modelBuilder.Entity<NotificationQueueEntity>(b =>
+        {
+            b.HasKey(e => e.SubjectUrl);
+            b.ToTable("NotificationQueue");
+            b.HasIndex(e => e.DispatchAfter).HasDatabaseName("IX_NotificationQueue_DispatchAfter");
+            b.Property(e => e.SubjectUrl).HasColumnType("TEXT");
+            b.Property(e => e.NotificationId).IsRequired().HasColumnType("TEXT");
+            b.Property(e => e.Repository).IsRequired().HasColumnType("TEXT");
+            b.Property(e => e.RepositoryUrl).IsRequired().HasColumnType("TEXT");
+            b.Property(e => e.SubjectType).IsRequired().HasColumnType("TEXT");
+            b.Property(e => e.SubjectTitle).IsRequired().HasColumnType("TEXT");
+            b.Property(e => e.Reason).IsRequired().HasColumnType("TEXT");
+            b.Property(e => e.UpdatedAt).HasColumnType("TEXT");
+            b.Property(e => e.QueuedAt).HasColumnType("TEXT");
+            b.Property(e => e.DispatchAfter).HasColumnType("TEXT");
+        });
     }
 }

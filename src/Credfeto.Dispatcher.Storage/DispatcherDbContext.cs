@@ -18,6 +18,8 @@ public sealed class DispatcherDbContext : DbContext
 
     public DbSet<IssueEntity> Issues => this.Set<IssueEntity>();
 
+    public DbSet<NotificationQueueEntity> NotificationQueue => this.Set<NotificationQueueEntity>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<PullRequestEntity>()
@@ -25,5 +27,11 @@ public sealed class DispatcherDbContext : DbContext
 
         modelBuilder.Entity<IssueEntity>()
                     .HasKey(e => new { e.Repository, e.Id });
+
+        modelBuilder.Entity<NotificationQueueEntity>()
+                    .HasKey(e => e.SubjectUrl);
+
+        modelBuilder.Entity<NotificationQueueEntity>()
+                    .HasIndex(e => e.DispatchAfter);
     }
 }

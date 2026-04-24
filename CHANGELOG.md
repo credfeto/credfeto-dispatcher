@@ -35,6 +35,11 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Persist GitHub notifications API ETag in database to resume polling after restart (#21)
 - Track notification state (open/closed) for pull requests and issues in database to suppress repeated Discord notifications for already-closed items (#26)
 - Rich issue notification embeds in Discord with Status, Reason, Assignees, Labels, and Linked PR fields; `IssueDetails` enriched with `Assignees`, `Labels`, and `LinkedPullRequestUrl` populated from the GitHub Issues API (#16)
+- Notification queue with configurable dispatch delay (#40): notifications are held in a persistent SQLite queue for a configurable period (NotificationQueue:DelaySeconds, default 300 s) before being dispatched to Discord
+- Deduplication logic for queued notifications: if a PR or Issue arrives again while already queued, its entry is updated in-place with a fresh DispatchAfter timestamp, preventing duplicate Discord messages
+- Filter integration with notification queue: when a notification fails the filter, any matching queued entry is removed immediately so filtered items are never dispatched
+- NotificationQueueOptions configuration class with DelaySeconds property (minimum 0, default 300) registered under the NotificationQueue config section
+- AddNotificationQueueTable database migration and NotificationQueueEntity to persist the pending-dispatch queue across service restarts
 ### Fixed
 - Removed unused `Mediator` runtime package reference from `Credfeto.Dispatcher.Server` — `Mediator.SourceGenerator` source generator is sufficient; no separate runtime package is needed for a simple background service
 - Updated gitleaks configuration to suppress false positive secret detection caused by logging extension class name matching the GitHub token regex pattern

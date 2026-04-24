@@ -49,6 +49,9 @@ Set the following in `appsettings.json` or environment variables:
   "Discord": {
     "WebhookUrl": "[Discord incoming webhook URL]",
     "NotificationsChannelWebhookUrl": "[Optional: separate channel for raw notifications]"
+  },
+  "NotificationQueue": {
+    "DelaySeconds": 300
   }
 }
 ```

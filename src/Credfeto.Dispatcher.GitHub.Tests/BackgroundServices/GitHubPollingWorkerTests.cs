@@ -125,7 +125,7 @@ public sealed class GitHubPollingWorkerTests : TestBase
     private GitHubPollingWorker CreateWorker(INotificationPoller poller, IPullRequestDetailFetcher fetcher, IIssueDetailFetcher? issueFetcher = null)
     {
         ICurrentTimeSource currentTimeSource = GetSubstitute<ICurrentTimeSource>();
-        currentTimeSource.UtcNow().Returns(DateTimeOffset.UtcNow);
+        currentTimeSource.UtcNow().Returns(new DateTimeOffset(year: 2024, month: 1, day: 1, hour: 0, minute: 0, second: 0, offset: TimeSpan.Zero));
 
         return new GitHubPollingWorker(
             poller: poller,

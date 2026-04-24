@@ -22,4 +22,7 @@ internal static partial class GitHubPollingWorkerLoggingExtensions
 
     [LoggerMessage(EventId = 5, Level = LogLevel.Debug, Message = "Skipping notification for already-closed item: Id={NotificationId}, Repo={Repository}, ItemId={ItemId}, Type={ItemType}")]
     public static partial void LogSkippingClosedItem(this ILogger logger, string notificationId, string repository, int itemId, string itemType);
+
+    [LoggerMessage(EventId = 6, Level = LogLevel.Debug, Message = "Queuing notification for delayed dispatch: Id={NotificationId}, Repo={Repository}, Title={Title}")]
+    public static partial void LogEnqueueingNotification(this ILogger logger, string notificationId, string repository, string title);
 }

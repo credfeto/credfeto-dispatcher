@@ -24,7 +24,7 @@ public sealed class PendingNotificationStore : IPendingNotificationStore
 
     public async Task EnqueueAsync(GitHubNotification notification, DateTimeOffset dispatchAfter, CancellationToken cancellationToken)
     {
-        string subjectUrl = notification.Subject.Url.AbsoluteUri;
+        Uri subjectUrl = notification.Subject.Url;
         DateTimeOffset now = this._currentTimeSource.UtcNow();
 
         await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -44,7 +44,7 @@ public sealed class PendingNotificationStore : IPendingNotificationStore
 
     public async Task RemoveIfPresentAsync(GitHubNotification notification, CancellationToken cancellationToken)
     {
-        string subjectUrl = notification.Subject.Url.AbsoluteUri;
+        Uri subjectUrl = notification.Subject.Url;
 
         await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(cancellationToken);
         NotificationQueueEntity? existing = await context.NotificationQueue.FindAsync(keyValues: [subjectUrl], cancellationToken: cancellationToken);
@@ -70,30 +70,19 @@ public sealed class PendingNotificationStore : IPendingNotificationStore
         return entities.ConvertAll(ToNotification);
     }
 
-    public async Task RemoveAsync(GitHubNotification notification, CancellationToken cancellationToken)
+    public Task RemoveAsync(GitHubNotification notification, CancellationToken cancellationToken)
     {
-        string subjectUrl = notification.Subject.Url.AbsoluteUri;
-
-        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(cancellationToken);
-        NotificationQueueEntity? existing = await context.NotificationQueue.FindAsync(keyValues: [subjectUrl], cancellationToken: cancellationToken);
-
-        if (existing is null)
-        {
-            return;
-        }
-
-        context.NotificationQueue.Remove(existing);
-        await context.SaveChangesAsync(cancellationToken);
+        return this.RemoveIfPresentAsync(notification: notification, cancellationToken: cancellationToken);
     }
 
-    private static NotificationQueueEntity CreateEntity(GitHubNotification notification, string subjectUrl, in DateTimeOffset queuedAt, in DateTimeOffset dispatchAfter)
+    private static NotificationQueueEntity CreateEntity(GitHubNotification notification, Uri subjectUrl, in DateTimeOffset queuedAt, in DateTimeOffset dispatchAfter)
     {
         return new NotificationQueueEntity
         {
             SubjectUrl = subjectUrl,
             NotificationId = notification.Id,
             Repository = notification.Repository.FullName,
-            RepositoryUrl = notification.Repository.Url.AbsoluteUri,
+            RepositoryUrl = notification.Repository.Url,
             SubjectType = notification.Subject.Type,
             SubjectTitle = notification.Subject.Title,
             Reason = notification.Reason,
@@ -118,8 +107,8 @@ public sealed class PendingNotificationStore : IPendingNotificationStore
         return new GitHubNotification(
             Id: entity.NotificationId,
             Reason: entity.Reason,
-            Subject: new NotificationSubject(Title: entity.SubjectTitle, Url: new Uri(entity.SubjectUrl), Type: entity.SubjectType),
-            Repository: new NotificationRepository(FullName: entity.Repository, Url: new Uri(entity.RepositoryUrl)),
+            Subject: new NotificationSubject(Title: entity.SubjectTitle, Url: entity.SubjectUrl, Type: entity.SubjectType),
+            Repository: new NotificationRepository(FullName: entity.Repository, Url: entity.RepositoryUrl),
             UpdatedAt: entity.UpdatedAt,
             Unread: true
         );

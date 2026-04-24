@@ -13,8 +13,6 @@ namespace Credfeto.Dispatcher.Storage;
 
 public sealed class NotificationStateTracker : INotificationStateTracker
 {
-    private const string ClosedStatus = "Closed";
-
     private readonly ICurrentTimeSource _currentTimeSource;
     private readonly IDbContextFactory<DispatcherDbContext> _dbContextFactory;
 
@@ -22,6 +20,13 @@ public sealed class NotificationStateTracker : INotificationStateTracker
     {
         this._dbContextFactory = dbContextFactory;
         this._currentTimeSource = currentTimeSource;
+    }
+
+    public async Task<bool> PullRequestExistsAsync(GitHubNotification notification, int number, CancellationToken cancellationToken)
+    {
+        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        return await context.PullRequests.FindAsync(keyValues: [notification.Repository.FullName, number], cancellationToken: cancellationToken) is not null;
     }
 
     [SuppressMessage("Philips.CodeAnalysis.DuplicateCodeAnalyzer", "PH2071:Duplicate shape found", Justification = "Structurally identical but operating on different entity types (PullRequestEntity vs IssueEntity).")]
@@ -75,6 +80,13 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         await context.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<bool> IssueExistsAsync(GitHubNotification notification, int number, CancellationToken cancellationToken)
+    {
+        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        return await context.Issues.FindAsync(keyValues: [notification.Repository.FullName, number], cancellationToken: cancellationToken) is not null;
+    }
+
     [SuppressMessage("Philips.CodeAnalysis.DuplicateCodeAnalyzer", "PH2071:Duplicate shape found", Justification = "Structurally identical but operating on different entity types (PullRequestEntity vs IssueEntity).")]
     public async Task<bool> ShouldSkipIssueAsync(GitHubNotification notification, IssueDetails details, CancellationToken cancellationToken)
     {
@@ -126,12 +138,12 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         await context.SaveChangesAsync(cancellationToken);
     }
 
-    private static bool IsClosedStatus(string status)
+    private static bool IsClosedStatus(WorkItemStatus status)
     {
-        return string.Equals(a: status, b: ClosedStatus, comparisonType: StringComparison.OrdinalIgnoreCase);
+        return status == WorkItemStatus.Closed;
     }
 
-    private static PullRequestEntity CreatePullRequestEntity(string repository, int id, string status, string priority, bool onHold, string state, in DateTimeOffset now)
+    private static PullRequestEntity CreatePullRequestEntity(string repository, int id, WorkItemStatus status, WorkItemPriority priority, bool onHold, string state, in DateTimeOffset now)
     {
         return new PullRequestEntity
         {
@@ -147,7 +159,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         };
     }
 
-    private static IssueEntity CreateIssueEntity(string repository, int id, string status, string priority, bool onHold, string state, in DateTimeOffset now)
+    private static IssueEntity CreateIssueEntity(string repository, int id, WorkItemStatus status, WorkItemPriority priority, bool onHold, string state, in DateTimeOffset now)
     {
         return new IssueEntity
         {
@@ -163,7 +175,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         };
     }
 
-    private static void UpdateEntityStatus(INotificationEntity entity, string status, in DateTimeOffset now)
+    private static void UpdateEntityStatus(INotificationEntity entity, WorkItemStatus status, in DateTimeOffset now)
     {
         entity.Status = status;
         entity.LastUpdated = now;

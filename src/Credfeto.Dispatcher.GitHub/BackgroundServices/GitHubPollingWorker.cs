@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -86,11 +87,6 @@ public sealed class GitHubPollingWorker : BackgroundService
 
         foreach (GitHubNotification notification in notifications)
         {
-            if (!this._notificationFilter.ShouldDispatch(notification))
-            {
-                continue;
-            }
-
             this._logger.LogDispatchingNotification(notificationId: notification.Id, repository: notification.Repository.FullName, title: notification.Subject.Title);
 
             await this.ProcessNotificationAsync(notification: notification, cancellationToken: cancellationToken);
@@ -114,10 +110,16 @@ public sealed class GitHubPollingWorker : BackgroundService
             }
         }
 
+        if (!this._notificationFilter.ShouldDispatch(notification))
+        {
+            return;
+        }
+
         DiscordMessage fallbackMessage = BuildBasicMessage(notification);
         await this._discordDispatcher.SendAsync(message: fallbackMessage, cancellationToken: cancellationToken);
     }
 
+    [SuppressMessage("Philips.CodeAnalysis.DuplicateCodeAnalyzer", "PH2071:Duplicate shape found", Justification = "PR and Issue branches intentionally mirror each other to keep flow explicit.")]
     private async ValueTask<bool> TryProcessPullRequestNotificationAsync(GitHubNotification notification, CancellationToken cancellationToken)
     {
         PullRequestDetails? details = await this._pullRequestDetailFetcher.FetchAsync(notification: notification, cancellationToken: cancellationToken);
@@ -127,27 +129,36 @@ public sealed class GitHubPollingWorker : BackgroundService
             return false;
         }
 
-        if (!await this._notificationStateTracker.ShouldSkipPullRequestAsync(
-                notification: notification,
-                details: details,
-                cancellationToken: cancellationToken))
+        bool exists = await this._notificationStateTracker.PullRequestExistsAsync(notification: notification, number: details.Number, cancellationToken: cancellationToken);
+        bool isExcluded = !this._notificationFilter.ShouldDispatch(notification) || details.OnHold;
+
+        if (!exists && isExcluded)
         {
-            DiscordMessage message = BuildPullRequestMessage(notification: notification, details: details);
-            await this._discordDispatcher.SendAsync(message: message, cancellationToken: cancellationToken);
-        }
-        else
-        {
-            this._logger.LogSkippingClosedItem(notificationId: notification.Id, repository: notification.Repository.FullName, itemId: details.Number, itemType: PullRequestType);
+            return true;
         }
 
-        await this._notificationStateTracker.UpdatePullRequestStateAsync(
-            notification: notification,
-            details: details,
-            cancellationToken: cancellationToken);
+        if (!isExcluded)
+        {
+            if (!await this._notificationStateTracker.ShouldSkipPullRequestAsync(
+                    notification: notification,
+                    details: details,
+                    cancellationToken: cancellationToken))
+            {
+                DiscordMessage message = BuildPullRequestMessage(notification: notification, details: details);
+                await this._discordDispatcher.SendAsync(message: message, cancellationToken: cancellationToken);
+            }
+            else
+            {
+                this._logger.LogSkippingClosedItem(notificationId: notification.Id, repository: notification.Repository.FullName, itemId: details.Number, itemType: PullRequestType);
+            }
+        }
+
+        await this._notificationStateTracker.UpdatePullRequestStateAsync(notification: notification, details: details, cancellationToken: cancellationToken);
 
         return true;
     }
 
+    [SuppressMessage("Philips.CodeAnalysis.DuplicateCodeAnalyzer", "PH2071:Duplicate shape found", Justification = "PR and Issue branches intentionally mirror each other to keep flow explicit.")]
     private async ValueTask<bool> TryProcessIssueNotificationAsync(GitHubNotification notification, CancellationToken cancellationToken)
     {
         IssueDetails? details = await this._issueDetailFetcher.FetchAsync(notification: notification, cancellationToken: cancellationToken);
@@ -157,23 +168,31 @@ public sealed class GitHubPollingWorker : BackgroundService
             return false;
         }
 
-        if (!await this._notificationStateTracker.ShouldSkipIssueAsync(
-                notification: notification,
-                details: details,
-                cancellationToken: cancellationToken))
+        bool exists = await this._notificationStateTracker.IssueExistsAsync(notification: notification, number: details.Number, cancellationToken: cancellationToken);
+        bool isExcluded = !this._notificationFilter.ShouldDispatch(notification) || details.OnHold;
+
+        if (!exists && isExcluded)
         {
-            DiscordMessage message = BuildBasicMessage(notification);
-            await this._discordDispatcher.SendAsync(message: message, cancellationToken: cancellationToken);
-        }
-        else
-        {
-            this._logger.LogSkippingClosedItem(notificationId: notification.Id, repository: notification.Repository.FullName, itemId: details.Number, itemType: IssueType);
+            return true;
         }
 
-        await this._notificationStateTracker.UpdateIssueStateAsync(
-            notification: notification,
-            details: details,
-            cancellationToken: cancellationToken);
+        if (!isExcluded)
+        {
+            if (!await this._notificationStateTracker.ShouldSkipIssueAsync(
+                    notification: notification,
+                    details: details,
+                    cancellationToken: cancellationToken))
+            {
+                DiscordMessage message = BuildBasicMessage(notification);
+                await this._discordDispatcher.SendAsync(message: message, cancellationToken: cancellationToken);
+            }
+            else
+            {
+                this._logger.LogSkippingClosedItem(notificationId: notification.Id, repository: notification.Repository.FullName, itemId: details.Number, itemType: IssueType);
+            }
+        }
+
+        await this._notificationStateTracker.UpdateIssueStateAsync(notification: notification, details: details, cancellationToken: cancellationToken);
 
         return true;
     }
@@ -194,7 +213,7 @@ public sealed class GitHubPollingWorker : BackgroundService
     {
         List<DiscordEmbedField> fields =
         [
-            new DiscordEmbedField(Name: "Status", Value: details.Status, Inline: true),
+            new DiscordEmbedField(Name: "Status", Value: details.Status.GetName(), Inline: true),
             new DiscordEmbedField(Name: "Reason", Value: FormatReason(notification.Reason), Inline: true),
         ];
 
@@ -262,4 +281,5 @@ public sealed class GitHubPollingWorker : BackgroundService
             _ => reason
         };
     }
+
 }

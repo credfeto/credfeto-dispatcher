@@ -12,6 +12,7 @@ using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Helpers;
 using Credfeto.Dispatcher.GitHub.Interfaces;
 using Credfeto.Dispatcher.GitHub.Models;
+using Microsoft.Extensions.Options;
 
 namespace Credfeto.Dispatcher.GitHub.Services;
 
@@ -26,10 +27,10 @@ public sealed partial class PullRequestDetailFetcher : IPullRequestDetailFetcher
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly GitHubFilterOptions _filterOptions;
 
-    public PullRequestDetailFetcher(IHttpClientFactory httpClientFactory, GitHubFilterOptions filterOptions)
+    public PullRequestDetailFetcher(IHttpClientFactory httpClientFactory, IOptions<GitHubOptions> options)
     {
         this._httpClientFactory = httpClientFactory;
-        this._filterOptions = filterOptions;
+        this._filterOptions = options.Value.Filter;
     }
 
     public async ValueTask<PullRequestDetails?> FetchAsync(GitHubNotification notification, CancellationToken cancellationToken)
@@ -62,8 +63,8 @@ public sealed partial class PullRequestDetailFetcher : IPullRequestDetailFetcher
 
         IReadOnlyList<LinkedItem> linkedItems = ParseLinkedItems(pr.Body);
         IReadOnlyList<string> labels = [..pr.Labels.Select(l => l.Name)];
-        string priority = PriorityHelper.DeterminePriority(labels);
-        bool onHold = OnHoldHelper.IsOnHold(labels, this._filterOptions.NoWorkFilter);
+        WorkItemPriority priority = PriorityHelper.DeterminePriority(labels);
+        bool onHold = OnHoldHelper.IsOnHold(labels, this._filterOptions.NoWorkFilter, this._filterOptions.LabelFilter);
 
         return new PullRequestDetails(
             Number: pr.Number,
@@ -164,14 +165,14 @@ public sealed partial class PullRequestDetailFetcher : IPullRequestDetailFetcher
         return [..items.DistinctBy(i => i.Number)];
     }
 
-    private static string DetermineStatus(ApiPullRequest pr)
+    private static WorkItemStatus DetermineStatus(ApiPullRequest pr)
     {
         if (string.Equals(a: pr.State, b: "closed", comparisonType: StringComparison.OrdinalIgnoreCase))
         {
-            return "Closed";
+            return WorkItemStatus.Closed;
         }
 
-        return pr.Draft ? "Draft" : "Open";
+        return pr.Draft ? WorkItemStatus.Draft : WorkItemStatus.Open;
     }
 
     private static string BuildCommentsUrl(string pullRequestApiUrl)

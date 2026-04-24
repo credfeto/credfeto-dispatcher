@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using Credfeto.Dispatcher.GitHub.DataTypes;
 
 namespace Credfeto.Dispatcher.Storage.Entities;
 
@@ -10,9 +11,9 @@ public sealed class PullRequestEntity : INotificationEntity
 
     public int Id { get; set; }
 
-    public string Status { get; set; } = string.Empty;
+    public WorkItemStatus Status { get; set; } = WorkItemStatus.Open;
 
-    public string Priority { get; set; } = "Unknown";
+    public WorkItemPriority Priority { get; set; } = WorkItemPriority.Unknown;
 
     public bool OnHold { get; set; }
 

@@ -10,6 +10,7 @@ using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Helpers;
 using Credfeto.Dispatcher.GitHub.Interfaces;
 using Credfeto.Dispatcher.GitHub.Models;
+using Microsoft.Extensions.Options;
 
 namespace Credfeto.Dispatcher.GitHub.Services;
 
@@ -20,10 +21,10 @@ public sealed class IssueDetailFetcher : IIssueDetailFetcher
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly GitHubFilterOptions _filterOptions;
 
-    public IssueDetailFetcher(IHttpClientFactory httpClientFactory, GitHubFilterOptions filterOptions)
+    public IssueDetailFetcher(IHttpClientFactory httpClientFactory, IOptions<GitHubOptions> options)
     {
         this._httpClientFactory = httpClientFactory;
-        this._filterOptions = filterOptions;
+        this._filterOptions = options.Value.Filter;
     }
 
     public async ValueTask<IssueDetails?> FetchAsync(GitHubNotification notification, CancellationToken cancellationToken)
@@ -42,8 +43,8 @@ public sealed class IssueDetailFetcher : IIssueDetailFetcher
         }
 
         IReadOnlyList<string> labels = [..issue.Labels.Select(l => l.Name)];
-        string priority = PriorityHelper.DeterminePriority(labels);
-        bool onHold = OnHoldHelper.IsOnHold(labels, this._filterOptions.NoWorkFilter);
+        WorkItemPriority priority = PriorityHelper.DeterminePriority(labels);
+        bool onHold = OnHoldHelper.IsOnHold(labels, this._filterOptions.NoWorkFilter, this._filterOptions.LabelFilter);
 
         return new IssueDetails(
             Number: issue.Number,
@@ -57,9 +58,9 @@ public sealed class IssueDetailFetcher : IIssueDetailFetcher
         );
     }
 
-    private static string DetermineStatus(ApiIssue issue)
+    private static WorkItemStatus DetermineStatus(ApiIssue issue)
     {
-        return string.Equals(a: issue.State, b: "closed", comparisonType: StringComparison.OrdinalIgnoreCase) ? "Closed" : "Open";
+        return string.Equals(a: issue.State, b: "closed", comparisonType: StringComparison.OrdinalIgnoreCase) ? WorkItemStatus.Closed : WorkItemStatus.Open;
     }
 
     private async ValueTask<T?> GetAsync<T>(string url, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> jsonTypeInfo, CancellationToken cancellationToken)

@@ -7,6 +7,7 @@ using Credfeto.Dispatcher.GitHub.Interfaces;
 using Credfeto.Dispatcher.GitHub.Services;
 using Credfeto.Dispatcher.GitHub.Tests.Helpers;
 using FunFair.Test.Common;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 using Xunit;
 
@@ -215,7 +216,9 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         {
             NoWorkFilter = []
         };
-        this._fetcher = new PullRequestDetailFetcher(this._httpClientFactory, filterOptions);
+        this._fetcher = new PullRequestDetailFetcher(
+            this._httpClientFactory,
+            Options.Create(new GitHub.Configuration.GitHubOptions { Filter = filterOptions }));
     }
 
     private static HttpClient CreateClient(HttpStatusCode statusCode, string? content = null)
@@ -290,7 +293,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
 
         Assert.NotNull(result);
-        Assert.Equal(expected: "Open", actual: result.Status);
+        Assert.Equal(expected: WorkItemStatus.Open, actual: result.Status);
     }
 
     [Fact]
@@ -308,7 +311,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
 
         Assert.NotNull(result);
-        Assert.Equal(expected: "Draft", actual: result.Status);
+        Assert.Equal(expected: WorkItemStatus.Draft, actual: result.Status);
     }
 
     [Fact]
@@ -326,7 +329,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
 
         Assert.NotNull(result);
-        Assert.Equal(expected: "Closed", actual: result.Status);
+        Assert.Equal(expected: WorkItemStatus.Closed, actual: result.Status);
     }
 
     [Fact]
@@ -702,7 +705,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
 
         Assert.NotNull(result);
-        Assert.Equal(expected: "Unknown", actual: result.Priority);
+        Assert.Equal(expected: WorkItemPriority.Unknown, actual: result.Priority);
     }
 
     [Fact]
@@ -720,7 +723,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
 
         Assert.NotNull(result);
-        Assert.Equal(expected: "High", actual: result.Priority);
+        Assert.Equal(expected: WorkItemPriority.High, actual: result.Priority);
     }
 
     [Fact]
@@ -738,6 +741,6 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
 
         Assert.NotNull(result);
-        Assert.Equal(expected: "Urgent", actual: result.Priority);
+        Assert.Equal(expected: WorkItemPriority.Urgent, actual: result.Priority);
     }
 }

@@ -1,10 +1,11 @@
 using System;
+using Credfeto.Dispatcher.GitHub.DataTypes;
 
 namespace Credfeto.Dispatcher.Storage.Entities;
 
 internal interface INotificationEntity
 {
-    string Status { get; set; }
+    WorkItemStatus Status { get; set; }
 
     DateTimeOffset LastUpdated { get; set; }
 

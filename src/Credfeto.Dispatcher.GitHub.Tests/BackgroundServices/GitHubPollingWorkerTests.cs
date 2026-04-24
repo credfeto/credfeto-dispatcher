@@ -33,6 +33,12 @@ public sealed class GitHubPollingWorkerTests : TestBase
 
         this._stateTracker.ShouldSkipIssueAsync(notification: Arg.Any<GitHubNotification>(), details: Arg.Any<IssueDetails>(), cancellationToken: Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(false));
+
+        this._stateTracker.PullRequestExistsAsync(notification: Arg.Any<GitHubNotification>(), number: Arg.Any<int>(), cancellationToken: Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(false));
+
+        this._stateTracker.IssueExistsAsync(notification: Arg.Any<GitHubNotification>(), number: Arg.Any<int>(), cancellationToken: Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(false));
     }
 
     private static GitHubNotification BuildPrNotification(string reason)
@@ -63,8 +69,8 @@ public sealed class GitHubPollingWorkerTests : TestBase
             Number: 42,
             Title: "Test PR",
             Body: null,
-            Status: "Open",
-            Priority: "Unknown",
+            Status: WorkItemStatus.Open,
+            Priority: WorkItemPriority.Unknown,
             OnHold: false,
             HtmlUrl: new Uri("https://github.com/owner/repo/pull/42"),
             Repository: new ItemRepository(Owner: "owner", Name: "repo", Url: new Uri("https://github.com/owner/repo")),
@@ -83,8 +89,8 @@ public sealed class GitHubPollingWorkerTests : TestBase
             Number: 42,
             Title: "Test PR",
             Body: null,
-            Status: "Closed",
-            Priority: "Unknown",
+            Status: WorkItemStatus.Closed,
+            Priority: WorkItemPriority.Unknown,
             OnHold: false,
             HtmlUrl: new Uri("https://github.com/owner/repo/pull/42"),
             Repository: new ItemRepository(Owner: "owner", Name: "repo", Url: new Uri("https://github.com/owner/repo")),
@@ -102,8 +108,8 @@ public sealed class GitHubPollingWorkerTests : TestBase
         return new IssueDetails(
             Number: 10,
             Title: "Test Issue",
-            Status: "Open",
-            Priority: "Unknown",
+            Status: WorkItemStatus.Open,
+            Priority: WorkItemPriority.Unknown,
             OnHold: false,
             HtmlUrl: new Uri("https://github.com/owner/repo/issues/10"),
             Repository: new ItemRepository(Owner: "owner", Name: "repo", Url: new Uri("https://github.com/owner/repo")),
@@ -115,8 +121,8 @@ public sealed class GitHubPollingWorkerTests : TestBase
         return new IssueDetails(
             Number: 10,
             Title: "Test Issue",
-            Status: "Closed",
-            Priority: "Unknown",
+            Status: WorkItemStatus.Closed,
+            Priority: WorkItemPriority.Unknown,
             OnHold: false,
             HtmlUrl: new Uri("https://github.com/owner/repo/issues/10"),
             Repository: new ItemRepository(Owner: "owner", Name: "repo", Url: new Uri("https://github.com/owner/repo")),
@@ -223,7 +229,7 @@ public sealed class GitHubPollingWorkerTests : TestBase
 
         this._stateTracker.ShouldSkipPullRequestAsync(
                               notification: Arg.Any<GitHubNotification>(),
-                              details: Arg.Is<PullRequestDetails>(d => d.Number == 42 && d.Status == "Closed"),
+                              details: Arg.Is<PullRequestDetails>(d => d.Number == 42 && d.Status == WorkItemStatus.Closed),
                               cancellationToken: Arg.Any<CancellationToken>())
                           .Returns(Task.FromResult(true));
 
@@ -247,7 +253,7 @@ public sealed class GitHubPollingWorkerTests : TestBase
 
         this._stateTracker.ShouldSkipIssueAsync(
                               notification: Arg.Any<GitHubNotification>(),
-                              details: Arg.Is<IssueDetails>(d => d.Number == 10 && d.Status == "Closed"),
+                              details: Arg.Is<IssueDetails>(d => d.Number == 10 && d.Status == WorkItemStatus.Closed),
                               cancellationToken: Arg.Any<CancellationToken>())
                           .Returns(Task.FromResult(true));
 
@@ -283,6 +289,58 @@ public sealed class GitHubPollingWorkerTests : TestBase
         await worker.StopAsync(token);
 
         Assert.False(condition: this._discord.Dispatched.IsCompleted, userMessage: "Expected no message to be dispatched for first-seen closed PR");
+    }
+
+    [Fact]
+    public async Task NewExcludedPullRequestIsIgnoredWithoutStateUpdateAsync()
+    {
+        GitHubNotification notification = BuildPrNotification("mention");
+        PullRequestDetails details = BuildPrDetails();
+
+        this._filter.ShouldDispatch(notification)
+                    .Returns(false);
+
+        this._stateTracker.PullRequestExistsAsync(notification: Arg.Any<GitHubNotification>(), number: 42, cancellationToken: Arg.Any<CancellationToken>())
+                          .Returns(Task.FromResult(false));
+
+        CancellationToken token = TestContext.Current.CancellationToken;
+        using GitHubPollingWorker worker = this.CreateWorker(poller: new FakePoller([notification]), fetcher: new FakeFetcher(details));
+        await worker.StartAsync(token);
+        await Task.Delay(millisecondsDelay: 200, cancellationToken: token);
+        await worker.StopAsync(token);
+
+        Assert.False(condition: this._discord.Dispatched.IsCompleted, userMessage: "Expected excluded first-seen PR to be ignored");
+
+        await this._stateTracker.DidNotReceive().UpdatePullRequestStateAsync(
+            notification: Arg.Any<GitHubNotification>(),
+            details: Arg.Any<PullRequestDetails>(),
+            cancellationToken: Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExistingExcludedPullRequestUpdatesStateWithoutNotificationAsync()
+    {
+        GitHubNotification notification = BuildPrNotification("mention");
+        PullRequestDetails details = BuildPrDetails();
+
+        this._filter.ShouldDispatch(notification)
+                    .Returns(false);
+
+        this._stateTracker.PullRequestExistsAsync(notification: Arg.Any<GitHubNotification>(), number: 42, cancellationToken: Arg.Any<CancellationToken>())
+                          .Returns(Task.FromResult(true));
+
+        CancellationToken token = TestContext.Current.CancellationToken;
+        using GitHubPollingWorker worker = this.CreateWorker(poller: new FakePoller([notification]), fetcher: new FakeFetcher(details));
+        await worker.StartAsync(token);
+        await Task.Delay(millisecondsDelay: 200, cancellationToken: token);
+        await worker.StopAsync(token);
+
+        Assert.False(condition: this._discord.Dispatched.IsCompleted, userMessage: "Expected excluded existing PR to skip notification");
+
+        await this._stateTracker.Received(1).UpdatePullRequestStateAsync(
+            notification: Arg.Any<GitHubNotification>(),
+            details: Arg.Any<PullRequestDetails>(),
+            cancellationToken: Arg.Any<CancellationToken>());
     }
 
     private sealed class FakePoller : INotificationPoller

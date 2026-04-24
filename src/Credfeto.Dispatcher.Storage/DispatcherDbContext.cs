@@ -23,7 +23,23 @@ public sealed class DispatcherDbContext : DbContext
         modelBuilder.Entity<PullRequestEntity>()
                     .HasKey(e => new { e.Repository, e.Id });
 
+        modelBuilder.Entity<PullRequestEntity>()
+                    .Property(e => e.Status)
+                    .HasConversion<string>();
+
+        modelBuilder.Entity<PullRequestEntity>()
+                    .Property(e => e.Priority)
+                    .HasConversion<string>();
+
         modelBuilder.Entity<IssueEntity>()
                     .HasKey(e => new { e.Repository, e.Id });
+
+        modelBuilder.Entity<IssueEntity>()
+                    .Property(e => e.Status)
+                    .HasConversion<string>();
+
+        modelBuilder.Entity<IssueEntity>()
+                    .Property(e => e.Priority)
+                    .HasConversion<string>();
     }
 }

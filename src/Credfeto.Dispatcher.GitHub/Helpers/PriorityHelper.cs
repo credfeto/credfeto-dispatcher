@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Credfeto.Dispatcher.GitHub.DataTypes;
 
 namespace Credfeto.Dispatcher.GitHub.Helpers;
 
@@ -15,37 +16,37 @@ public static class PriorityHelper
     /// </summary>
     /// <param name="labels">The collection of labels.</param>
     /// <returns>The priority level: Urgent, High, Medium, Low, or Unknown.</returns>
-    public static string DeterminePriority(IReadOnlyList<string> labels)
+    public static WorkItemPriority DeterminePriority(IReadOnlyList<string> labels)
     {
         if (labels == null || labels.Count == 0)
         {
-            return "Unknown";
+            return WorkItemPriority.Unknown;
         }
 
         foreach (string label in labels)
         {
             if (string.Equals(a: label, b: "urgent", comparisonType: StringComparison.OrdinalIgnoreCase))
             {
-                return "Urgent";
+                return WorkItemPriority.Urgent;
             }
 
             if (string.Equals(a: label, b: "high", comparisonType: StringComparison.OrdinalIgnoreCase))
             {
-                return "High";
+                return WorkItemPriority.High;
             }
 
             if (string.Equals(a: label, b: "medium", comparisonType: StringComparison.OrdinalIgnoreCase))
             {
-                return "Medium";
+                return WorkItemPriority.Medium;
             }
 
             if (string.Equals(a: label, b: "low", comparisonType: StringComparison.OrdinalIgnoreCase))
             {
-                return "Low";
+                return WorkItemPriority.Low;
             }
         }
 
-        return "Unknown";
+        return WorkItemPriority.Unknown;
     }
 }
 

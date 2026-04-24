@@ -27,8 +27,8 @@ public static class NotificationStateSerializer
                 details.Number,
                 details.Title,
                 details.Body,
-                details.Status,
-                details.Priority,
+                Status = details.Status.GetName(),
+                Priority = details.Priority.GetName(),
                 details.OnHold,
                 details.Assignees,
                 details.Labels,
@@ -50,8 +50,8 @@ public static class NotificationStateSerializer
             {
                 details.Number,
                 details.Title,
-                details.Status,
-                details.Priority,
+                Status = details.Status.GetName(),
+                Priority = details.Priority.GetName(),
                 details.OnHold
             },
             Options);

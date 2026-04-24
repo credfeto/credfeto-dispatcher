@@ -7,8 +7,8 @@ namespace Credfeto.Dispatcher.GitHub.DataTypes;
 public sealed record IssueDetails(
     int Number,
     string Title,
-    string Status,
-    string Priority,
+    WorkItemStatus Status,
+    WorkItemPriority Priority,
     bool OnHold,
     Uri HtmlUrl,
     ItemRepository Repository,

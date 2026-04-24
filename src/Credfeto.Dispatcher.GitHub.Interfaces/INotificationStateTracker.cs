@@ -6,6 +6,8 @@ namespace Credfeto.Dispatcher.GitHub.Interfaces;
 
 public interface INotificationStateTracker
 {
+    Task<bool> PullRequestExistsAsync(GitHubNotification notification, int number, CancellationToken cancellationToken);
+
     /// <summary>
     /// Checks if a pull request notification should be skipped.
     /// Returns true if the PR is closed and has already been marked as closed, or if state hasn't changed.
@@ -16,6 +18,8 @@ public interface INotificationStateTracker
     /// Updates the stored state of a pull request.
     /// </summary>
     Task UpdatePullRequestStateAsync(GitHubNotification notification, PullRequestDetails details, CancellationToken cancellationToken);
+
+    Task<bool> IssueExistsAsync(GitHubNotification notification, int number, CancellationToken cancellationToken);
 
     /// <summary>
     /// Checks if an issue notification should be skipped.

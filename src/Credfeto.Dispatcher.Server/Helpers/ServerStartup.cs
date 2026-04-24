@@ -92,10 +92,12 @@ internal static class ServerStartup
     {
         IConfigurationSection gitHubSection = builder.Configuration.GetSection("GitHub");
         IConfigurationSection discordSection = builder.Configuration.GetSection("Discord");
+        IConfigurationSection notificationQueueSection = builder.Configuration.GetSection("NotificationQueue");
 
         builder
             .Services.Configure<GitHubOptions>(gitHubSection)
             .Configure<DiscordOptions>(discordSection)
+            .Configure<NotificationQueueOptions>(notificationQueueSection)
             .AddDate()
             .AddRandomNumbers()
             .AddRunOnStartupServices()

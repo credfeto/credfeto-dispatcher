@@ -27,7 +27,7 @@ public sealed class GitHubPollingWorker : BackgroundService
     private readonly IIssueDetailFetcher _issueDetailFetcher;
     private readonly ILogger<GitHubPollingWorker> _logger;
     private readonly INotificationFilter _notificationFilter;
-    private readonly INotificationQueue _notificationQueue;
+    private readonly IPendingNotificationStore _pendingNotificationStore;
     private readonly INotificationStateTracker _notificationStateTracker;
     private readonly NotificationQueueOptions _notificationQueueOptions;
     private readonly GitHubOptions _options;
@@ -41,7 +41,7 @@ public sealed class GitHubPollingWorker : BackgroundService
         IPullRequestDetailFetcher pullRequestDetailFetcher,
         IIssueDetailFetcher issueDetailFetcher,
         INotificationStateTracker notificationStateTracker,
-        INotificationQueue notificationQueue,
+        IPendingNotificationStore pendingNotificationStore,
         ICurrentTimeSource currentTimeSource,
         IOptions<GitHubOptions> options,
         IOptions<NotificationQueueOptions> notificationQueueOptions,
@@ -54,7 +54,7 @@ public sealed class GitHubPollingWorker : BackgroundService
         this._pullRequestDetailFetcher = pullRequestDetailFetcher;
         this._issueDetailFetcher = issueDetailFetcher;
         this._notificationStateTracker = notificationStateTracker;
-        this._notificationQueue = notificationQueue;
+        this._pendingNotificationStore = pendingNotificationStore;
         this._currentTimeSource = currentTimeSource;
         this._options = options.Value;
         this._notificationQueueOptions = notificationQueueOptions.Value;
@@ -103,11 +103,11 @@ public sealed class GitHubPollingWorker : BackgroundService
             if (this._notificationFilter.ShouldDispatch(notification))
             {
                 this._logger.LogEnqueueingNotification(notificationId: notification.Id, repository: notification.Repository.FullName, title: notification.Subject.Title);
-                await this._notificationQueue.EnqueueAsync(notification: notification, dispatchAfter: dispatchAfter, cancellationToken: cancellationToken);
+                await this._pendingNotificationStore.EnqueueAsync(notification: notification, dispatchAfter: dispatchAfter, cancellationToken: cancellationToken);
             }
             else
             {
-                await this._notificationQueue.RemoveIfPresentAsync(notification: notification, cancellationToken: cancellationToken);
+                await this._pendingNotificationStore.RemoveIfPresentAsync(notification: notification, cancellationToken: cancellationToken);
             }
         }
     }
@@ -115,13 +115,13 @@ public sealed class GitHubPollingWorker : BackgroundService
     private async ValueTask DispatchReadyItemsAsync(CancellationToken cancellationToken)
     {
         DateTimeOffset now = this._currentTimeSource.UtcNow();
-        IReadOnlyList<GitHubNotification> readyItems = await this._notificationQueue.GetReadyItemsAsync(now: now, cancellationToken: cancellationToken);
+        IReadOnlyList<GitHubNotification> readyItems = await this._pendingNotificationStore.GetReadyItemsAsync(now: now, cancellationToken: cancellationToken);
 
         foreach (GitHubNotification notification in readyItems)
         {
             this._logger.LogDispatchingNotification(notificationId: notification.Id, repository: notification.Repository.FullName, title: notification.Subject.Title);
             await this.ProcessNotificationAsync(notification: notification, cancellationToken: cancellationToken);
-            await this._notificationQueue.RemoveAsync(notification: notification, cancellationToken: cancellationToken);
+            await this._pendingNotificationStore.RemoveAsync(notification: notification, cancellationToken: cancellationToken);
         }
     }
 

@@ -77,9 +77,15 @@ internal sealed class DispatcherDbContextModelSnapshot : ModelSnapshot
             b.Property(e => e.SubjectType).IsRequired().HasColumnType("TEXT");
             b.Property(e => e.SubjectTitle).IsRequired().HasColumnType("TEXT");
             b.Property(e => e.Reason).IsRequired().HasColumnType("TEXT");
-            b.Property(e => e.UpdatedAt).HasColumnType("TEXT");
-            b.Property(e => e.QueuedAt).HasColumnType("TEXT");
-            b.Property(e => e.DispatchAfter).HasColumnType("TEXT");
+            b.Property(e => e.UpdatedAt)
+             .HasColumnType("INTEGER")
+             .HasConversion(new ValueConverter<DateTimeOffset, long>(v => v.UtcTicks, v => new DateTimeOffset(v, TimeSpan.Zero)));
+            b.Property(e => e.QueuedAt)
+             .HasColumnType("INTEGER")
+             .HasConversion(new ValueConverter<DateTimeOffset, long>(v => v.UtcTicks, v => new DateTimeOffset(v, TimeSpan.Zero)));
+            b.Property(e => e.DispatchAfter)
+             .HasColumnType("INTEGER")
+             .HasConversion(new ValueConverter<DateTimeOffset, long>(v => v.UtcTicks, v => new DateTimeOffset(v, TimeSpan.Zero)));
         });
     }
 }

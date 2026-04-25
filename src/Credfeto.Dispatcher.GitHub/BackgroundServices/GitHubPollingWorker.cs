@@ -146,6 +146,7 @@ public sealed class GitHubPollingWorker : BackgroundService
         await this._discordDispatcher.SendAsync(message: fallbackMessage, cancellationToken: cancellationToken);
     }
 
+    [SuppressMessage("Philips.CodeAnalysis.DuplicateCodeAnalyzer", "PH2071:Duplicate shape found", Justification = "Structurally identical to TryProcessIssueNotificationAsync but operates on pull requests.")]
     private async ValueTask<bool> TryProcessPullRequestNotificationAsync(GitHubNotification notification, CancellationToken cancellationToken)
     {
         PullRequestDetails? details = await this._pullRequestDetailFetcher.FetchAsync(notification: notification, cancellationToken: cancellationToken);

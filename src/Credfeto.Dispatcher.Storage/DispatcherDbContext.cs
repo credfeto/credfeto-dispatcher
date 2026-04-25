@@ -41,6 +41,21 @@ public sealed class DispatcherDbContext : DbContext
                     .HasConversion(v => v.AbsoluteUri, v => new Uri(v, UriKind.Absolute));
 
         modelBuilder.Entity<NotificationQueueEntity>()
+                    .Property(e => e.DispatchAfter)
+                    .HasConversion(v => v.UtcTicks, v => new DateTimeOffset(v, TimeSpan.Zero))
+                    .HasColumnType("INTEGER");
+
+        modelBuilder.Entity<NotificationQueueEntity>()
+                    .Property(e => e.QueuedAt)
+                    .HasConversion(v => v.UtcTicks, v => new DateTimeOffset(v, TimeSpan.Zero))
+                    .HasColumnType("INTEGER");
+
+        modelBuilder.Entity<NotificationQueueEntity>()
+                    .Property(e => e.UpdatedAt)
+                    .HasConversion(v => v.UtcTicks, v => new DateTimeOffset(v, TimeSpan.Zero))
+                    .HasColumnType("INTEGER");
+
+        modelBuilder.Entity<NotificationQueueEntity>()
                     .HasIndex(e => e.DispatchAfter);
     }
 }

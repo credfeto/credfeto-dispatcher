@@ -36,6 +36,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Track notification state (open/closed) for pull requests and issues in database to suppress repeated Discord notifications for already-closed items (#26)
 - Rich issue notification embeds in Discord with Status, Reason, Assignees, Labels, and Linked PR fields; `IssueDetails` enriched with `Assignees`, `Labels`, and `LinkedPullRequestUrl` populated from the GitHub Issues API (#16)
 ### Fixed
+- EF Core SQLite cannot translate DateTimeOffset <= comparisons when stored as TEXT; store DispatchAfter, QueuedAt, and UpdatedAt as long (UtcTicks) with INTEGER column type
 - Removed unused `Mediator` runtime package reference from `Credfeto.Dispatcher.Server` — `Mediator.SourceGenerator` source generator is sufficient; no separate runtime package is needed for a simple background service
 - Updated gitleaks configuration to suppress false positive secret detection caused by logging extension class name matching the GitHub token regex pattern
 ### Changed

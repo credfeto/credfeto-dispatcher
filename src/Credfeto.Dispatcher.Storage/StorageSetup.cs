@@ -25,6 +25,7 @@ public static class StorageSetup
             .AddRunOnStartupTask<DatabaseMigrationService>()
             .AddSingleton<IETagStore, ETagStore>()
             .AddSingleton<INotificationStateTracker, NotificationStateTracker>()
-            .AddSingleton<IPendingNotificationStore, PendingNotificationStore>();
+            .AddSingleton<IPendingNotificationStore, PendingNotificationStore>()
+            .AddSingleton<IWorkItemRepository, WorkItemRepository>();
     }
 }

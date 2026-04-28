@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
+using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.Storage.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -26,8 +27,30 @@ public sealed class DispatcherDbContext : DbContext
         modelBuilder.Entity<PullRequestEntity>()
                     .HasKey(e => new { e.Repository, e.Id });
 
+        modelBuilder.Entity<PullRequestEntity>()
+                    .Property(e => e.Priority)
+                    .HasConversion(v => (int)v, v => (WorkPriority)v)
+                    .HasColumnType("INTEGER");
+
+        modelBuilder.Entity<PullRequestEntity>()
+                    .Property(e => e.IsOnHold)
+                    .HasColumnType("INTEGER");
+
         modelBuilder.Entity<IssueEntity>()
                     .HasKey(e => new { e.Repository, e.Id });
+
+        modelBuilder.Entity<IssueEntity>()
+                    .Property(e => e.Priority)
+                    .HasConversion(v => (int)v, v => (WorkPriority)v)
+                    .HasColumnType("INTEGER");
+
+        modelBuilder.Entity<IssueEntity>()
+                    .Property(e => e.IsOnHold)
+                    .HasColumnType("INTEGER");
+
+        modelBuilder.Entity<IssueEntity>()
+                    .Property(e => e.HasLinkedPr)
+                    .HasColumnType("INTEGER");
 
         modelBuilder.Entity<NotificationQueueEntity>()
                     .HasKey(e => e.SubjectUrl);

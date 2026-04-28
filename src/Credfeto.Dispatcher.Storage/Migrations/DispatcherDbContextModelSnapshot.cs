@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
+using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.Storage.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -41,6 +42,10 @@ internal sealed class DispatcherDbContextModelSnapshot : ModelSnapshot
             b.Property(e => e.FirstSeen).HasColumnType("TEXT");
             b.Property(e => e.LastUpdated).HasColumnType("TEXT");
             b.Property(e => e.WhenClosed).HasColumnType("TEXT");
+            b.Property(e => e.Priority)
+             .HasColumnType("INTEGER")
+             .HasConversion(new ValueConverter<WorkPriority, int>(v => (int)v, v => (WorkPriority)v));
+            b.Property(e => e.IsOnHold).HasColumnType("INTEGER");
         });
 
         modelBuilder.Entity<IssueEntity>(b =>
@@ -53,6 +58,11 @@ internal sealed class DispatcherDbContextModelSnapshot : ModelSnapshot
             b.Property(e => e.FirstSeen).HasColumnType("TEXT");
             b.Property(e => e.LastUpdated).HasColumnType("TEXT");
             b.Property(e => e.WhenClosed).HasColumnType("TEXT");
+            b.Property(e => e.Priority)
+             .HasColumnType("INTEGER")
+             .HasConversion(new ValueConverter<WorkPriority, int>(v => (int)v, v => (WorkPriority)v));
+            b.Property(e => e.IsOnHold).HasColumnType("INTEGER");
+            b.Property(e => e.HasLinkedPr).HasColumnType("INTEGER");
         });
 
         ConfigureNotificationQueueEntity(modelBuilder);

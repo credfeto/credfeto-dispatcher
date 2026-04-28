@@ -2,7 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.Server.Helpers;
-using Microsoft.Extensions.Hosting;
+using Microsoft.AspNetCore.Builder;
 
 namespace Credfeto.Dispatcher.Server;
 
@@ -17,12 +17,10 @@ internal static class Program
 
         try
         {
-            using (IHost app = ServerStartup.CreateApp(args))
-            {
-                await RunAsync(app);
+            await using WebApplication app = ServerStartup.CreateApp(args);
+            await app.RunAsync();
 
-                return 0;
-            }
+            return 0;
         }
         catch (Exception exception)
         {
@@ -32,12 +30,5 @@ internal static class Program
 
             return 1;
         }
-    }
-
-    private static Task RunAsync(IHost application)
-    {
-        Console.WriteLine("App Created");
-
-        return application.RunAsync(CancellationToken.None);
     }
 }

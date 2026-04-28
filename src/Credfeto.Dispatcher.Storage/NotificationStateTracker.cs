@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Date.Interfaces;
+using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Interfaces;
 using Credfeto.Dispatcher.Storage.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -28,7 +29,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
     }
 
     [SuppressMessage("Philips.CodeAnalysis.DuplicateCodeAnalyzer", "PH2071:Duplicate shape found", Justification = "Structurally identical but operating on different entity types (PullRequestEntity vs IssueEntity).")]
-    public async Task UpdatePullRequestStateAsync(string repository, int pullRequestNumber, string status, CancellationToken cancellationToken)
+    public async Task UpdatePullRequestStateAsync(string repository, int pullRequestNumber, string status, WorkPriority priority, bool isOnHold, CancellationToken cancellationToken)
     {
         await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(cancellationToken);
         PullRequestEntity? existing = await context.PullRequests.FindAsync(keyValues: [repository, pullRequestNumber], cancellationToken: cancellationToken);
@@ -36,11 +37,11 @@ public sealed class NotificationStateTracker : INotificationStateTracker
 
         if (existing is null)
         {
-            context.PullRequests.Add(CreatePullRequestEntity(repository: repository, id: pullRequestNumber, status: status, now: now));
+            context.PullRequests.Add(CreatePullRequestEntity(repository: repository, id: pullRequestNumber, status: status, priority: priority, isOnHold: isOnHold, now: now));
         }
         else
         {
-            UpdateEntityStatus(entity: existing, status: status, now: now);
+            UpdatePullRequestEntity(entity: existing, status: status, priority: priority, isOnHold: isOnHold, now: now);
         }
 
         await context.SaveChangesAsync(cancellationToken);
@@ -52,7 +53,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
     }
 
     [SuppressMessage("Philips.CodeAnalysis.DuplicateCodeAnalyzer", "PH2071:Duplicate shape found", Justification = "Structurally identical but operating on different entity types (PullRequestEntity vs IssueEntity).")]
-    public async Task UpdateIssueStateAsync(string repository, int issueNumber, string status, CancellationToken cancellationToken)
+    public async Task UpdateIssueStateAsync(string repository, int issueNumber, string status, WorkPriority priority, bool isOnHold, bool hasLinkedPr, CancellationToken cancellationToken)
     {
         await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(cancellationToken);
         IssueEntity? existing = await context.Issues.FindAsync(keyValues: [repository, issueNumber], cancellationToken: cancellationToken);
@@ -60,11 +61,11 @@ public sealed class NotificationStateTracker : INotificationStateTracker
 
         if (existing is null)
         {
-            context.Issues.Add(CreateIssueEntity(repository: repository, id: issueNumber, status: status, now: now));
+            context.Issues.Add(CreateIssueEntity(repository: repository, id: issueNumber, status: status, priority: priority, isOnHold: isOnHold, hasLinkedPr: hasLinkedPr, now: now));
         }
         else
         {
-            UpdateEntityStatus(entity: existing, status: status, now: now);
+            UpdateIssueEntity(entity: existing, status: status, priority: priority, isOnHold: isOnHold, hasLinkedPr: hasLinkedPr, now: now);
         }
 
         await context.SaveChangesAsync(cancellationToken);
@@ -75,35 +76,60 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         return string.Equals(a: status, b: ClosedStatus, comparisonType: StringComparison.OrdinalIgnoreCase);
     }
 
-    private static PullRequestEntity CreatePullRequestEntity(string repository, int id, string status, in DateTimeOffset now)
+    private static PullRequestEntity CreatePullRequestEntity(string repository, int id, string status, WorkPriority priority, bool isOnHold, in DateTimeOffset now)
     {
         return new PullRequestEntity
         {
             Repository = repository,
             Id = id,
             Status = status,
+            Priority = priority,
+            IsOnHold = isOnHold,
             FirstSeen = now,
             LastUpdated = now,
             WhenClosed = IsClosedStatus(status) ? now : null,
         };
     }
 
-    private static IssueEntity CreateIssueEntity(string repository, int id, string status, in DateTimeOffset now)
+    private static IssueEntity CreateIssueEntity(string repository, int id, string status, WorkPriority priority, bool isOnHold, bool hasLinkedPr, in DateTimeOffset now)
     {
         return new IssueEntity
         {
             Repository = repository,
             Id = id,
             Status = status,
+            Priority = priority,
+            IsOnHold = isOnHold,
+            HasLinkedPr = hasLinkedPr,
             FirstSeen = now,
             LastUpdated = now,
             WhenClosed = IsClosedStatus(status) ? now : null,
         };
     }
 
-    private static void UpdateEntityStatus(INotificationEntity entity, string status, in DateTimeOffset now)
+    private static void UpdatePullRequestEntity(PullRequestEntity entity, string status, WorkPriority priority, bool isOnHold, in DateTimeOffset now)
     {
         entity.Status = status;
+        entity.Priority = priority;
+        entity.IsOnHold = isOnHold;
+        entity.LastUpdated = now;
+
+        if (IsClosedStatus(status))
+        {
+            entity.WhenClosed ??= now;
+        }
+        else
+        {
+            entity.WhenClosed = null;
+        }
+    }
+
+    private static void UpdateIssueEntity(IssueEntity entity, string status, WorkPriority priority, bool isOnHold, bool hasLinkedPr, in DateTimeOffset now)
+    {
+        entity.Status = status;
+        entity.Priority = priority;
+        entity.IsOnHold = isOnHold;
+        entity.HasLinkedPr = hasLinkedPr;
         entity.LastUpdated = now;
 
         if (IsClosedStatus(status))

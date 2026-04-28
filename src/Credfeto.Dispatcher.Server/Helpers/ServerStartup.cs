@@ -1,15 +1,21 @@
 using System;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
+using System.Net;
 using System.Threading;
 using Credfeto.Date;
 using Credfeto.Dispatcher.Discord;
 using Credfeto.Dispatcher.Discord.Configuration;
 using Credfeto.Dispatcher.GitHub;
 using Credfeto.Dispatcher.GitHub.Configuration;
+using Credfeto.Dispatcher.Server.Configuration;
 using Credfeto.Dispatcher.Storage;
 using Credfeto.Random;
 using Credfeto.Services.Startup;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -17,11 +23,16 @@ using Microsoft.Extensions.Logging;
 using Serilog;
 using Serilog.Configuration;
 using Serilog.Core;
+using AppJsonContexts = Credfeto.Dispatcher.Server.AppJsonContexts;
 
 namespace Credfeto.Dispatcher.Server.Helpers;
 
 internal static class ServerStartup
 {
+    private const int HTTP_PORT = 8080;
+    private const int HTTPS_PORT = 8081;
+    private const int H2_PORT = 0;
+
     public static void SetThreads(int minThreads)
     {
         ThreadPool.GetMinThreads(out int minWorker, out int minIoc);
@@ -47,16 +58,83 @@ internal static class ServerStartup
         Console.WriteLine($"Max worker threads {maxWorker}, Max IOC threads {maxIoc}");
     }
 
-    public static IHost CreateApp(string[] args)
+    public static WebApplication CreateApp(string[] args)
     {
         string configPath = ApplicationConfigLocator.ConfigurationFilesPath;
 
-        return Host.CreateApplicationBuilder(args)
-            .ConfigureSettings(configPath)
+        WebApplication app = WebApplication
+            .CreateSlimBuilder(args)
+            .ConfigureSettings(configPath: configPath)
             .ConfigureServices()
             .ConfigureAppHost()
-            .ConfigureLogging()
+            .ConfigureWebHost(configPath: configPath)
             .Build();
+
+        app.MapEndpoints();
+
+        return app;
+    }
+
+    private static WebApplicationBuilder ConfigureAppHost(this WebApplicationBuilder builder)
+    {
+        builder.Host.UseWindowsService().UseSystemd();
+
+        return builder;
+    }
+
+    private static WebApplicationBuilder ConfigureServices(this WebApplicationBuilder builder)
+    {
+        IConfigurationSection gitHubSection = builder.Configuration.GetSection("GitHub");
+        IConfigurationSection discordSection = builder.Configuration.GetSection("Discord");
+        IConfigurationSection notificationQueueSection = builder.Configuration.GetSection("NotificationQueue");
+        IConfigurationSection prioritiesSection = builder.Configuration.GetSection("Priorities");
+
+        builder
+            .Services.Configure<GitHubOptions>(gitHubSection)
+            .Configure<DiscordOptions>(discordSection)
+            .Configure<NotificationQueueOptions>(notificationQueueSection)
+            .Configure<PrioritiesOptions>(prioritiesSection)
+            .AddDate()
+            .AddRandomNumbers()
+            .AddRunOnStartupServices()
+            .AddStorage(builder.Environment)
+            .AddGitHub()
+            .AddDiscord()
+            .ConfigureHttpJsonOptions(options =>
+                options.SerializerOptions.TypeInfoResolverChain.Insert(index: 0, item: AppJsonContexts.Default)
+            );
+
+        return builder;
+    }
+
+    private static WebApplicationBuilder ConfigureSettings(this WebApplicationBuilder builder, string configPath)
+    {
+        builder.Configuration.Sources.Clear();
+        builder
+            .Configuration.SetBasePath(configPath)
+            .AddJsonFile(path: "appsettings.json", optional: false, reloadOnChange: false)
+            .AddJsonFile(path: "appsettings-local.json", optional: true, reloadOnChange: false)
+            .AddEnvironmentVariables();
+
+        return builder;
+    }
+
+    private static WebApplicationBuilder ConfigureWebHost(this WebApplicationBuilder builder, string configPath)
+    {
+        builder
+            .WebHost.UseKestrel(options: options =>
+                SetKestrelOptions(
+                    options: options,
+                    httpPort: HTTP_PORT,
+                    httpsPort: HTTPS_PORT,
+                    h2Port: H2_PORT,
+                    configurationFilesPath: configPath
+                )
+            )
+            .UseSetting(key: WebHostDefaults.SuppressStatusMessagesKey, value: "True")
+            .ConfigureLogging((_, logger) => ConfigureLogging(logger));
+
+        return builder;
     }
 
     [SuppressMessage(
@@ -69,48 +147,9 @@ internal static class ServerStartup
         checkId: "CSE007:DisposeObjectsBeforeLosingScope",
         Justification = "Lives for program lifetime"
     )]
-    private static HostApplicationBuilder ConfigureLogging(this HostApplicationBuilder builder)
+    private static void ConfigureLogging(ILoggingBuilder logger)
     {
-        builder.Logging.ClearProviders().AddSerilog(CreateLogger(), dispose: true);
-
-        return builder;
-    }
-
-    private static HostApplicationBuilder ConfigureSettings(this HostApplicationBuilder builder, string configPath)
-    {
-        builder.Configuration.Sources.Clear();
-        builder
-            .Configuration.SetBasePath(configPath)
-            .AddJsonFile(path: "appsettings.json", optional: false, reloadOnChange: false)
-            .AddJsonFile(path: "appsettings-local.json", optional: true, reloadOnChange: false)
-            .AddEnvironmentVariables();
-
-        return builder;
-    }
-
-    private static HostApplicationBuilder ConfigureServices(this HostApplicationBuilder builder)
-    {
-        IConfigurationSection gitHubSection = builder.Configuration.GetSection("GitHub");
-        IConfigurationSection discordSection = builder.Configuration.GetSection("Discord");
-        IConfigurationSection notificationQueueSection = builder.Configuration.GetSection("NotificationQueue");
-
-        builder
-            .Services.Configure<GitHubOptions>(gitHubSection)
-            .Configure<DiscordOptions>(discordSection)
-            .Configure<NotificationQueueOptions>(notificationQueueSection)
-            .AddDate()
-            .AddRandomNumbers()
-            .AddRunOnStartupServices()
-            .AddStorage(builder.Environment)
-            .AddGitHub()
-            .AddDiscord();
-
-        return builder;
-    }
-
-    private static HostApplicationBuilder ConfigureAppHost(this HostApplicationBuilder builder)
-    {
-        return builder;
+        logger.ClearProviders().AddSerilog(CreateLogger(), dispose: true);
     }
 
     private static Logger CreateLogger()
@@ -132,5 +171,57 @@ internal static class ServerStartup
         LoggerSinkConfiguration writeTo = configuration.WriteTo;
 
         return Debugger.IsAttached ? writeTo.Debug() : writeTo.Console();
+    }
+
+    private static void SetH1ListenOptions(ListenOptions listenOptions)
+    {
+        listenOptions.Protocols = HttpProtocols.Http1;
+    }
+
+    private static void SetH2ListenOptions(ListenOptions listenOptions)
+    {
+        listenOptions.Protocols = HttpProtocols.Http2;
+    }
+
+    private static void SetHttpsListenOptions(ListenOptions listenOptions, string certFile)
+    {
+        listenOptions.Protocols = HttpProtocols.Http1AndHttp2AndHttp3;
+        listenOptions.UseHttps(fileName: certFile);
+    }
+
+    private static void SetKestrelOptions(
+        KestrelServerOptions options,
+        int httpPort,
+        int httpsPort,
+        int h2Port,
+        string configurationFilesPath
+    )
+    {
+        options.DisableStringReuse = false;
+        options.AllowSynchronousIO = false;
+        options.AddServerHeader = false;
+        options.Limits.MinResponseDataRate = null;
+        options.Limits.MinRequestBodyDataRate = null;
+
+        string certFile = Path.Combine(path1: configurationFilesPath, path2: "server.pfx");
+
+        if (httpsPort != 0 && File.Exists(certFile))
+        {
+            Console.WriteLine($"Listening on HTTPS port: {httpsPort}");
+            options.Listen(
+                address: IPAddress.Any,
+                port: httpsPort,
+                configure: o => SetHttpsListenOptions(listenOptions: o, certFile: certFile)
+            );
+        }
+
+        if (h2Port != 0)
+        {
+            Console.WriteLine($"Listening on H2 port: {h2Port}");
+            options.Listen(address: IPAddress.Any, port: h2Port, configure: SetH2ListenOptions);
+        }
+
+        Console.WriteLine($"Listening on HTTP port: {httpPort}");
+        options.Listen(address: IPAddress.Any, port: httpPort, configure: SetH1ListenOptions);
     }
 }

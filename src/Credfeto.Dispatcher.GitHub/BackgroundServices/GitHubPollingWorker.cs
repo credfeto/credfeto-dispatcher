@@ -170,10 +170,15 @@ public sealed class GitHubPollingWorker : BackgroundService
             this._logger.LogSkippingClosedItem(notificationId: notification.Id, repository: notification.Repository.FullName, itemId: details.Number, itemType: PullRequestType);
         }
 
+        WorkPriority prPriority = LabelParser.ParsePriority(details.Labels);
+        bool prIsOnHold = LabelParser.IsOnHold(labels: details.Labels, noWorkFilter: this._options.Filter.NoWorkFilter);
+
         await this._notificationStateTracker.UpdatePullRequestStateAsync(
             repository: notification.Repository.FullName,
             pullRequestNumber: details.Number,
             status: details.Status,
+            priority: prPriority,
+            isOnHold: prIsOnHold,
             cancellationToken: cancellationToken);
 
         return true;
@@ -203,10 +208,17 @@ public sealed class GitHubPollingWorker : BackgroundService
             this._logger.LogSkippingClosedItem(notificationId: notification.Id, repository: notification.Repository.FullName, itemId: details.Number, itemType: IssueType);
         }
 
+        WorkPriority issuePriority = LabelParser.ParsePriority(details.Labels);
+        bool issueIsOnHold = LabelParser.IsOnHold(labels: details.Labels, noWorkFilter: this._options.Filter.NoWorkFilter);
+        bool issueHasLinkedPr = details.LinkedPullRequestUrl is not null;
+
         await this._notificationStateTracker.UpdateIssueStateAsync(
             repository: notification.Repository.FullName,
             issueNumber: details.Number,
             status: details.Status,
+            priority: issuePriority,
+            isOnHold: issueIsOnHold,
+            hasLinkedPr: issueHasLinkedPr,
             cancellationToken: cancellationToken);
 
         return true;

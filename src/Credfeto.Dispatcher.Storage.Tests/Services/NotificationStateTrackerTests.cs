@@ -3,6 +3,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Date.Interfaces;
+using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Interfaces;
 using FunFair.Test.Common;
 using Microsoft.EntityFrameworkCore;
@@ -71,6 +72,8 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
         return this._tracker.UpdatePullRequestStateAsync(repository: TestRepository,
                                                          pullRequestNumber: TestPullRequestNumber,
                                                          status: OpenStatus,
+                                                         priority: WorkPriority.Unknown,
+                                                         isOnHold: false,
                                                          cancellationToken: this.CancellationToken());
     }
 
@@ -80,11 +83,15 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
         await this._tracker.UpdatePullRequestStateAsync(repository: TestRepository,
                                                         pullRequestNumber: TestPullRequestNumber,
                                                         status: OpenStatus,
+                                                        priority: WorkPriority.Unknown,
+                                                        isOnHold: false,
                                                         cancellationToken: this.CancellationToken());
 
         await this._tracker.UpdatePullRequestStateAsync(repository: TestRepository,
                                                         pullRequestNumber: TestPullRequestNumber,
                                                         status: ClosedStatus,
+                                                        priority: WorkPriority.Unknown,
+                                                        isOnHold: false,
                                                         cancellationToken: this.CancellationToken());
     }
 
@@ -116,6 +123,9 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
         return this._tracker.UpdateIssueStateAsync(repository: TestRepository,
                                                    issueNumber: TestIssueNumber,
                                                    status: OpenStatus,
+                                                   priority: WorkPriority.Unknown,
+                                                   isOnHold: false,
+                                                   hasLinkedPr: false,
                                                    cancellationToken: this.CancellationToken());
     }
 
@@ -125,11 +135,17 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
         await this._tracker.UpdateIssueStateAsync(repository: TestRepository,
                                                   issueNumber: TestIssueNumber,
                                                   status: OpenStatus,
+                                                  priority: WorkPriority.Unknown,
+                                                  isOnHold: false,
+                                                  hasLinkedPr: false,
                                                   cancellationToken: this.CancellationToken());
 
         await this._tracker.UpdateIssueStateAsync(repository: TestRepository,
                                                   issueNumber: TestIssueNumber,
                                                   status: ClosedStatus,
+                                                  priority: WorkPriority.Unknown,
+                                                  isOnHold: false,
+                                                  hasLinkedPr: false,
                                                   cancellationToken: this.CancellationToken());
     }
 

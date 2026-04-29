@@ -6,6 +6,7 @@ internal static partial class Endpoints
 {
     public static void MapEndpoints(this WebApplication app)
     {
+        app.MapPingEndpoints();
         app.MapWorkItemEndpoints();
     }
 }

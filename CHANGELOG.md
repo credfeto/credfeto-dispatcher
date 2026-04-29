@@ -10,6 +10,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 
 ## [Unreleased]
 ### Added
+- `GET /ping` lightweight health check endpoint returning `{"value":"Pong!"}` without touching the database
 - `docker-compose.yml` with port mappings for HTTP (8080) and HTTPS (8081)
 - `EXPOSE 8081` added to Dockerfile for the HTTPS Kestrel endpoint
 - `.http` test file for all server endpoints (localhost:8080)

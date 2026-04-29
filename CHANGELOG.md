@@ -10,6 +10,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 
 ## [Unreleased]
 ### Added
+- `.http` test file for all server endpoints (localhost:8080)
 - `GET /priorities` endpoint returning active work items ordered by owner priority, repo priority, type (PRs before issues), urgency, and age
 - `Priorities` configuration section with `Owners` and `Repos` arrays to control ordering
 - `WorkPriority` enum (Unknown, Low, Medium, High, Urgent) derived from GitHub labels

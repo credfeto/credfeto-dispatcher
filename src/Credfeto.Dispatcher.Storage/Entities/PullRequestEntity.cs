@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using Credfeto.Dispatcher.GitHub.DataTypes;
 
 namespace Credfeto.Dispatcher.Storage.Entities;
 
@@ -17,4 +18,8 @@ public sealed class PullRequestEntity : INotificationEntity
     public DateTimeOffset LastUpdated { get; set; }
 
     public DateTimeOffset? WhenClosed { get; set; }
+
+    public WorkPriority Priority { get; set; } = WorkPriority.Unknown;
+
+    public bool IsOnHold { get; set; }
 }

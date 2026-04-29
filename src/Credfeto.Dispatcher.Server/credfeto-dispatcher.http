@@ -1,0 +1,8 @@
+@credfeto_dispatcher_HostAddress = http://localhost:8080
+
+###
+
+GET {{credfeto_dispatcher_HostAddress}}/priorities
+Accept: application/json
+
+###

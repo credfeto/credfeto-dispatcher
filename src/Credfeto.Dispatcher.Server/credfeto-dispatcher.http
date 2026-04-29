@@ -2,6 +2,11 @@
 
 ###
 
+GET {{credfeto_dispatcher_HostAddress}}/ping
+Accept: application/json
+
+###
+
 GET {{credfeto_dispatcher_HostAddress}}/priorities
 Accept: application/json
 

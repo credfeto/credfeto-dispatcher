@@ -56,6 +56,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Replaced try/finally pattern with using declaration for HttpResponseMessage disposal
 - Updated X-GitHub-Api-Version header to 2026-03-10
 - Simplified DiscordWebhookDispatcher.SendAsync to use PostAsync directly instead of manually building HttpRequestMessage
+- Dependencies - Updated Credfeto.Enumeration to 1.2.141.1822
 ### Deprecated
 ### Removed
 ### Security

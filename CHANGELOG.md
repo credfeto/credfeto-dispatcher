@@ -57,6 +57,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Updated X-GitHub-Api-Version header to 2026-03-10
 - Simplified DiscordWebhookDispatcher.SendAsync to use PostAsync directly instead of manually building HttpRequestMessage
 - Dependencies - Updated Credfeto.Enumeration to 1.2.141.1822
+- Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.123.1157
 ### Deprecated
 ### Removed
 ### Security

@@ -62,6 +62,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Dependencies - Updated Meziantou.Analyzer to 3.0.54
 - Dependencies - Updated SonarAnalyzer.CSharp to 10.24.0.138807
 - Dependencies - Updated Credfeto.Random to 1.0.149.1635
+- Dependencies - Updated Credfeto.Services.Startup to 1.1.144.1565
 ### Deprecated
 ### Removed
 ### Security

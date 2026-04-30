@@ -50,7 +50,7 @@
   <ItemGroup>
     <PackageReference Include="Credfeto.Date" Version="1.1.150.1668" />
     <PackageReference Include="Credfeto.Date.Interfaces" Version="1.1.150.1668" />
-    <PackageReference Include="Credfeto.Services.Startup.Interfaces" Version="1.1.143.1554" />
+    <PackageReference Include="Credfeto.Services.Startup.Interfaces" Version="1.1.144.1565" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.6" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.6" />
     <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.5.0" />

@@ -58,6 +58,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Simplified DiscordWebhookDispatcher.SendAsync to use PostAsync directly instead of manually building HttpRequestMessage
 - Dependencies - Updated Credfeto.Enumeration to 1.2.141.1822
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.123.1157
+- Dependencies - Updated FunFair.CodeAnalysis to 7.1.39.1841
 ### Deprecated
 ### Removed
 ### Security

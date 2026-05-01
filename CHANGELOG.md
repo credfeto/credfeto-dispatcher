@@ -10,6 +10,18 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 
 ## [Unreleased]
 ### Added
+### Fixed
+### Changed
+### Deprecated
+### Removed
+### Security
+### Deployment Changes
+
+<!--
+Releases that have at least been deployed to staging, BUT NOT necessarily released to live.  Changes should be moved from [Unreleased] into here as they are merged into the appropriate release branch
+-->
+## [0.0.1] - 2026-05-01
+### Added
 - `GET /ping` lightweight health check endpoint returning `{"value":"Pong!"}` without touching the database
 - `docker-compose.yml` with port mappings for HTTP (8080) and HTTPS (8081)
 - `EXPOSE 8081` added to Dockerfile for the HTTPS Kestrel endpoint
@@ -64,12 +76,5 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Dependencies - Updated Credfeto.Random to 1.0.149.1635
 - Dependencies - Updated Credfeto.Services.Startup to 1.1.144.1565
 - Dependencies - Updated Microsoft.Extensions to 10.0.7
-### Deprecated
-### Removed
-### Security
-### Deployment Changes
 
-<!--
-Releases that have at least been deployed to staging, BUT NOT necessarily released to live.  Changes should be moved from [Unreleased] into here as they are merged into the appropriate release branch
--->
 ## [0.0.0] - Project created

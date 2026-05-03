@@ -60,7 +60,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Credfeto.Date" Version="1.1.151.1695" />
-    <PackageReference Include="Credfeto.Random" Version="1.0.149.1635" />
+    <PackageReference Include="Credfeto.Random" Version="1.0.150.1663" />
     <PackageReference Include="Credfeto.Services.Startup" Version="1.1.144.1565" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Systemd" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.7" />

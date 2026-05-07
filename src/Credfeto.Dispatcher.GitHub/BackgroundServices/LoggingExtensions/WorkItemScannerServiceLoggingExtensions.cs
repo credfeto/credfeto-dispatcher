@@ -13,6 +13,13 @@ internal static partial class WorkItemScannerServiceLoggingExtensions
     public static partial void LogScannerStarting(this ILogger logger);
 
     [LoggerMessage(
+        EventId = 3,
+        Level = LogLevel.Warning,
+        Message = "Work item scanner: no repos configured - scanner will not run. Configure GitHub:Scan:Repos to enable."
+    )]
+    public static partial void LogNoReposConfigured(this ILogger logger);
+
+    [LoggerMessage(
         EventId = 1,
         Level = LogLevel.Information,
         Message = "Work item scanner service stopping"

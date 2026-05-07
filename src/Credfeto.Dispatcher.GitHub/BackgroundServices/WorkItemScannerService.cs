@@ -31,6 +31,8 @@ public sealed class WorkItemScannerService : BackgroundService
     {
         if (this._scanOptions.Repos.Count == 0)
         {
+            this._logger.LogNoReposConfigured();
+
             return;
         }
 

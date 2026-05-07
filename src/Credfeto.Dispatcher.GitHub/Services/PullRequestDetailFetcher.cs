@@ -27,32 +27,59 @@ public sealed class PullRequestDetailFetcher : IPullRequestDetailFetcher
         this._httpClientFactory = httpClientFactory;
     }
 
-    public async ValueTask<PullRequestDetails?> FetchAsync(GitHubNotification notification, CancellationToken cancellationToken)
+    public async ValueTask<PullRequestDetails?> FetchAsync(
+        GitHubNotification notification,
+        CancellationToken cancellationToken
+    )
     {
-        if (!string.Equals(a: notification.Subject.Type, b: PullRequestType, comparisonType: StringComparison.OrdinalIgnoreCase))
+        if (
+            !string.Equals(
+                a: notification.Subject.Type,
+                b: PullRequestType,
+                comparisonType: StringComparison.OrdinalIgnoreCase
+            )
+        )
         {
             return null;
         }
 
         string apiUrl = notification.Subject.Url.ToString();
-        ApiPullRequest? pr = await this.GetAsync<ApiPullRequest>(url: apiUrl, jsonTypeInfo: NotificationSerializerContext.Default.ApiPullRequest, cancellationToken: cancellationToken);
+        ApiPullRequest? pr = await this.GetAsync<ApiPullRequest>(
+            url: apiUrl,
+            jsonTypeInfo: NotificationSerializerContext.Default.ApiPullRequest,
+            cancellationToken: cancellationToken
+        );
 
         if (pr is null)
         {
             return null;
         }
 
-        (string? commentBody, string? commentAuthor, Uri? commentUrl) = await this.FetchCommentAsync(notification: notification, apiUrl: apiUrl, cancellationToken: cancellationToken);
-        (string? reviewState, string? reviewBody, string? reviewAuthor, Uri? reviewUrl) = await this.FetchReviewAsync(notification: notification, apiUrl: apiUrl, cancellationToken: cancellationToken);
-        (string? failedRunName, Uri? failedRunUrl) = await this.FetchFailedRunAsync(notification: notification, pr: pr, cancellationToken: cancellationToken);
+        (string? commentBody, string? commentAuthor, Uri? commentUrl) =
+            await this.FetchCommentAsync(
+                notification: notification,
+                apiUrl: apiUrl,
+                cancellationToken: cancellationToken
+            );
+        (string? reviewState, string? reviewBody, string? reviewAuthor, Uri? reviewUrl) =
+            await this.FetchReviewAsync(
+                notification: notification,
+                apiUrl: apiUrl,
+                cancellationToken: cancellationToken
+            );
+        (string? failedRunName, Uri? failedRunUrl) = await this.FetchFailedRunAsync(
+            notification: notification,
+            pr: pr,
+            cancellationToken: cancellationToken
+        );
 
         return new PullRequestDetails(
             Number: pr.Number,
             Title: pr.Title,
             Status: DetermineStatus(pr),
             HtmlUrl: new Uri(pr.HtmlUrl),
-            Assignees: [..pr.Assignees.Select(u => u.Login)],
-            Labels: [..pr.Labels.Select(l => l.Name)],
+            Assignees: [.. pr.Assignees.Select(u => u.Login)],
+            Labels: [.. pr.Labels.Select(l => l.Name)],
             CommentBody: commentBody,
             CommentAuthor: commentAuthor,
             CommentUrl: commentUrl,
@@ -65,15 +92,29 @@ public sealed class PullRequestDetailFetcher : IPullRequestDetailFetcher
         );
     }
 
-    private async ValueTask<(string? body, string? author, Uri? url)> FetchCommentAsync(GitHubNotification notification, string apiUrl, CancellationToken cancellationToken)
+    private async ValueTask<(string? body, string? author, Uri? url)> FetchCommentAsync(
+        GitHubNotification notification,
+        string apiUrl,
+        CancellationToken cancellationToken
+    )
     {
-        if (!string.Equals(a: notification.Reason, b: CommentReason, comparisonType: StringComparison.OrdinalIgnoreCase))
+        if (
+            !string.Equals(
+                a: notification.Reason,
+                b: CommentReason,
+                comparisonType: StringComparison.OrdinalIgnoreCase
+            )
+        )
         {
             return (null, null, null);
         }
 
         string commentsUrl = BuildCommentsUrl(apiUrl);
-        ApiIssueComment[]? comments = await this.GetAsync<ApiIssueComment[]>(url: commentsUrl, jsonTypeInfo: NotificationSerializerContext.Default.ApiIssueCommentArray, cancellationToken: cancellationToken);
+        ApiIssueComment[]? comments = await this.GetAsync<ApiIssueComment[]>(
+            url: commentsUrl,
+            jsonTypeInfo: NotificationSerializerContext.Default.ApiIssueCommentArray,
+            cancellationToken: cancellationToken
+        );
         ApiIssueComment? latest = comments?.LastOrDefault();
 
         if (latest is null)
@@ -84,35 +125,88 @@ public sealed class PullRequestDetailFetcher : IPullRequestDetailFetcher
         return (TruncateBody(latest.Body), latest.User.Login, new Uri(latest.HtmlUrl));
     }
 
-    private async ValueTask<(string? state, string? body, string? author, Uri? url)> FetchReviewAsync(GitHubNotification notification, string apiUrl, CancellationToken cancellationToken)
+    private async ValueTask<(
+        string? state,
+        string? body,
+        string? author,
+        Uri? url
+    )> FetchReviewAsync(
+        GitHubNotification notification,
+        string apiUrl,
+        CancellationToken cancellationToken
+    )
     {
-        if (!string.Equals(a: notification.Reason, b: ReviewRequestedReason, comparisonType: StringComparison.OrdinalIgnoreCase))
+        if (
+            !string.Equals(
+                a: notification.Reason,
+                b: ReviewRequestedReason,
+                comparisonType: StringComparison.OrdinalIgnoreCase
+            )
+        )
         {
             return (null, null, null, null);
         }
 
         string reviewsUrl = BuildReviewsUrl(apiUrl);
-        ApiPullRequestReview[]? reviews = await this.GetAsync<ApiPullRequestReview[]>(url: reviewsUrl, jsonTypeInfo: NotificationSerializerContext.Default.ApiPullRequestReviewArray, cancellationToken: cancellationToken);
-        ApiPullRequestReview? changesRequested = reviews?.LastOrDefault(r => string.Equals(a: r.State, b: ChangesRequestedState, comparisonType: StringComparison.OrdinalIgnoreCase));
+        ApiPullRequestReview[]? reviews = await this.GetAsync<ApiPullRequestReview[]>(
+            url: reviewsUrl,
+            jsonTypeInfo: NotificationSerializerContext.Default.ApiPullRequestReviewArray,
+            cancellationToken: cancellationToken
+        );
+        ApiPullRequestReview? changesRequested = reviews?.LastOrDefault(r =>
+            string.Equals(
+                a: r.State,
+                b: ChangesRequestedState,
+                comparisonType: StringComparison.OrdinalIgnoreCase
+            )
+        );
 
         if (changesRequested is null)
         {
             return (null, null, null, null);
         }
 
-        return (changesRequested.State, TruncateBody(changesRequested.Body), changesRequested.User.Login, new Uri(changesRequested.HtmlUrl));
+        return (
+            changesRequested.State,
+            TruncateBody(changesRequested.Body),
+            changesRequested.User.Login,
+            new Uri(changesRequested.HtmlUrl)
+        );
     }
 
-    private async ValueTask<(string? name, Uri? url)> FetchFailedRunAsync(GitHubNotification notification, ApiPullRequest pr, CancellationToken cancellationToken)
+    private async ValueTask<(string? name, Uri? url)> FetchFailedRunAsync(
+        GitHubNotification notification,
+        ApiPullRequest pr,
+        CancellationToken cancellationToken
+    )
     {
-        if (!string.Equals(a: notification.Reason, b: CiActivityReason, comparisonType: StringComparison.OrdinalIgnoreCase))
+        if (
+            !string.Equals(
+                a: notification.Reason,
+                b: CiActivityReason,
+                comparisonType: StringComparison.OrdinalIgnoreCase
+            )
+        )
         {
             return (null, null);
         }
 
-        string runsUrl = BuildWorkflowRunsUrl(repoFullName: notification.Repository.FullName, headSha: pr.Head.Sha);
-        ApiWorkflowRunsResponse? runsResponse = await this.GetAsync<ApiWorkflowRunsResponse>(url: runsUrl, jsonTypeInfo: NotificationSerializerContext.Default.ApiWorkflowRunsResponse, cancellationToken: cancellationToken);
-        ApiWorkflowRun? failedRun = runsResponse?.WorkflowRuns.FirstOrDefault(r => string.Equals(a: r.Conclusion, b: "failure", comparisonType: StringComparison.OrdinalIgnoreCase));
+        string runsUrl = BuildWorkflowRunsUrl(
+            repoFullName: notification.Repository.FullName,
+            headSha: pr.Head.Sha
+        );
+        ApiWorkflowRunsResponse? runsResponse = await this.GetAsync<ApiWorkflowRunsResponse>(
+            url: runsUrl,
+            jsonTypeInfo: NotificationSerializerContext.Default.ApiWorkflowRunsResponse,
+            cancellationToken: cancellationToken
+        );
+        ApiWorkflowRun? failedRun = runsResponse?.WorkflowRuns.FirstOrDefault(r =>
+            string.Equals(
+                a: r.Conclusion,
+                b: "failure",
+                comparisonType: StringComparison.OrdinalIgnoreCase
+            )
+        );
 
         if (failedRun is null)
         {
@@ -124,7 +218,13 @@ public sealed class PullRequestDetailFetcher : IPullRequestDetailFetcher
 
     private static string DetermineStatus(ApiPullRequest pr)
     {
-        if (string.Equals(a: pr.State, b: "closed", comparisonType: StringComparison.OrdinalIgnoreCase))
+        if (
+            string.Equals(
+                a: pr.State,
+                b: "closed",
+                comparisonType: StringComparison.OrdinalIgnoreCase
+            )
+        )
         {
             return "Closed";
         }
@@ -134,7 +234,11 @@ public sealed class PullRequestDetailFetcher : IPullRequestDetailFetcher
 
     private static string BuildCommentsUrl(string pullRequestApiUrl)
     {
-        return pullRequestApiUrl.Replace(oldValue: "/pulls/", newValue: "/issues/", comparisonType: StringComparison.Ordinal) + "/comments?per_page=1&direction=desc";
+        return pullRequestApiUrl.Replace(
+                oldValue: "/pulls/",
+                newValue: "/issues/",
+                comparisonType: StringComparison.Ordinal
+            ) + "/comments?per_page=1&direction=desc";
     }
 
     private static string BuildReviewsUrl(string pullRequestApiUrl)
@@ -152,13 +256,20 @@ public sealed class PullRequestDetailFetcher : IPullRequestDetailFetcher
         return body.Length <= MaxBodyLength ? body : body[..MaxBodyLength] + "…";
     }
 
-    private async ValueTask<T?> GetAsync<T>(string url, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> jsonTypeInfo, CancellationToken cancellationToken)
+    private async ValueTask<T?> GetAsync<T>(
+        string url,
+        System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> jsonTypeInfo,
+        CancellationToken cancellationToken
+    )
         where T : class
     {
         HttpClient httpClient = this._httpClientFactory.CreateClient("GitHub");
 
         using HttpRequestMessage request = new(method: HttpMethod.Get, requestUri: url);
-        using HttpResponseMessage response = await httpClient.SendAsync(request: request, cancellationToken: cancellationToken);
+        using HttpResponseMessage response = await httpClient.SendAsync(
+            request: request,
+            cancellationToken: cancellationToken
+        );
 
         if (!response.IsSuccessStatusCode)
         {

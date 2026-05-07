@@ -6,5 +6,8 @@ namespace Credfeto.Dispatcher.GitHub.Interfaces;
 
 public interface IIssueDetailFetcher
 {
-    ValueTask<IssueDetails?> FetchAsync(GitHubNotification notification, CancellationToken cancellationToken);
+    ValueTask<IssueDetails?> FetchAsync(
+        GitHubNotification notification,
+        CancellationToken cancellationToken
+    );
 }

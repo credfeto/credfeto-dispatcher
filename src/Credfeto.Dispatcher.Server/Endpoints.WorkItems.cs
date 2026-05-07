@@ -15,10 +15,7 @@ internal static partial class Endpoints
 {
     public static void MapWorkItemEndpoints(this WebApplication app)
     {
-        app.MapGet(
-            pattern: "/priorities",
-            handler: GetPrioritiesAsync
-        );
+        app.MapGet(pattern: "/priorities", handler: GetPrioritiesAsync);
     }
 
     private static async Task<IResult> GetPrioritiesAsync(

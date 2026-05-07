@@ -15,7 +15,9 @@ public sealed class GitHubOptionsValidator : IValidateOptions<GitHubOptions>
 
         if (options.PollIntervalSeconds < MinimumPollIntervalSeconds)
         {
-            return ValidateOptionsResult.Fail($"GitHub PollIntervalSeconds must be at least {MinimumPollIntervalSeconds}.");
+            return ValidateOptionsResult.Fail(
+                $"GitHub PollIntervalSeconds must be at least {MinimumPollIntervalSeconds}."
+            );
         }
 
         return ValidateOptionsResult.Success;

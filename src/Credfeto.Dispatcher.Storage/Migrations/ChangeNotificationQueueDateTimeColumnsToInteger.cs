@@ -8,14 +8,19 @@ namespace Credfeto.Dispatcher.Storage.Migrations;
 
 [DbContext(typeof(DispatcherDbContext))]
 [Migration("20260425000000_ChangeNotificationQueueDateTimeColumnsToInteger")]
-[SuppressMessage("Philips.CodeAnalysis.DuplicateCodeAnalyzer", "PH2071:Duplicate shape found", Justification = "Migration Up/Down methods necessarily mirror each other; Up creates with INTEGER columns, Down recreates with TEXT columns.")]
+[SuppressMessage(
+    "Philips.CodeAnalysis.DuplicateCodeAnalyzer",
+    "PH2071:Duplicate shape found",
+    Justification = "Migration Up/Down methods necessarily mirror each other; Up creates with INTEGER columns, Down recreates with TEXT columns."
+)]
 public sealed partial class ChangeNotificationQueueDateTimeColumnsToInteger : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)
     {
         migrationBuilder.DropIndex(
             name: "IX_NotificationQueue_DispatchAfter",
-            table: "NotificationQueue");
+            table: "NotificationQueue"
+        );
 
         migrationBuilder.DropTable(name: "NotificationQueue");
 
@@ -37,19 +42,22 @@ public sealed partial class ChangeNotificationQueueDateTimeColumnsToInteger : Mi
             constraints: table =>
             {
                 table.PrimaryKey("PK_NotificationQueue", x => x.SubjectUrl);
-            });
+            }
+        );
 
         migrationBuilder.CreateIndex(
             name: "IX_NotificationQueue_DispatchAfter",
             table: "NotificationQueue",
-            column: "DispatchAfter");
+            column: "DispatchAfter"
+        );
     }
 
     protected override void Down(MigrationBuilder migrationBuilder)
     {
         migrationBuilder.DropIndex(
             name: "IX_NotificationQueue_DispatchAfter",
-            table: "NotificationQueue");
+            table: "NotificationQueue"
+        );
 
         migrationBuilder.DropTable(name: "NotificationQueue");
 
@@ -71,11 +79,13 @@ public sealed partial class ChangeNotificationQueueDateTimeColumnsToInteger : Mi
             constraints: table =>
             {
                 table.PrimaryKey("PK_NotificationQueue", x => x.SubjectUrl);
-            });
+            }
+        );
 
         migrationBuilder.CreateIndex(
             name: "IX_NotificationQueue_DispatchAfter",
             table: "NotificationQueue",
-            column: "DispatchAfter");
+            column: "DispatchAfter"
+        );
     }
 }

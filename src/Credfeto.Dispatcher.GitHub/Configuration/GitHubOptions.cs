@@ -10,4 +10,6 @@ public sealed class GitHubOptions
     public int PollIntervalSeconds { get; init; } = 60;
 
     public GitHubFilterOptions Filter { get; init; } = new();
+
+    public GitHubScanOptions Scan { get; init; } = new();
 }

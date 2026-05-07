@@ -12,14 +12,15 @@ namespace Credfeto.Dispatcher.Discord.Tests;
 public sealed class DiscordSetupTests : DependencyInjectionTestsBase
 {
     public DiscordSetupTests(ITestOutputHelper output)
-        : base(output: output, dependencyInjectionRegistration: Configure)
-    {
-    }
+        : base(output: output, dependencyInjectionRegistration: Configure) { }
 
     private static IServiceCollection Configure(IServiceCollection services)
     {
-        return services.AddDiscord()
-                       .AddMockedService<IOptions<DiscordOptions>>(static o => o.Value.Returns(new DiscordOptions()));
+        return services
+            .AddDiscord()
+            .AddMockedService<IOptions<DiscordOptions>>(static o =>
+                o.Value.Returns(new DiscordOptions())
+            );
     }
 
     [Fact]

@@ -18,7 +18,9 @@ public sealed class StartupNotificationService : BackgroundService
 {
     private static readonly Uri GitHubNotificationsUri = new("https://github.com/notifications");
     private static readonly Uri GitHubTokenSettingsUri = new("https://github.com/settings/tokens");
-    private static readonly Uri RepositoryUri = new("https://github.com/credfeto/credfeto-dispatcher");
+    private static readonly Uri RepositoryUri = new(
+        "https://github.com/credfeto/credfeto-dispatcher"
+    );
 
     private readonly ICurrentTimeSource _currentTimeSource;
     private readonly IDiscordDispatcher _discordDispatcher;
@@ -46,7 +48,10 @@ public sealed class StartupNotificationService : BackgroundService
         {
             DiscordMessage message = BuildAppStartedMessage(this._currentTimeSource.UtcNow());
 
-            await this._discordDispatcher.SendAsync(message: message, cancellationToken: cancellationToken);
+            await this._discordDispatcher.SendAsync(
+                message: message,
+                cancellationToken: cancellationToken
+            );
         }
         catch (Exception exception)
         {
@@ -65,10 +70,15 @@ public sealed class StartupNotificationService : BackgroundService
     {
         string machineName = Environment.MachineName;
         Assembly assembly = typeof(StartupNotificationService).Assembly;
-        string product = assembly.GetCustomAttribute<AssemblyProductAttribute>()?.Product ?? "Credfeto Dispatcher";
-        string version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-                         ?? assembly.GetName().Version?.ToString()
-                         ?? "unknown";
+        string product =
+            assembly.GetCustomAttribute<AssemblyProductAttribute>()?.Product
+            ?? "Credfeto Dispatcher";
+        string version =
+            assembly
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+                ?.InformationalVersion
+            ?? assembly.GetName().Version?.ToString()
+            ?? "unknown";
 
         DiscordEmbed embed = new(
             Title: "Application started",
@@ -90,13 +100,20 @@ public sealed class StartupNotificationService : BackgroundService
 
             await this.TrySendAuthSuccessMessageAsync(cancellationToken);
         }
-        catch (HttpRequestException httpException) when (httpException.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+        catch (HttpRequestException httpException)
+            when (httpException.StatusCode
+                    is HttpStatusCode.Unauthorized
+                        or HttpStatusCode.Forbidden
+            )
         {
             int statusCode = (int)(httpException.StatusCode ?? HttpStatusCode.Unauthorized);
 
             this._logger.LogGitHubAuthenticationFailed(statusCode: statusCode);
 
-            await this.TrySendAuthFailureMessageAsync(statusCode: statusCode, cancellationToken: cancellationToken);
+            await this.TrySendAuthFailureMessageAsync(
+                statusCode: statusCode,
+                cancellationToken: cancellationToken
+            );
         }
         catch (OperationCanceledException exception)
         {
@@ -119,9 +136,15 @@ public sealed class StartupNotificationService : BackgroundService
                 Color: 0x57F287
             );
 
-            DiscordMessage message = new(Content: "\u2705 GitHub auth check passed", Embeds: [embed]);
+            DiscordMessage message = new(
+                Content: "\u2705 GitHub auth check passed",
+                Embeds: [embed]
+            );
 
-            await this._discordDispatcher.SendAsync(message: message, cancellationToken: cancellationToken);
+            await this._discordDispatcher.SendAsync(
+                message: message,
+                cancellationToken: cancellationToken
+            );
         }
         catch (Exception exception)
         {
@@ -129,7 +152,10 @@ public sealed class StartupNotificationService : BackgroundService
         }
     }
 
-    private async ValueTask TrySendAuthFailureMessageAsync(int statusCode, CancellationToken cancellationToken)
+    private async ValueTask TrySendAuthFailureMessageAsync(
+        int statusCode,
+        CancellationToken cancellationToken
+    )
     {
         try
         {
@@ -140,9 +166,15 @@ public sealed class StartupNotificationService : BackgroundService
                 Color: 0xED4245
             );
 
-            DiscordMessage message = new(Content: "\u274c GitHub auth check failed", Embeds: [embed]);
+            DiscordMessage message = new(
+                Content: "\u274c GitHub auth check failed",
+                Embeds: [embed]
+            );
 
-            await this._discordDispatcher.SendAsync(message: message, cancellationToken: cancellationToken);
+            await this._discordDispatcher.SendAsync(
+                message: message,
+                cancellationToken: cancellationToken
+            );
         }
         catch (Exception exception)
         {

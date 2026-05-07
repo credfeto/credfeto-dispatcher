@@ -39,7 +39,11 @@ internal static class LabelParser
     {
         return labels.Any(label =>
             noWorkFilter.Any(filter =>
-                string.Equals(a: label, b: filter, comparisonType: StringComparison.OrdinalIgnoreCase)
+                string.Equals(
+                    a: label,
+                    b: filter,
+                    comparisonType: StringComparison.OrdinalIgnoreCase
+                )
             )
         );
     }

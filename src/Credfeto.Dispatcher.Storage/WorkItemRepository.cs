@@ -28,7 +28,9 @@ public sealed class WorkItemRepository : IWorkItemRepository
         CancellationToken cancellationToken
     )
     {
-        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(cancellationToken);
+        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(
+            cancellationToken
+        );
 
         List<WorkItem> pullRequests = await context
             .PullRequests.Where(e => e.Status != ClosedStatus && !e.IsOnHold)
@@ -55,14 +57,24 @@ public sealed class WorkItemRepository : IWorkItemRepository
 
     private static bool IsPullRequest(WorkItem w)
     {
-        return string.Equals(a: w.ItemType, b: PullRequestType, comparisonType: StringComparison.Ordinal);
+        return string.Equals(
+            a: w.ItemType,
+            b: PullRequestType,
+            comparisonType: StringComparison.Ordinal
+        );
     }
 
     private static int FindIndex(IReadOnlyList<string> list, string value)
     {
         for (int i = 0; i < list.Count; i++)
         {
-            if (string.Equals(a: list[i], b: value, comparisonType: StringComparison.OrdinalIgnoreCase))
+            if (
+                string.Equals(
+                    a: list[i],
+                    b: value,
+                    comparisonType: StringComparison.OrdinalIgnoreCase
+                )
+            )
             {
                 return i;
             }

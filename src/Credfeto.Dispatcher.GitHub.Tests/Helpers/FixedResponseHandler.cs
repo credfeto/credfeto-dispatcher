@@ -11,27 +11,46 @@ internal sealed class FixedResponseHandler : HttpMessageHandler
 {
     private readonly string? _content;
     private readonly string? _eTag;
+    private readonly string? _linkUrl;
     private readonly HttpStatusCode _statusCode;
 
-    public FixedResponseHandler(HttpStatusCode statusCode, string? content = null, string? eTag = null)
+    public FixedResponseHandler(
+        HttpStatusCode statusCode,
+        string? content = null,
+        string? eTag = null,
+        string? linkUrl = null
+    )
     {
         this._statusCode = statusCode;
         this._content = content;
         this._eTag = eTag;
+        this._linkUrl = linkUrl;
     }
 
-    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    protected override Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken
+    )
     {
         HttpResponseMessage response = new(this._statusCode);
 
         if (this._content is not null)
         {
-            response.Content = new StringContent(content: this._content, encoding: Encoding.UTF8, mediaType: "application/json");
+            response.Content = new StringContent(
+                content: this._content,
+                encoding: Encoding.UTF8,
+                mediaType: "application/json"
+            );
         }
 
         if (this._eTag is not null)
         {
             response.Headers.ETag = new EntityTagHeaderValue(this._eTag);
+        }
+
+        if (this._linkUrl is not null)
+        {
+            response.Headers.Add(name: "Link", value: $"<{this._linkUrl}>; rel=\"next\"");
         }
 
         return Task.FromResult(response);

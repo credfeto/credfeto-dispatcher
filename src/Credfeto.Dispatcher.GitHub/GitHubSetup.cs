@@ -24,27 +24,38 @@ public static class GitHubSetup
             .AddSingleton<IValidateOptions<GitHubOptions>, GitHubOptionsValidator>()
             .AddHttpClient(name: "GitHub", configureClient: ConfigureGitHubHttpClient)
             .AddStandardResilienceHandler()
-            .Services
-            .AddSingleton<INotificationPoller, NotificationPoller>()
+            .Services.AddSingleton<INotificationPoller, NotificationPoller>()
             .AddSingleton<INotificationFilter, NotificationFilter>()
             .AddSingleton<IPullRequestDetailFetcher, PullRequestDetailFetcher>()
             .AddSingleton<IIssueDetailFetcher, IssueDetailFetcher>()
+            .AddSingleton<IWorkItemScanner, WorkItemScanner>()
             .AddHostedService<StartupNotificationService>()
-            .AddHostedService<GitHubPollingWorker>();
+            .AddHostedService<GitHubPollingWorker>()
+            .AddHostedService<WorkItemScannerService>();
     }
 
-    private static void ConfigureGitHubHttpClient(IServiceProvider serviceProvider, HttpClient client)
+    private static void ConfigureGitHubHttpClient(
+        IServiceProvider serviceProvider,
+        HttpClient client
+    )
     {
         client.BaseAddress = new Uri(GitHubApiBase);
-        client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue(productName: UserAgent, productVersion: null));
-        client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+        client.DefaultRequestHeaders.UserAgent.Add(
+            new ProductInfoHeaderValue(productName: UserAgent, productVersion: null)
+        );
+        client.DefaultRequestHeaders.Accept.Add(
+            new MediaTypeWithQualityHeaderValue("application/vnd.github+json")
+        );
         client.DefaultRequestHeaders.Add(name: GitHubApiVersionHeaderName, value: GitHubApiVersion);
 
         GitHubOptions options = serviceProvider.GetRequiredService<IOptions<GitHubOptions>>().Value;
 
         if (!string.IsNullOrWhiteSpace(options.Token))
         {
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(scheme: "Bearer", parameter: options.Token);
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+                scheme: "Bearer",
+                parameter: options.Token
+            );
         }
     }
 }

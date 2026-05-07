@@ -19,12 +19,13 @@ public static class DiscordSetup
             .AddSingleton<IValidateOptions<DiscordOptions>, DiscordOptionsValidator>()
             .AddHttpClient(name: "Discord", configureClient: ConfigureDiscordHttpClient)
             .AddStandardResilienceHandler()
-            .Services
-            .AddSingleton<IDiscordDispatcher, DiscordWebhookDispatcher>();
+            .Services.AddSingleton<IDiscordDispatcher, DiscordWebhookDispatcher>();
     }
 
     private static void ConfigureDiscordHttpClient(HttpClient client)
     {
-        client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue(productName: UserAgent, productVersion: null));
+        client.DefaultRequestHeaders.UserAgent.Add(
+            new ProductInfoHeaderValue(productName: UserAgent, productVersion: null)
+        );
     }
 }

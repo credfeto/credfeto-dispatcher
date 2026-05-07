@@ -6,7 +6,7 @@ namespace Credfeto.Dispatcher.Discord.Configuration;
 [DebuggerDisplay("WebhookUrl: {WebhookUrl}")]
 public sealed class DiscordOptions
 {
-    public Uri? WebhookUrl { get; init; }
+    public Uri? WebhookUrl { get; set; }
 
-    public Uri? NotificationsChannelWebhookUrl { get; init; }
+    public Uri? NotificationsChannelWebhookUrl { get; set; }
 }

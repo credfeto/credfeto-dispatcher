@@ -5,5 +5,5 @@ namespace Credfeto.Dispatcher.GitHub.Configuration;
 [DebuggerDisplay("ScanIntervalSeconds: {ScanIntervalSeconds}")]
 public sealed class GitHubScanOptions
 {
-    public int ScanIntervalSeconds { get; init; } = 3600;
+    public int ScanIntervalSeconds { get; set; } = 3600;
 }

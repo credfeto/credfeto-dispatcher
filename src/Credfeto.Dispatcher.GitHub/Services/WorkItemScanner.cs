@@ -63,7 +63,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
     )
     {
         List<string> repos = [];
-        string? url = "user/repos?per_page=100";
+        string? url = "user/repos?affiliation=owner,collaborator,organization_member&per_page=100";
 
         while (url is not null)
         {

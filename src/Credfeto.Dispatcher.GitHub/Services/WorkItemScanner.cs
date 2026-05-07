@@ -39,12 +39,124 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
     public async Task ScanAsync(CancellationToken cancellationToken)
     {
-        foreach (string repo in this._options.Scan.Repos)
+        IReadOnlyList<string> repos = await this.DiscoverReposAsync(cancellationToken);
+
+        if (repos.Count == 0)
+        {
+            this._logger.LogNoReposDiscovered();
+
+            return;
+        }
+
+        this._logger.LogDiscoveredRepos(count: repos.Count);
+
+        foreach (string repo in repos)
         {
             await this.ScanRepoAsync(repo: repo, cancellationToken: cancellationToken);
         }
 
         this._logger.LogScanComplete();
+    }
+
+    private async Task<IReadOnlyList<string>> DiscoverReposAsync(
+        CancellationToken cancellationToken
+    )
+    {
+        List<string> repos = [];
+        string? url = "user/repos?affiliation=owner,collaborator,organization_member&per_page=100";
+
+        while (url is not null)
+        {
+            (ApiUserRepo[]? items, string? nextUrl) = await this.GetPagedAsync(
+                url: url,
+                jsonTypeInfo: NotificationSerializerContext.Default.ApiUserRepoArray,
+                cancellationToken: cancellationToken
+            );
+
+            if (items is null)
+            {
+                break;
+            }
+
+            foreach (ApiUserRepo repo in items)
+            {
+                if (
+                    !repo.Archived
+                    && !repo.Disabled
+                    && repo.Permissions?.Push == true
+                    && this.PassesRepoFilter(repo.FullName)
+                )
+                {
+                    repos.Add(repo.FullName);
+                }
+            }
+
+            url = nextUrl;
+        }
+
+        return repos;
+    }
+
+    private bool PassesRepoFilter(string fullName)
+    {
+        if (this._options.Filter.AllowedOwners.Count > 0)
+        {
+            string owner = GetOwner(fullName);
+
+            if (
+                !this._options.Filter.AllowedOwners.Any(o =>
+                    string.Equals(
+                        a: o,
+                        b: owner,
+                        comparisonType: StringComparison.OrdinalIgnoreCase
+                    )
+                )
+            )
+            {
+                return false;
+            }
+        }
+
+        if (this._options.Filter.AllowedRepos.Count > 0)
+        {
+            if (
+                !this._options.Filter.AllowedRepos.Any(r =>
+                    string.Equals(
+                        a: r,
+                        b: fullName,
+                        comparisonType: StringComparison.OrdinalIgnoreCase
+                    )
+                )
+            )
+            {
+                return false;
+            }
+        }
+
+        if (this._options.Filter.ExcludedRepos.Count > 0)
+        {
+            if (
+                this._options.Filter.ExcludedRepos.Any(r =>
+                    string.Equals(
+                        a: r,
+                        b: fullName,
+                        comparisonType: StringComparison.OrdinalIgnoreCase
+                    )
+                )
+            )
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static string GetOwner(string fullName)
+    {
+        int slash = fullName.IndexOf(value: '/', comparisonType: StringComparison.Ordinal);
+
+        return slash >= 0 ? fullName[..slash] : fullName;
     }
 
     private async Task ScanRepoAsync(string repo, CancellationToken cancellationToken)
@@ -70,15 +182,6 @@ public sealed class WorkItemScanner : IWorkItemScanner
             if (items is null)
             {
                 break;
-            }
-
-            if (this._logger.IsEnabled(LogLevel.Information))
-            {
-                this._logger.LogInformation(
-                    "PR scan page: {Count} items from {Url}",
-                    items.Length,
-                    url
-                );
             }
 
             foreach (ApiPullRequest pr in items)

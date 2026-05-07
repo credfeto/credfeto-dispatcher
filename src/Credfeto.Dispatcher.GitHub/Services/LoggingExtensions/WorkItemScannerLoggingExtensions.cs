@@ -12,6 +12,20 @@ internal static partial class WorkItemScannerLoggingExtensions
     public static partial void LogScanningRepo(this ILogger logger, string repo);
 
     [LoggerMessage(
+        EventId = 5,
+        Level = LogLevel.Information,
+        Message = "Discovered {Count} repos with write access to scan"
+    )]
+    public static partial void LogDiscoveredRepos(this ILogger logger, int count);
+
+    [LoggerMessage(
+        EventId = 6,
+        Level = LogLevel.Warning,
+        Message = "No repos with write access discovered. Check the token permissions and AllowedOwners/AllowedRepos/ExcludedRepos filter configuration."
+    )]
+    public static partial void LogNoReposDiscovered(this ILogger logger);
+
+    [LoggerMessage(
         EventId = 1,
         Level = LogLevel.Debug,
         Message = "Scanned PR #{Number} in {Repo}: status={Status}"

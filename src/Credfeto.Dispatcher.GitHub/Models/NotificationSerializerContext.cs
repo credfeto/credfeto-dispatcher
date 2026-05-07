@@ -11,5 +11,6 @@ namespace Credfeto.Dispatcher.GitHub.Models;
 [JsonSerializable(typeof(ApiIssue))]
 [JsonSerializable(typeof(ApiIssue[]))]
 [JsonSerializable(typeof(ApiIssuePullRequest))]
+[JsonSerializable(typeof(ApiUserRepo[]))]
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower)]
 internal sealed partial class NotificationSerializerContext : JsonSerializerContext;

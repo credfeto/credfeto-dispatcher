@@ -29,11 +29,6 @@ public sealed class WorkItemScannerService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (this._scanOptions.Repos.Count == 0)
-        {
-            return;
-        }
-
         this._logger.LogScannerStarting();
 
         while (!stoppingToken.IsCancellationRequested)

@@ -20,33 +20,18 @@ public sealed class WorkItemScannerServiceTests : TestBase
         this._scanner = GetSubstitute<IWorkItemScanner>();
     }
 
-    private WorkItemScannerService CreateService(GitHubOptions options)
+    private WorkItemScannerService CreateService(GitHubOptions? options = null)
     {
         return new WorkItemScannerService(
             scanner: this._scanner,
-            options: Options.Create(options),
+            options: Options.Create(options ?? new GitHubOptions()),
             logger: this.GetTypedLogger<WorkItemScannerService>()
         );
     }
 
     [Fact]
-    public async Task DoesNotCallScannerWhenReposIsEmptyAsync()
+    public async Task CallsScannerOnStartupAsync()
     {
-        GitHubOptions options = new() { Scan = new GitHubScanOptions { Repos = [] } };
-        CancellationToken token = TestContext.Current.CancellationToken;
-
-        using WorkItemScannerService service = this.CreateService(options);
-        await service.StartAsync(token);
-        await Task.Delay(millisecondsDelay: 50, cancellationToken: token);
-        await service.StopAsync(token);
-
-        await this._scanner.DidNotReceive().ScanAsync(Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task CallsScannerWhenReposAreConfiguredAsync()
-    {
-        GitHubOptions options = new() { Scan = new GitHubScanOptions { Repos = ["owner/repo"] } };
         TaskCompletionSource scanStarted = new();
 
         this._scanner.ScanAsync(Arg.Any<CancellationToken>())
@@ -59,7 +44,7 @@ public sealed class WorkItemScannerServiceTests : TestBase
 
         CancellationToken token = TestContext.Current.CancellationToken;
 
-        using WorkItemScannerService service = this.CreateService(options);
+        using WorkItemScannerService service = this.CreateService();
         await service.StartAsync(token);
         await scanStarted.Task.WaitAsync(
             timeout: TimeSpan.FromSeconds(5),
@@ -73,7 +58,6 @@ public sealed class WorkItemScannerServiceTests : TestBase
     [Fact]
     public async Task StopsGracefullyWhenScannerThrowsOperationCanceledExceptionAsync()
     {
-        GitHubOptions options = new() { Scan = new GitHubScanOptions { Repos = ["owner/repo"] } };
         TaskCompletionSource scanCalled = new();
 
         this._scanner.ScanAsync(Arg.Any<CancellationToken>())
@@ -86,7 +70,7 @@ public sealed class WorkItemScannerServiceTests : TestBase
 
         CancellationToken token = TestContext.Current.CancellationToken;
 
-        using WorkItemScannerService service = this.CreateService(options);
+        using WorkItemScannerService service = this.CreateService();
         await service.StartAsync(token);
         await scanCalled.Task.WaitAsync(timeout: TimeSpan.FromSeconds(5), cancellationToken: token);
         await service.StopAsync(token);
@@ -97,7 +81,6 @@ public sealed class WorkItemScannerServiceTests : TestBase
     [Fact]
     public async Task HandlesExceptionFromScannerWithoutCrashingAsync()
     {
-        GitHubOptions options = new() { Scan = new GitHubScanOptions { Repos = ["owner/repo"] } };
         TaskCompletionSource exceptionThrown = new();
 
         this._scanner.ScanAsync(Arg.Any<CancellationToken>())
@@ -110,7 +93,7 @@ public sealed class WorkItemScannerServiceTests : TestBase
 
         CancellationToken token = TestContext.Current.CancellationToken;
 
-        using WorkItemScannerService service = this.CreateService(options);
+        using WorkItemScannerService service = this.CreateService();
         await service.StartAsync(token);
         await exceptionThrown.Task.WaitAsync(
             timeout: TimeSpan.FromSeconds(5),

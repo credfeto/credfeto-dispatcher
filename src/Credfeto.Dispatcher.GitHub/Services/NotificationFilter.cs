@@ -42,7 +42,11 @@ public sealed class NotificationFilter : INotificationFilter
             return false;
         }
 
-        this._logger.LogNotificationPassed(notificationId: notification.Id, reason: notification.Reason, repository: notification.Repository.FullName);
+        this._logger.LogNotificationPassed(
+            notificationId: notification.Id,
+            reason: notification.Reason,
+            repository: notification.Repository.FullName
+        );
 
         return true;
     }
@@ -54,11 +58,20 @@ public sealed class NotificationFilter : INotificationFilter
             return true;
         }
 
-        bool passes = this._options.Filter.Reasons.Any(reason => string.Equals(a: notification.Reason, b: reason, comparisonType: StringComparison.OrdinalIgnoreCase));
+        bool passes = this._options.Filter.Reasons.Any(reason =>
+            string.Equals(
+                a: notification.Reason,
+                b: reason,
+                comparisonType: StringComparison.OrdinalIgnoreCase
+            )
+        );
 
         if (!passes)
         {
-            this._logger.LogNotificationDroppedReason(notificationId: notification.Id, reason: notification.Reason);
+            this._logger.LogNotificationDroppedReason(
+                notificationId: notification.Id,
+                reason: notification.Reason
+            );
         }
 
         return passes;
@@ -73,11 +86,20 @@ public sealed class NotificationFilter : INotificationFilter
 
         string repoOwner = GetOwner(notification.Repository.FullName);
 
-        bool passes = this._options.Filter.AllowedOwners.Any(owner => string.Equals(a: repoOwner, b: owner, comparisonType: StringComparison.OrdinalIgnoreCase));
+        bool passes = this._options.Filter.AllowedOwners.Any(owner =>
+            string.Equals(
+                a: repoOwner,
+                b: owner,
+                comparisonType: StringComparison.OrdinalIgnoreCase
+            )
+        );
 
         if (!passes)
         {
-            this._logger.LogNotificationDroppedOwner(notificationId: notification.Id, owner: repoOwner);
+            this._logger.LogNotificationDroppedOwner(
+                notificationId: notification.Id,
+                owner: repoOwner
+            );
         }
 
         return passes;
@@ -90,11 +112,20 @@ public sealed class NotificationFilter : INotificationFilter
             return true;
         }
 
-        bool passes = this._options.Filter.AllowedRepos.Any(repo => string.Equals(a: notification.Repository.FullName, b: repo, comparisonType: StringComparison.OrdinalIgnoreCase));
+        bool passes = this._options.Filter.AllowedRepos.Any(repo =>
+            string.Equals(
+                a: notification.Repository.FullName,
+                b: repo,
+                comparisonType: StringComparison.OrdinalIgnoreCase
+            )
+        );
 
         if (!passes)
         {
-            this._logger.LogNotificationDroppedAllowedRepo(notificationId: notification.Id, repository: notification.Repository.FullName);
+            this._logger.LogNotificationDroppedAllowedRepo(
+                notificationId: notification.Id,
+                repository: notification.Repository.FullName
+            );
         }
 
         return passes;
@@ -107,11 +138,20 @@ public sealed class NotificationFilter : INotificationFilter
             return true;
         }
 
-        bool passes = !this._options.Filter.ExcludedRepos.Any(excluded => string.Equals(a: notification.Repository.FullName, b: excluded, comparisonType: StringComparison.OrdinalIgnoreCase));
+        bool passes = !this._options.Filter.ExcludedRepos.Any(excluded =>
+            string.Equals(
+                a: notification.Repository.FullName,
+                b: excluded,
+                comparisonType: StringComparison.OrdinalIgnoreCase
+            )
+        );
 
         if (!passes)
         {
-            this._logger.LogNotificationDroppedExcludedRepo(notificationId: notification.Id, repository: notification.Repository.FullName);
+            this._logger.LogNotificationDroppedExcludedRepo(
+                notificationId: notification.Id,
+                repository: notification.Repository.FullName
+            );
         }
 
         return passes;
@@ -121,8 +161,6 @@ public sealed class NotificationFilter : INotificationFilter
     {
         int slashIndex = fullName.IndexOf(value: '/', comparisonType: StringComparison.Ordinal);
 
-        return slashIndex < 0
-            ? fullName
-            : fullName[..slashIndex];
+        return slashIndex < 0 ? fullName : fullName[..slashIndex];
     }
 }

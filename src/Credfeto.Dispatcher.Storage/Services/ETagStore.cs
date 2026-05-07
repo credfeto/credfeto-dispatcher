@@ -17,18 +17,32 @@ public sealed class ETagStore : IETagStore
 
     public async ValueTask<string?> GetETagAsync(string key, CancellationToken cancellationToken)
     {
-        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(cancellationToken);
+        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(
+            cancellationToken
+        );
 
-        PollingStateEntity? entity = await context.PollingStates.FindAsync(keyValues: [key], cancellationToken: cancellationToken);
+        PollingStateEntity? entity = await context.PollingStates.FindAsync(
+            keyValues: [key],
+            cancellationToken: cancellationToken
+        );
 
         return entity?.ETag;
     }
 
-    public async ValueTask SaveETagAsync(string key, string eTag, CancellationToken cancellationToken)
+    public async ValueTask SaveETagAsync(
+        string key,
+        string eTag,
+        CancellationToken cancellationToken
+    )
     {
-        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(cancellationToken);
+        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(
+            cancellationToken
+        );
 
-        PollingStateEntity? existing = await context.PollingStates.FindAsync(keyValues: [key], cancellationToken: cancellationToken);
+        PollingStateEntity? existing = await context.PollingStates.FindAsync(
+            keyValues: [key],
+            cancellationToken: cancellationToken
+        );
 
         if (existing is null)
         {
@@ -36,7 +50,9 @@ public sealed class ETagStore : IETagStore
         }
         else
         {
-            context.PollingStates.Entry(existing).CurrentValues.SetValues(new PollingStateEntity { Key = key, ETag = eTag });
+            context
+                .PollingStates.Entry(existing)
+                .CurrentValues.SetValues(new PollingStateEntity { Key = key, ETag = eTag });
         }
 
         await context.SaveChangesAsync(cancellationToken);

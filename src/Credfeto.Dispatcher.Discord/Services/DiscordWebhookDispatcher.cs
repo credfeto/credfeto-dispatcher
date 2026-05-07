@@ -19,7 +19,11 @@ public sealed class DiscordWebhookDispatcher : IDiscordDispatcher
     private readonly ILogger<DiscordWebhookDispatcher> _logger;
     private readonly DiscordOptions _options;
 
-    public DiscordWebhookDispatcher(IHttpClientFactory httpClientFactory, IOptions<DiscordOptions> options, ILogger<DiscordWebhookDispatcher> logger)
+    public DiscordWebhookDispatcher(
+        IHttpClientFactory httpClientFactory,
+        IOptions<DiscordOptions> options,
+        ILogger<DiscordWebhookDispatcher> logger
+    )
     {
         this._httpClientFactory = httpClientFactory;
         this._options = options.Value;
@@ -36,10 +40,21 @@ public sealed class DiscordWebhookDispatcher : IDiscordDispatcher
         HttpClient httpClient = this._httpClientFactory.CreateClient("Discord");
         DiscordWebhookPayload payload = BuildPayload(message);
 
-        string json = JsonSerializer.Serialize(value: payload, jsonTypeInfo: DiscordWebhookContext.Default.DiscordWebhookPayload);
+        string json = JsonSerializer.Serialize(
+            value: payload,
+            jsonTypeInfo: DiscordWebhookContext.Default.DiscordWebhookPayload
+        );
 
-        using StringContent content = new(content: json, encoding: Encoding.UTF8, mediaType: "application/json");
-        using HttpResponseMessage response = await httpClient.PostAsync(requestUri: this._options.WebhookUrl, content: content, cancellationToken: cancellationToken);
+        using StringContent content = new(
+            content: json,
+            encoding: Encoding.UTF8,
+            mediaType: "application/json"
+        );
+        using HttpResponseMessage response = await httpClient.PostAsync(
+            requestUri: this._options.WebhookUrl,
+            content: content,
+            cancellationToken: cancellationToken
+        );
 
         if (!response.IsSuccessStatusCode)
         {
@@ -56,13 +71,23 @@ public sealed class DiscordWebhookDispatcher : IDiscordDispatcher
         foreach (DiscordEmbed embed in message.Embeds)
         {
             IReadOnlyList<DiscordWebhookField>? fields = MapFields(embed.Fields);
-            embeds.Add(new DiscordWebhookEmbed(Title: embed.Title, Description: embed.Description, Url: embed.Url.ToString(), Color: embed.Color, Fields: fields));
+            embeds.Add(
+                new DiscordWebhookEmbed(
+                    Title: embed.Title,
+                    Description: embed.Description,
+                    Url: embed.Url.ToString(),
+                    Color: embed.Color,
+                    Fields: fields
+                )
+            );
         }
 
         return new DiscordWebhookPayload(Content: message.Content, Embeds: embeds);
     }
 
-    private static IReadOnlyList<DiscordWebhookField>? MapFields(IReadOnlyList<Discord.DataTypes.DiscordEmbedField>? fields)
+    private static IReadOnlyList<DiscordWebhookField>? MapFields(
+        IReadOnlyList<Discord.DataTypes.DiscordEmbedField>? fields
+    )
     {
         if (fields is null || fields.Count == 0)
         {
@@ -73,7 +98,11 @@ public sealed class DiscordWebhookDispatcher : IDiscordDispatcher
 
         for (int i = 0; i < fields.Count; i++)
         {
-            result[i] = new DiscordWebhookField(Name: fields[i].Name, Value: fields[i].Value, Inline: fields[i].Inline);
+            result[i] = new DiscordWebhookField(
+                Name: fields[i].Name,
+                Value: fields[i].Value,
+                Inline: fields[i].Inline
+            );
         }
 
         return result;

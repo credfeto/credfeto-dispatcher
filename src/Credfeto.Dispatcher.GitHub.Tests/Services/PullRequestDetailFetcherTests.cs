@@ -16,8 +16,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
 {
     private const string PrApiUrl = "https://api.github.com/repos/owner/repo/pulls/42";
 
-    private const string OpenPrJson =
-        """
+    private const string OpenPrJson = """
         {
           "number": 42,
           "title": "Test PR",
@@ -30,8 +29,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         }
         """;
 
-    private const string DraftPrJson =
-        """
+    private const string DraftPrJson = """
         {
           "number": 42,
           "title": "Test PR",
@@ -44,8 +42,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         }
         """;
 
-    private const string ClosedPrJson =
-        """
+    private const string ClosedPrJson = """
         {
           "number": 42,
           "title": "Test PR",
@@ -58,8 +55,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         }
         """;
 
-    private const string PrWithAssigneesJson =
-        """
+    private const string PrWithAssigneesJson = """
         {
           "number": 42,
           "title": "Test PR",
@@ -72,8 +68,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         }
         """;
 
-    private const string PrWithLabelsJson =
-        """
+    private const string PrWithLabelsJson = """
         {
           "number": 42,
           "title": "Test PR",
@@ -86,8 +81,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         }
         """;
 
-    private const string CommentsJson =
-        """
+    private const string CommentsJson = """
         [{
           "body": "A test comment",
           "user": {"login": "reviewer"},
@@ -95,8 +89,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         }]
         """;
 
-    private const string ReviewsWithChangesRequestedJson =
-        """
+    private const string ReviewsWithChangesRequestedJson = """
         [{
           "state": "CHANGES_REQUESTED",
           "body": "Please fix this",
@@ -105,8 +98,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         }]
         """;
 
-    private const string ReviewsApprovedJson =
-        """
+    private const string ReviewsApprovedJson = """
         [{
           "state": "APPROVED",
           "body": "Looks good",
@@ -115,8 +107,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         }]
         """;
 
-    private const string WorkflowRunsWithFailureJson =
-        """
+    private const string WorkflowRunsWithFailureJson = """
         {
           "workflow_runs": [{
             "name": "CI",
@@ -126,8 +117,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         }
         """;
 
-    private const string WorkflowRunsAllPassedJson =
-        """
+    private const string WorkflowRunsAllPassedJson = """
         {
           "workflow_runs": [{
             "name": "CI",
@@ -152,7 +142,10 @@ public sealed class PullRequestDetailFetcherTests : TestBase
 
         try
         {
-            HttpClient client = new(handler: handler, disposeHandler: true) { BaseAddress = new Uri("https://api.github.com/") };
+            HttpClient client = new(handler: handler, disposeHandler: true)
+            {
+                BaseAddress = new Uri("https://api.github.com/"),
+            };
             handler = null;
 
             return client;
@@ -169,9 +162,21 @@ public sealed class PullRequestDetailFetcherTests : TestBase
             Id: "1",
             Reason: reason,
             Subject: new NotificationSubject(Title: "Test PR", Url: new Uri(PrApiUrl), Type: type),
-            Repository: new NotificationRepository(FullName: "owner/repo", Url: new Uri("https://github.com/owner/repo")),
-            UpdatedAt: new DateTimeOffset(year: 2024, month: 1, day: 1, hour: 0, minute: 0, second: 0, offset: TimeSpan.Zero),
-            Unread: true);
+            Repository: new NotificationRepository(
+                FullName: "owner/repo",
+                Url: new Uri("https://github.com/owner/repo")
+            ),
+            UpdatedAt: new DateTimeOffset(
+                year: 2024,
+                month: 1,
+                day: 1,
+                hour: 0,
+                minute: 0,
+                second: 0,
+                offset: TimeSpan.Zero
+            ),
+            Unread: true
+        );
     }
 
     [Fact]
@@ -179,7 +184,10 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     {
         GitHubNotification notification = BuildNotification(type: "Issue", reason: "mention");
 
-        PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
+        PullRequestDetails? result = await this._fetcher.FetchAsync(
+            notification: notification,
+            cancellationToken: this.CancellationToken()
+        );
 
         Assert.Null(result);
     }
@@ -192,7 +200,10 @@ public sealed class PullRequestDetailFetcherTests : TestBase
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
-        PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
+        PullRequestDetails? result = await this._fetcher.FetchAsync(
+            notification: notification,
+            cancellationToken: this.CancellationToken()
+        );
 
         Assert.Null(result);
     }
@@ -205,7 +216,10 @@ public sealed class PullRequestDetailFetcherTests : TestBase
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
-        PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
+        PullRequestDetails? result = await this._fetcher.FetchAsync(
+            notification: notification,
+            cancellationToken: this.CancellationToken()
+        );
 
         Assert.NotNull(result);
         Assert.Equal(expected: "Open", actual: result.Status);
@@ -219,7 +233,10 @@ public sealed class PullRequestDetailFetcherTests : TestBase
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
-        PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
+        PullRequestDetails? result = await this._fetcher.FetchAsync(
+            notification: notification,
+            cancellationToken: this.CancellationToken()
+        );
 
         Assert.NotNull(result);
         Assert.Equal(expected: "Draft", actual: result.Status);
@@ -233,7 +250,10 @@ public sealed class PullRequestDetailFetcherTests : TestBase
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
-        PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
+        PullRequestDetails? result = await this._fetcher.FetchAsync(
+            notification: notification,
+            cancellationToken: this.CancellationToken()
+        );
 
         Assert.NotNull(result);
         Assert.Equal(expected: "Closed", actual: result.Status);
@@ -247,7 +267,10 @@ public sealed class PullRequestDetailFetcherTests : TestBase
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
-        PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
+        PullRequestDetails? result = await this._fetcher.FetchAsync(
+            notification: notification,
+            cancellationToken: this.CancellationToken()
+        );
 
         Assert.NotNull(result);
         Assert.Equal(expected: "Test PR", actual: result.Title);
@@ -261,7 +284,10 @@ public sealed class PullRequestDetailFetcherTests : TestBase
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
-        PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
+        PullRequestDetails? result = await this._fetcher.FetchAsync(
+            notification: notification,
+            cancellationToken: this.CancellationToken()
+        );
 
         Assert.NotNull(result);
         Assert.Equal(expected: 42, actual: result.Number);
@@ -275,10 +301,16 @@ public sealed class PullRequestDetailFetcherTests : TestBase
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
-        PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
+        PullRequestDetails? result = await this._fetcher.FetchAsync(
+            notification: notification,
+            cancellationToken: this.CancellationToken()
+        );
 
         Assert.NotNull(result);
-        Assert.Equal(expected: new Uri("https://github.com/owner/repo/pull/42"), actual: result.HtmlUrl);
+        Assert.Equal(
+            expected: new Uri("https://github.com/owner/repo/pull/42"),
+            actual: result.HtmlUrl
+        );
     }
 
     [Fact]
@@ -289,7 +321,10 @@ public sealed class PullRequestDetailFetcherTests : TestBase
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
-        PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
+        PullRequestDetails? result = await this._fetcher.FetchAsync(
+            notification: notification,
+            cancellationToken: this.CancellationToken()
+        );
 
         Assert.NotNull(result);
         Assert.Equal(expected: 2, actual: result.Assignees.Count);
@@ -305,7 +340,10 @@ public sealed class PullRequestDetailFetcherTests : TestBase
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
-        PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
+        PullRequestDetails? result = await this._fetcher.FetchAsync(
+            notification: notification,
+            cancellationToken: this.CancellationToken()
+        );
 
         Assert.NotNull(result);
         Assert.Equal(expected: 2, actual: result.Labels.Count);
@@ -322,12 +360,18 @@ public sealed class PullRequestDetailFetcherTests : TestBase
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "comment");
 
-        PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
+        PullRequestDetails? result = await this._fetcher.FetchAsync(
+            notification: notification,
+            cancellationToken: this.CancellationToken()
+        );
 
         Assert.NotNull(result);
         Assert.Equal(expected: "A test comment", actual: result.CommentBody);
         Assert.Equal(expected: "reviewer", actual: result.CommentAuthor);
-        Assert.Equal(expected: new Uri("https://github.com/owner/repo/issues/42#issuecomment-1"), actual: result.CommentUrl);
+        Assert.Equal(
+            expected: new Uri("https://github.com/owner/repo/issues/42#issuecomment-1"),
+            actual: result.CommentUrl
+        );
     }
 
     [Fact]
@@ -339,7 +383,10 @@ public sealed class PullRequestDetailFetcherTests : TestBase
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "comment");
 
-        PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
+        PullRequestDetails? result = await this._fetcher.FetchAsync(
+            notification: notification,
+            cancellationToken: this.CancellationToken()
+        );
 
         Assert.NotNull(result);
         Assert.Null(result.CommentBody);
@@ -356,7 +403,10 @@ public sealed class PullRequestDetailFetcherTests : TestBase
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "comment");
 
-        PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
+        PullRequestDetails? result = await this._fetcher.FetchAsync(
+            notification: notification,
+            cancellationToken: this.CancellationToken()
+        );
 
         Assert.NotNull(result);
         Assert.Null(result.CommentBody);
@@ -366,12 +416,21 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     public async Task FetchesReviewWhenReasonIsReviewRequestedAsync()
     {
         using HttpClient prClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
-        using HttpClient reviewClient = CreateClient(HttpStatusCode.OK, ReviewsWithChangesRequestedJson);
+        using HttpClient reviewClient = CreateClient(
+            HttpStatusCode.OK,
+            ReviewsWithChangesRequestedJson
+        );
         this._httpClientFactory.CreateClient("GitHub").Returns(prClient, reviewClient);
 
-        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "review_requested");
+        GitHubNotification notification = BuildNotification(
+            type: "PullRequest",
+            reason: "review_requested"
+        );
 
-        PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
+        PullRequestDetails? result = await this._fetcher.FetchAsync(
+            notification: notification,
+            cancellationToken: this.CancellationToken()
+        );
 
         Assert.NotNull(result);
         Assert.Equal(expected: "CHANGES_REQUESTED", actual: result.ReviewState);
@@ -386,9 +445,15 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         using HttpClient reviewClient = CreateClient(HttpStatusCode.OK, ReviewsApprovedJson);
         this._httpClientFactory.CreateClient("GitHub").Returns(prClient, reviewClient);
 
-        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "review_requested");
+        GitHubNotification notification = BuildNotification(
+            type: "PullRequest",
+            reason: "review_requested"
+        );
 
-        PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
+        PullRequestDetails? result = await this._fetcher.FetchAsync(
+            notification: notification,
+            cancellationToken: this.CancellationToken()
+        );
 
         Assert.NotNull(result);
         Assert.Null(result.ReviewState);
@@ -402,13 +467,22 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         using HttpClient runsClient = CreateClient(HttpStatusCode.OK, WorkflowRunsWithFailureJson);
         this._httpClientFactory.CreateClient("GitHub").Returns(prClient, runsClient);
 
-        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "ci_activity");
+        GitHubNotification notification = BuildNotification(
+            type: "PullRequest",
+            reason: "ci_activity"
+        );
 
-        PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
+        PullRequestDetails? result = await this._fetcher.FetchAsync(
+            notification: notification,
+            cancellationToken: this.CancellationToken()
+        );
 
         Assert.NotNull(result);
         Assert.Equal(expected: "CI", actual: result.FailedRunName);
-        Assert.Equal(expected: new Uri("https://github.com/owner/repo/actions/runs/123"), actual: result.FailedRunUrl);
+        Assert.Equal(
+            expected: new Uri("https://github.com/owner/repo/actions/runs/123"),
+            actual: result.FailedRunUrl
+        );
     }
 
     [Fact]
@@ -418,9 +492,15 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         using HttpClient runsClient = CreateClient(HttpStatusCode.OK, WorkflowRunsAllPassedJson);
         this._httpClientFactory.CreateClient("GitHub").Returns(prClient, runsClient);
 
-        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "ci_activity");
+        GitHubNotification notification = BuildNotification(
+            type: "PullRequest",
+            reason: "ci_activity"
+        );
 
-        PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
+        PullRequestDetails? result = await this._fetcher.FetchAsync(
+            notification: notification,
+            cancellationToken: this.CancellationToken()
+        );
 
         Assert.NotNull(result);
         Assert.Null(result.FailedRunName);
@@ -432,12 +512,12 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     {
         string longBody = new(c: 'x', count: 400);
         string commentsWithLongBody = $$"""
-                                        [{
-                                          "body": "{{longBody}}",
-                                          "user": {"login": "reviewer"},
-                                          "html_url": "https://github.com/owner/repo/issues/42#issuecomment-1"
-                                        }]
-                                        """;
+            [{
+              "body": "{{longBody}}",
+              "user": {"login": "reviewer"},
+              "html_url": "https://github.com/owner/repo/issues/42#issuecomment-1"
+            }]
+            """;
 
         using HttpClient prClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
         using HttpClient commentClient = CreateClient(HttpStatusCode.OK, commentsWithLongBody);
@@ -445,11 +525,17 @@ public sealed class PullRequestDetailFetcherTests : TestBase
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "comment");
 
-        PullRequestDetails? result = await this._fetcher.FetchAsync(notification: notification, cancellationToken: this.CancellationToken());
+        PullRequestDetails? result = await this._fetcher.FetchAsync(
+            notification: notification,
+            cancellationToken: this.CancellationToken()
+        );
 
         Assert.NotNull(result);
         Assert.NotNull(result.CommentBody);
         Assert.Equal(expected: 301, actual: result.CommentBody.Length);
-        Assert.True(result.CommentBody.EndsWith('…'), userMessage: "Expected body to end with ellipsis");
+        Assert.True(
+            result.CommentBody.EndsWith('…'),
+            userMessage: "Expected body to end with ellipsis"
+        );
     }
 }

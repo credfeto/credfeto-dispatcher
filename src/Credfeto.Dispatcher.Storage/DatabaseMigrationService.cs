@@ -16,7 +16,9 @@ public sealed class DatabaseMigrationService : IRunOnStartup
 
     public async ValueTask StartAsync(CancellationToken cancellationToken)
     {
-        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(cancellationToken);
+        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(
+            cancellationToken
+        );
         await context.Database.MigrateAsync(cancellationToken);
     }
 }

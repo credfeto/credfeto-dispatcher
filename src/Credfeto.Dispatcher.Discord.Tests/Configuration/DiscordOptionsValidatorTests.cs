@@ -18,7 +18,10 @@ public sealed class DiscordOptionsValidatorTests : TestBase
     [Fact]
     public void ValidationSucceedsWhenWebhookUrlIsSet()
     {
-        DiscordOptions options = new() { WebhookUrl = new Uri("https://discord.com/api/webhooks/123/token") };
+        DiscordOptions options = new()
+        {
+            WebhookUrl = new Uri("https://discord.com/api/webhooks/123/token"),
+        };
 
         ValidateOptionsResult result = this._validator.Validate(name: null, options: options);
 

@@ -12,15 +12,17 @@ namespace Credfeto.Dispatcher.GitHub.Tests;
 public sealed class GitHubSetupTests : DependencyInjectionTestsBase
 {
     public GitHubSetupTests(ITestOutputHelper output)
-        : base(output: output, dependencyInjectionRegistration: Configure)
-    {
-    }
+        : base(output: output, dependencyInjectionRegistration: Configure) { }
 
     private static IServiceCollection Configure(IServiceCollection services)
     {
-        return services.AddGitHub()
-                       .AddMockedService<IOptions<GitHubOptions>>(static o => o.Value.Returns(new GitHubOptions()))
-                       .AddMockedService<IETagStore>();
+        return services
+            .AddGitHub()
+            .AddMockedService<IOptions<GitHubOptions>>(static o =>
+                o.Value.Returns(new GitHubOptions())
+            )
+            .AddMockedService<IETagStore>()
+            .AddMockedService<INotificationStateTracker>();
     }
 
     [Fact]
@@ -57,5 +59,17 @@ public sealed class GitHubSetupTests : DependencyInjectionTestsBase
     public void PullRequestDetailFetcherShouldBeOfCorrectType()
     {
         this.RequireServiceInCollectionFor<IPullRequestDetailFetcher, PullRequestDetailFetcher>();
+    }
+
+    [Fact]
+    public void WorkItemScannerShouldBeRegistered()
+    {
+        this.RequireService<IWorkItemScanner>();
+    }
+
+    [Fact]
+    public void WorkItemScannerShouldBeOfCorrectType()
+    {
+        this.RequireServiceInCollectionFor<IWorkItemScanner, WorkItemScanner>();
     }
 }

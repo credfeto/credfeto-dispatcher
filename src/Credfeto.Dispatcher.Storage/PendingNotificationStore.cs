@@ -16,38 +16,70 @@ public sealed class PendingNotificationStore : IPendingNotificationStore
     private readonly ICurrentTimeSource _currentTimeSource;
     private readonly IDbContextFactory<DispatcherDbContext> _dbContextFactory;
 
-    public PendingNotificationStore(IDbContextFactory<DispatcherDbContext> dbContextFactory, ICurrentTimeSource currentTimeSource)
+    public PendingNotificationStore(
+        IDbContextFactory<DispatcherDbContext> dbContextFactory,
+        ICurrentTimeSource currentTimeSource
+    )
     {
         this._dbContextFactory = dbContextFactory;
         this._currentTimeSource = currentTimeSource;
     }
 
-    public async Task EnqueueAsync(GitHubNotification notification, DateTimeOffset dispatchAfter, CancellationToken cancellationToken)
+    public async Task EnqueueAsync(
+        GitHubNotification notification,
+        DateTimeOffset dispatchAfter,
+        CancellationToken cancellationToken
+    )
     {
         Uri subjectUrl = notification.Subject.Url;
         DateTimeOffset now = this._currentTimeSource.UtcNow();
 
-        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(cancellationToken);
-        NotificationQueueEntity? existing = await context.NotificationQueue.FindAsync(keyValues: [subjectUrl], cancellationToken: cancellationToken);
+        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(
+            cancellationToken
+        );
+        NotificationQueueEntity? existing = await context.NotificationQueue.FindAsync(
+            keyValues: [subjectUrl],
+            cancellationToken: cancellationToken
+        );
 
         if (existing is null)
         {
-            context.NotificationQueue.Add(CreateEntity(notification: notification, subjectUrl: subjectUrl, queuedAt: now, dispatchAfter: dispatchAfter));
+            context.NotificationQueue.Add(
+                CreateEntity(
+                    notification: notification,
+                    subjectUrl: subjectUrl,
+                    queuedAt: now,
+                    dispatchAfter: dispatchAfter
+                )
+            );
         }
         else
         {
-            UpdateEntity(entity: existing, notification: notification, queuedAt: now, dispatchAfter: dispatchAfter);
+            UpdateEntity(
+                entity: existing,
+                notification: notification,
+                queuedAt: now,
+                dispatchAfter: dispatchAfter
+            );
         }
 
         await context.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task RemoveIfPresentAsync(GitHubNotification notification, CancellationToken cancellationToken)
+    public async Task RemoveIfPresentAsync(
+        GitHubNotification notification,
+        CancellationToken cancellationToken
+    )
     {
         Uri subjectUrl = notification.Subject.Url;
 
-        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(cancellationToken);
-        NotificationQueueEntity? existing = await context.NotificationQueue.FindAsync(keyValues: [subjectUrl], cancellationToken: cancellationToken);
+        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(
+            cancellationToken
+        );
+        NotificationQueueEntity? existing = await context.NotificationQueue.FindAsync(
+            keyValues: [subjectUrl],
+            cancellationToken: cancellationToken
+        );
 
         if (existing is null)
         {
@@ -58,12 +90,17 @@ public sealed class PendingNotificationStore : IPendingNotificationStore
         await context.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<GitHubNotification>> GetReadyItemsAsync(DateTimeOffset now, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<GitHubNotification>> GetReadyItemsAsync(
+        DateTimeOffset now,
+        CancellationToken cancellationToken
+    )
     {
-        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(cancellationToken);
+        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(
+            cancellationToken
+        );
 
-        List<NotificationQueueEntity> entities = await context.NotificationQueue
-            .Where(e => e.DispatchAfter <= now)
+        List<NotificationQueueEntity> entities = await context
+            .NotificationQueue.Where(e => e.DispatchAfter <= now)
             .OrderBy(e => e.QueuedAt)
             .ToListAsync(cancellationToken);
 
@@ -72,10 +109,18 @@ public sealed class PendingNotificationStore : IPendingNotificationStore
 
     public Task RemoveAsync(GitHubNotification notification, CancellationToken cancellationToken)
     {
-        return this.RemoveIfPresentAsync(notification: notification, cancellationToken: cancellationToken);
+        return this.RemoveIfPresentAsync(
+            notification: notification,
+            cancellationToken: cancellationToken
+        );
     }
 
-    private static NotificationQueueEntity CreateEntity(GitHubNotification notification, Uri subjectUrl, in DateTimeOffset queuedAt, in DateTimeOffset dispatchAfter)
+    private static NotificationQueueEntity CreateEntity(
+        GitHubNotification notification,
+        Uri subjectUrl,
+        in DateTimeOffset queuedAt,
+        in DateTimeOffset dispatchAfter
+    )
     {
         return new NotificationQueueEntity
         {
@@ -92,7 +137,12 @@ public sealed class PendingNotificationStore : IPendingNotificationStore
         };
     }
 
-    private static void UpdateEntity(NotificationQueueEntity entity, GitHubNotification notification, in DateTimeOffset queuedAt, in DateTimeOffset dispatchAfter)
+    private static void UpdateEntity(
+        NotificationQueueEntity entity,
+        GitHubNotification notification,
+        in DateTimeOffset queuedAt,
+        in DateTimeOffset dispatchAfter
+    )
     {
         entity.NotificationId = notification.Id;
         entity.Reason = notification.Reason;
@@ -107,8 +157,15 @@ public sealed class PendingNotificationStore : IPendingNotificationStore
         return new GitHubNotification(
             Id: entity.NotificationId,
             Reason: entity.Reason,
-            Subject: new NotificationSubject(Title: entity.SubjectTitle, Url: entity.SubjectUrl, Type: entity.SubjectType),
-            Repository: new NotificationRepository(FullName: entity.Repository, Url: entity.RepositoryUrl),
+            Subject: new NotificationSubject(
+                Title: entity.SubjectTitle,
+                Url: entity.SubjectUrl,
+                Type: entity.SubjectType
+            ),
+            Repository: new NotificationRepository(
+                FullName: entity.Repository,
+                Url: entity.RepositoryUrl
+            ),
             UpdatedAt: entity.UpdatedAt,
             Unread: true
         );

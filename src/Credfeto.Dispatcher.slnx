@@ -13,8 +13,7 @@
   <Folder Name="/Server/">
     <Project Path="Credfeto.Dispatcher.Server/Credfeto.Dispatcher.Server.csproj" />
   </Folder>
-  <Folder Name="/Services/">
-  </Folder>
+  <Folder Name="/Services/"></Folder>
   <Folder Name="/Storage/">
     <Project Path="Credfeto.Dispatcher.Storage/Credfeto.Dispatcher.Storage.csproj" />
     <Project Path="Credfeto.Dispatcher.Storage.Tests/Credfeto.Dispatcher.Storage.Tests.csproj" />

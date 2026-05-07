@@ -8,7 +8,11 @@ namespace Credfeto.Dispatcher.Storage.Migrations;
 
 [DbContext(typeof(DispatcherDbContext))]
 [Migration("20260423130000_AddPullRequestAndIssueTables")]
-[SuppressMessage("Philips.CodeAnalysis.DuplicateCodeAnalyzer", "PH2071:Duplicate shape found", Justification = "Two tables with identical column schemas — refactoring is not applicable to EF Core migration structure.")]
+[SuppressMessage(
+    "Philips.CodeAnalysis.DuplicateCodeAnalyzer",
+    "PH2071:Duplicate shape found",
+    Justification = "Two tables with identical column schemas — refactoring is not applicable to EF Core migration structure."
+)]
 public sealed partial class AddPullRequestAndIssueTables : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)
@@ -27,7 +31,8 @@ public sealed partial class AddPullRequestAndIssueTables : Migration
             constraints: table =>
             {
                 table.PrimaryKey("PK_PullRequests", x => new { x.Repository, x.Id });
-            });
+            }
+        );
 
         migrationBuilder.CreateTable(
             name: "Issues",
@@ -43,7 +48,8 @@ public sealed partial class AddPullRequestAndIssueTables : Migration
             constraints: table =>
             {
                 table.PrimaryKey("PK_Issues", x => new { x.Repository, x.Id });
-            });
+            }
+        );
     }
 
     protected override void Down(MigrationBuilder migrationBuilder)

@@ -13,7 +13,10 @@ public static class StorageSetup
     private const string DataFolder = "data";
     private const string DatabaseFileName = "dispatcher.db";
 
-    public static IServiceCollection AddStorage(this IServiceCollection services, IHostEnvironment environment)
+    public static IServiceCollection AddStorage(
+        this IServiceCollection services,
+        IHostEnvironment environment
+    )
     {
         string dataPath = Path.Combine(environment.ContentRootPath, DataFolder);
         Directory.CreateDirectory(dataPath);
@@ -21,7 +24,9 @@ public static class StorageSetup
         string dbPath = Path.Combine(dataPath, DatabaseFileName);
 
         return services
-            .AddDbContextFactory<DispatcherDbContext>(options => options.UseSqlite($"Data Source={dbPath}"))
+            .AddDbContextFactory<DispatcherDbContext>(options =>
+                options.UseSqlite($"Data Source={dbPath}")
+            )
             .AddRunOnStartupTask<DatabaseMigrationService>()
             .AddSingleton<IETagStore, ETagStore>()
             .AddSingleton<INotificationStateTracker, NotificationStateTracker>()

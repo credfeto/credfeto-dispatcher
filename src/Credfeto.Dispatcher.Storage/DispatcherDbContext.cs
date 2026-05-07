@@ -29,6 +29,11 @@ public sealed class DispatcherDbContext : DbContext
 
     public DbSet<NotificationQueueEntity> NotificationQueue => this.Set<NotificationQueueEntity>();
 
+    [UnconditionalSuppressMessage(
+        category: "Trimming",
+        checkId: "IL2026",
+        Justification = "EF Core fluent API lambda expressions compile to expression trees that internally use Expression.New(ConstructorInfo,...); the models and properties accessed are preserved by this explicit fluent configuration"
+    )]
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<PollingStateEntity>().Property(e => e.Key).HasMaxLength(256);

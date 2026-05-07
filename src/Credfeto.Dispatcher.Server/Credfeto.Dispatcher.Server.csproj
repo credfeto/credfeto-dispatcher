@@ -21,6 +21,8 @@
     <PublishTrimmed>true</PublishTrimmed>
     <LangVersion>latest</LangVersion>
     <NoWarn />
+    <!-- IL2104: EF Core, Kestrel, and their transitive deps are not yet fully trim-annotated; downgrade the per-assembly aggregated warning to non-fatal -->
+    <WarningsNotAsErrors>IL2104</WarningsNotAsErrors>
     <NuGetAudit>true</NuGetAudit>
     <NuGetAuditLevel>low</NuGetAuditLevel>
     <NuGetAuditMode>direct</NuGetAuditMode>

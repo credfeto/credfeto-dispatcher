@@ -8,6 +8,11 @@ namespace Credfeto.Dispatcher.Storage;
 
 public sealed class DispatcherDbContext : DbContext
 {
+    [UnconditionalSuppressMessage(
+        category: "Trimming",
+        checkId: "IL2026",
+        Justification = "Model is configured via explicit fluent API in OnModelCreating; no reflection-based entity discovery is used"
+    )]
     public DispatcherDbContext(DbContextOptions<DispatcherDbContext> options)
         : base(options) { }
 
@@ -26,6 +31,9 @@ public sealed class DispatcherDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<PollingStateEntity>().Property(e => e.Key).HasMaxLength(256);
+        modelBuilder.Entity<PollingStateEntity>().Property(e => e.ETag).HasMaxLength(1024);
+
         modelBuilder.Entity<PullRequestEntity>().HasKey(e => new { e.Repository, e.Id });
 
         modelBuilder

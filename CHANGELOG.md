@@ -9,9 +9,11 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 -->
 
 ## [Unreleased]
+### Security
 ### Added
 - Work item scanner background service that polls configured GitHub repositories for open pull requests and issues, updating notification state with priority, hold status, and linked PR information
 - Work item scanner auto-discovers GitHub repositories with write access via the API — no longer requires explicit Repos configuration. Uses AllowedOwners, AllowedRepos, and ExcludedRepos filters; empty filters mean scan all accessible repos.
+- Enable PublishTrimmed for release builds, convert MaxLength data annotations to fluent API, and update options properties to use set accessors for trim-compatible configuration binding
 ### Fixed
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
@@ -25,9 +27,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Dependencies - Updated FunFair.Test.Source.Generator to 6.2.22.2198
 ### Deprecated
 ### Removed
-### Security
 ### Deployment Changes
-
 <!--
 Releases that have at least been deployed to staging, BUT NOT necessarily released to live.  Changes should be moved from [Unreleased] into here as they are merged into the appropriate release branch
 -->

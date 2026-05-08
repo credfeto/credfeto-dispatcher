@@ -40,13 +40,22 @@ public sealed class WorkItemRepository : IWorkItemRepository
                 PullRequestType,
                 e.Priority,
                 e.FirstSeen,
+                e.LastUpdated,
                 e.IsUpToDate
             ))
             .ToListAsync(cancellationToken);
 
         List<WorkItem> issues = await context
             .Issues.Where(e => e.Status != ClosedStatus && !e.IsOnHold && !e.HasLinkedPr)
-            .Select(e => new WorkItem(e.Repository, e.Id, IssueType, e.Priority, e.FirstSeen, null))
+            .Select(e => new WorkItem(
+                e.Repository,
+                e.Id,
+                IssueType,
+                e.Priority,
+                e.FirstSeen,
+                e.LastUpdated,
+                null
+            ))
             .ToListAsync(cancellationToken);
 
         List<WorkItem> combined = [.. pullRequests, .. issues];

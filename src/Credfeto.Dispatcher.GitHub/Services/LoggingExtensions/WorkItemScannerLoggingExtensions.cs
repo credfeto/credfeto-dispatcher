@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 
 namespace Credfeto.Dispatcher.GitHub.Services.LoggingExtensions;
@@ -25,6 +26,7 @@ internal static partial class WorkItemScannerLoggingExtensions
     )]
     public static partial void LogNoReposDiscovered(this ILogger logger);
 
+    [Conditional("DEBUG")]
     [LoggerMessage(
         EventId = 1,
         Level = LogLevel.Debug,
@@ -37,6 +39,7 @@ internal static partial class WorkItemScannerLoggingExtensions
         string status
     );
 
+    [Conditional("DEBUG")]
     [LoggerMessage(
         EventId = 2,
         Level = LogLevel.Debug,
@@ -53,4 +56,48 @@ internal static partial class WorkItemScannerLoggingExtensions
 
     [LoggerMessage(EventId = 4, Level = LogLevel.Information, Message = "Work item scan complete")]
     public static partial void LogScanComplete(this ILogger logger);
+
+    [Conditional("DEBUG")]
+    [LoggerMessage(
+        EventId = 7,
+        Level = LogLevel.Debug,
+        Message = "Repo {Repo} skipped during discovery: archived or disabled"
+    )]
+    public static partial void LogRepoSkippedInactive(this ILogger logger, string repo);
+
+    [Conditional("DEBUG")]
+    [LoggerMessage(
+        EventId = 8,
+        Level = LogLevel.Debug,
+        Message = "Repo {Repo} skipped during discovery: no push permission"
+    )]
+    public static partial void LogRepoSkippedNoPushPermission(this ILogger logger, string repo);
+
+    [Conditional("DEBUG")]
+    [LoggerMessage(
+        EventId = 9,
+        Level = LogLevel.Debug,
+        Message = "Repo {Repo} skipped during discovery: owner '{Owner}' not in AllowedOwners"
+    )]
+    public static partial void LogRepoSkippedOwnerFilter(
+        this ILogger logger,
+        string repo,
+        string owner
+    );
+
+    [Conditional("DEBUG")]
+    [LoggerMessage(
+        EventId = 10,
+        Level = LogLevel.Debug,
+        Message = "Repo {Repo} skipped during discovery: not in AllowedRepos list"
+    )]
+    public static partial void LogRepoSkippedAllowedRepoFilter(this ILogger logger, string repo);
+
+    [Conditional("DEBUG")]
+    [LoggerMessage(
+        EventId = 11,
+        Level = LogLevel.Debug,
+        Message = "Repo {Repo} skipped during discovery: present in ExcludedRepos list"
+    )]
+    public static partial void LogRepoSkippedExcludedRepoFilter(this ILogger logger, string repo);
 }

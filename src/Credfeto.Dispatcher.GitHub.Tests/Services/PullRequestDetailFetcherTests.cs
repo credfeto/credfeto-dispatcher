@@ -18,139 +18,255 @@ public sealed class PullRequestDetailFetcherTests : TestBase
 
     private const string OpenPrJson = """
         {
-          "number": 42,
-          "title": "Test PR",
-          "state": "open",
-          "draft": false,
-          "html_url": "https://github.com/owner/repo/pull/42",
-          "assignees": [],
-          "labels": [],
-          "head": {"sha": "abc123"},
-          "mergeable_state": "clean"
+          "data": {
+            "repository": {
+              "pullRequest": {
+                "number": 42,
+                "title": "Test PR",
+                "state": "OPEN",
+                "isDraft": false,
+                "url": "https://github.com/owner/repo/pull/42",
+                "headRefOid": "abc123",
+                "baseRefOid": "def456",
+                "baseRef": {"target": {"oid": "def456"}},
+                "assignees": {"nodes": []},
+                "labels": {"nodes": []},
+                "comments": {"nodes": []},
+                "reviews": {"nodes": []}
+              }
+            }
+          }
         }
         """;
 
     private const string DraftPrJson = """
         {
-          "number": 42,
-          "title": "Test PR",
-          "state": "open",
-          "draft": true,
-          "html_url": "https://github.com/owner/repo/pull/42",
-          "assignees": [],
-          "labels": [],
-          "head": {"sha": "abc123"},
-          "mergeable_state": "draft"
+          "data": {
+            "repository": {
+              "pullRequest": {
+                "number": 42,
+                "title": "Test PR",
+                "state": "OPEN",
+                "isDraft": true,
+                "url": "https://github.com/owner/repo/pull/42",
+                "headRefOid": "abc123",
+                "baseRefOid": "def456",
+                "baseRef": {"target": {"oid": "def456"}},
+                "assignees": {"nodes": []},
+                "labels": {"nodes": []},
+                "comments": {"nodes": []},
+                "reviews": {"nodes": []}
+              }
+            }
+          }
         }
         """;
 
     private const string ClosedPrJson = """
         {
-          "number": 42,
-          "title": "Test PR",
-          "state": "closed",
-          "draft": false,
-          "html_url": "https://github.com/owner/repo/pull/42",
-          "assignees": [],
-          "labels": [],
-          "head": {"sha": "abc123"},
-          "mergeable_state": "clean"
+          "data": {
+            "repository": {
+              "pullRequest": {
+                "number": 42,
+                "title": "Test PR",
+                "state": "CLOSED",
+                "isDraft": false,
+                "url": "https://github.com/owner/repo/pull/42",
+                "headRefOid": "abc123",
+                "baseRefOid": "def456",
+                "baseRef": {"target": {"oid": "def456"}},
+                "assignees": {"nodes": []},
+                "labels": {"nodes": []},
+                "comments": {"nodes": []},
+                "reviews": {"nodes": []}
+              }
+            }
+          }
         }
         """;
 
     private const string BehindPrJson = """
         {
-          "number": 42,
-          "title": "Test PR",
-          "state": "open",
-          "draft": false,
-          "html_url": "https://github.com/owner/repo/pull/42",
-          "assignees": [],
-          "labels": [],
-          "head": {"sha": "abc123"},
-          "mergeable_state": "behind"
+          "data": {
+            "repository": {
+              "pullRequest": {
+                "number": 42,
+                "title": "Test PR",
+                "state": "OPEN",
+                "isDraft": false,
+                "url": "https://github.com/owner/repo/pull/42",
+                "headRefOid": "abc123",
+                "baseRefOid": "old-sha",
+                "baseRef": {"target": {"oid": "new-sha"}},
+                "assignees": {"nodes": []},
+                "labels": {"nodes": []},
+                "comments": {"nodes": []},
+                "reviews": {"nodes": []}
+              }
+            }
+          }
         }
         """;
 
-    private const string UnknownMergeStatePrJson = """
+    private const string NullBaseRefPrJson = """
         {
-          "number": 42,
-          "title": "Test PR",
-          "state": "open",
-          "draft": false,
-          "html_url": "https://github.com/owner/repo/pull/42",
-          "assignees": [],
-          "labels": [],
-          "head": {"sha": "abc123"},
-          "mergeable_state": "unknown"
+          "data": {
+            "repository": {
+              "pullRequest": {
+                "number": 42,
+                "title": "Test PR",
+                "state": "OPEN",
+                "isDraft": false,
+                "url": "https://github.com/owner/repo/pull/42",
+                "headRefOid": "abc123",
+                "baseRefOid": "def456",
+                "baseRef": null,
+                "assignees": {"nodes": []},
+                "labels": {"nodes": []},
+                "comments": {"nodes": []},
+                "reviews": {"nodes": []}
+              }
+            }
+          }
         }
         """;
 
-    private const string NullMergeStatePrJson = """
+    private const string EmptyBaseRefOidPrJson = """
         {
-          "number": 42,
-          "title": "Test PR",
-          "state": "open",
-          "draft": false,
-          "html_url": "https://github.com/owner/repo/pull/42",
-          "assignees": [],
-          "labels": [],
-          "head": {"sha": "abc123"}
+          "data": {
+            "repository": {
+              "pullRequest": {
+                "number": 42,
+                "title": "Test PR",
+                "state": "OPEN",
+                "isDraft": false,
+                "url": "https://github.com/owner/repo/pull/42",
+                "headRefOid": "abc123",
+                "baseRefOid": "",
+                "baseRef": {"target": {"oid": "def456"}},
+                "assignees": {"nodes": []},
+                "labels": {"nodes": []},
+                "comments": {"nodes": []},
+                "reviews": {"nodes": []}
+              }
+            }
+          }
         }
         """;
 
     private const string PrWithAssigneesJson = """
         {
-          "number": 42,
-          "title": "Test PR",
-          "state": "open",
-          "draft": false,
-          "html_url": "https://github.com/owner/repo/pull/42",
-          "assignees": [{"login": "alice"}, {"login": "bob"}],
-          "labels": [],
-          "head": {"sha": "abc123"},
-          "mergeable_state": "clean"
+          "data": {
+            "repository": {
+              "pullRequest": {
+                "number": 42,
+                "title": "Test PR",
+                "state": "OPEN",
+                "isDraft": false,
+                "url": "https://github.com/owner/repo/pull/42",
+                "headRefOid": "abc123",
+                "baseRefOid": "def456",
+                "baseRef": {"target": {"oid": "def456"}},
+                "assignees": {"nodes": [{"login": "alice"}, {"login": "bob"}]},
+                "labels": {"nodes": []},
+                "comments": {"nodes": []},
+                "reviews": {"nodes": []}
+              }
+            }
+          }
         }
         """;
 
     private const string PrWithLabelsJson = """
         {
-          "number": 42,
-          "title": "Test PR",
-          "state": "open",
-          "draft": false,
-          "html_url": "https://github.com/owner/repo/pull/42",
-          "assignees": [],
-          "labels": [{"name": "bug"}, {"name": "enhancement"}],
-          "head": {"sha": "abc123"},
-          "mergeable_state": "clean"
+          "data": {
+            "repository": {
+              "pullRequest": {
+                "number": 42,
+                "title": "Test PR",
+                "state": "OPEN",
+                "isDraft": false,
+                "url": "https://github.com/owner/repo/pull/42",
+                "headRefOid": "abc123",
+                "baseRefOid": "def456",
+                "baseRef": {"target": {"oid": "def456"}},
+                "assignees": {"nodes": []},
+                "labels": {"nodes": [{"name": "bug"}, {"name": "enhancement"}]},
+                "comments": {"nodes": []},
+                "reviews": {"nodes": []}
+              }
+            }
+          }
         }
         """;
 
-    private const string CommentsJson = """
-        [{
-          "body": "A test comment",
-          "user": {"login": "reviewer"},
-          "html_url": "https://github.com/owner/repo/issues/42#issuecomment-1"
-        }]
+    private const string OpenPrWithCommentJson = """
+        {
+          "data": {
+            "repository": {
+              "pullRequest": {
+                "number": 42,
+                "title": "Test PR",
+                "state": "OPEN",
+                "isDraft": false,
+                "url": "https://github.com/owner/repo/pull/42",
+                "headRefOid": "abc123",
+                "baseRefOid": "def456",
+                "baseRef": {"target": {"oid": "def456"}},
+                "assignees": {"nodes": []},
+                "labels": {"nodes": []},
+                "comments": {"nodes": [{"body": "A test comment", "author": {"login": "reviewer"}, "url": "https://github.com/owner/repo/issues/42#issuecomment-1"}]},
+                "reviews": {"nodes": []}
+              }
+            }
+          }
+        }
         """;
 
-    private const string ReviewsWithChangesRequestedJson = """
-        [{
-          "state": "CHANGES_REQUESTED",
-          "body": "Please fix this",
-          "user": {"login": "reviewer"},
-          "html_url": "https://github.com/owner/repo/pull/42#pullrequestreview-1"
-        }]
+    private const string OpenPrWithChangesRequestedReviewJson = """
+        {
+          "data": {
+            "repository": {
+              "pullRequest": {
+                "number": 42,
+                "title": "Test PR",
+                "state": "OPEN",
+                "isDraft": false,
+                "url": "https://github.com/owner/repo/pull/42",
+                "headRefOid": "abc123",
+                "baseRefOid": "def456",
+                "baseRef": {"target": {"oid": "def456"}},
+                "assignees": {"nodes": []},
+                "labels": {"nodes": []},
+                "comments": {"nodes": []},
+                "reviews": {"nodes": [{"state": "CHANGES_REQUESTED", "body": "Please fix this", "author": {"login": "reviewer"}, "url": "https://github.com/owner/repo/pull/42#pullrequestreview-1"}]}
+              }
+            }
+          }
+        }
         """;
 
-    private const string ReviewsApprovedJson = """
-        [{
-          "state": "APPROVED",
-          "body": "Looks good",
-          "user": {"login": "reviewer"},
-          "html_url": "https://github.com/owner/repo/pull/42#pullrequestreview-1"
-        }]
+    private const string OpenPrWithApprovedReviewJson = """
+        {
+          "data": {
+            "repository": {
+              "pullRequest": {
+                "number": 42,
+                "title": "Test PR",
+                "state": "OPEN",
+                "isDraft": false,
+                "url": "https://github.com/owner/repo/pull/42",
+                "headRefOid": "abc123",
+                "baseRefOid": "def456",
+                "baseRef": {"target": {"oid": "def456"}},
+                "assignees": {"nodes": []},
+                "labels": {"nodes": []},
+                "comments": {"nodes": []},
+                "reviews": {"nodes": [{"state": "APPROVED", "body": "Looks good", "author": {"login": "reviewer"}, "url": "https://github.com/owner/repo/pull/42#pullrequestreview-1"}]}
+              }
+            }
+          }
+        }
         """;
 
     private const string WorkflowRunsWithFailureJson = """
@@ -400,9 +516,8 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task FetchesLatestCommentWhenReasonIsCommentAsync()
     {
-        using HttpClient prClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
-        using HttpClient commentClient = CreateClient(HttpStatusCode.OK, CommentsJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, commentClient);
+        using HttpClient client = CreateClient(HttpStatusCode.OK, OpenPrWithCommentJson);
+        this._httpClientFactory.CreateClient("GitHub").Returns(client);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "comment");
 
@@ -421,13 +536,12 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     }
 
     [Fact]
-    public async Task ReturnsNullCommentWhenCommentApiFailsAsync()
+    public async Task DoesNotReturnCommentWhenReasonIsNotCommentAsync()
     {
-        using HttpClient prClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
-        using HttpClient failClient = CreateClient(HttpStatusCode.InternalServerError);
-        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, failClient);
+        using HttpClient client = CreateClient(HttpStatusCode.OK, OpenPrWithCommentJson);
+        this._httpClientFactory.CreateClient("GitHub").Returns(client);
 
-        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "comment");
+        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
         PullRequestDetails? result = await this._fetcher.FetchAsync(
             notification: notification,
@@ -443,9 +557,8 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task ReturnsNullCommentWhenCommentListIsEmptyAsync()
     {
-        using HttpClient prClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
-        using HttpClient emptyClient = CreateClient(HttpStatusCode.OK, "[]");
-        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, emptyClient);
+        using HttpClient client = CreateClient(HttpStatusCode.OK, OpenPrJson);
+        this._httpClientFactory.CreateClient("GitHub").Returns(client);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "comment");
 
@@ -461,12 +574,11 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task FetchesReviewWhenReasonIsReviewRequestedAsync()
     {
-        using HttpClient prClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
-        using HttpClient reviewClient = CreateClient(
+        using HttpClient client = CreateClient(
             HttpStatusCode.OK,
-            ReviewsWithChangesRequestedJson
+            OpenPrWithChangesRequestedReviewJson
         );
-        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, reviewClient);
+        this._httpClientFactory.CreateClient("GitHub").Returns(client);
 
         GitHubNotification notification = BuildNotification(
             type: "PullRequest",
@@ -487,9 +599,8 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task ReturnsNullReviewWhenNoChangesRequestedAsync()
     {
-        using HttpClient prClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
-        using HttpClient reviewClient = CreateClient(HttpStatusCode.OK, ReviewsApprovedJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, reviewClient);
+        using HttpClient client = CreateClient(HttpStatusCode.OK, OpenPrWithApprovedReviewJson);
+        this._httpClientFactory.CreateClient("GitHub").Returns(client);
 
         GitHubNotification notification = BuildNotification(
             type: "PullRequest",
@@ -509,9 +620,9 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task FetchesFailedRunWhenReasonIsCiActivityAsync()
     {
-        using HttpClient prClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
         using HttpClient runsClient = CreateClient(HttpStatusCode.OK, WorkflowRunsWithFailureJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, runsClient);
+        this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, runsClient);
 
         GitHubNotification notification = BuildNotification(
             type: "PullRequest",
@@ -534,9 +645,9 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task ReturnsNullFailedRunWhenAllRunsPassedAsync()
     {
-        using HttpClient prClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
         using HttpClient runsClient = CreateClient(HttpStatusCode.OK, WorkflowRunsAllPassedJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, runsClient);
+        this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, runsClient);
 
         GitHubNotification notification = BuildNotification(
             type: "PullRequest",
@@ -557,17 +668,31 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     public async Task TruncatesLongCommentBodyAsync()
     {
         string longBody = new(c: 'x', count: 400);
-        string commentsWithLongBody = $$"""
-            [{
-              "body": "{{longBody}}",
-              "user": {"login": "reviewer"},
-              "html_url": "https://github.com/owner/repo/issues/42#issuecomment-1"
-            }]
+        string prWithLongComment = $$$"""
+            {
+              "data": {
+                "repository": {
+                  "pullRequest": {
+                    "number": 42,
+                    "title": "Test PR",
+                    "state": "OPEN",
+                    "isDraft": false,
+                    "url": "https://github.com/owner/repo/pull/42",
+                    "headRefOid": "abc123",
+                    "baseRefOid": "def456",
+                    "baseRef": {"target": {"oid": "def456"}},
+                    "assignees": {"nodes": []},
+                    "labels": {"nodes": []},
+                    "comments": {"nodes": [{"body": "{{{longBody}}}", "author": {"login": "reviewer"}, "url": "https://github.com/owner/repo/issues/42#issuecomment-1"}]},
+                    "reviews": {"nodes": []}
+                  }
+                }
+              }
+            }
             """;
 
-        using HttpClient prClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
-        using HttpClient commentClient = CreateClient(HttpStatusCode.OK, commentsWithLongBody);
-        this._httpClientFactory.CreateClient("GitHub").Returns(prClient, commentClient);
+        using HttpClient client = CreateClient(HttpStatusCode.OK, prWithLongComment);
+        this._httpClientFactory.CreateClient("GitHub").Returns(client);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "comment");
 
@@ -586,7 +711,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     }
 
     [Fact]
-    public async Task IsUpToDateIsTrueWhenMergeableStateIsCleanAsync()
+    public async Task IsUpToDateIsTrueWhenBaseRefOidsMatchAsync()
     {
         using HttpClient client = CreateClient(HttpStatusCode.OK, OpenPrJson);
         this._httpClientFactory.CreateClient("GitHub").Returns(client);
@@ -603,7 +728,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     }
 
     [Fact]
-    public async Task IsUpToDateIsFalseWhenMergeableStateIsBehindAsync()
+    public async Task IsUpToDateIsFalseWhenBaseRefOidsDifferAsync()
     {
         using HttpClient client = CreateClient(HttpStatusCode.OK, BehindPrJson);
         this._httpClientFactory.CreateClient("GitHub").Returns(client);
@@ -620,9 +745,9 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     }
 
     [Fact]
-    public async Task IsUpToDateIsNullWhenMergeableStateIsUnknownAsync()
+    public async Task IsUpToDateIsNullWhenBaseRefIsNullAsync()
     {
-        using HttpClient client = CreateClient(HttpStatusCode.OK, UnknownMergeStatePrJson);
+        using HttpClient client = CreateClient(HttpStatusCode.OK, NullBaseRefPrJson);
         this._httpClientFactory.CreateClient("GitHub").Returns(client);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
@@ -637,9 +762,9 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     }
 
     [Fact]
-    public async Task IsUpToDateIsNullWhenMergeableStateIsAbsentAsync()
+    public async Task IsUpToDateIsNullWhenBaseRefOidIsEmptyAsync()
     {
-        using HttpClient client = CreateClient(HttpStatusCode.OK, NullMergeStatePrJson);
+        using HttpClient client = CreateClient(HttpStatusCode.OK, EmptyBaseRefOidPrJson);
         this._httpClientFactory.CreateClient("GitHub").Returns(client);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");

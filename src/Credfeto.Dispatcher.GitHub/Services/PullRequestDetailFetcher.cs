@@ -1,7 +1,8 @@
 using System;
-using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,8 +20,56 @@ public sealed class PullRequestDetailFetcher : IPullRequestDetailFetcher
     private const string ChangesRequestedState = "CHANGES_REQUESTED";
     private const string CiActivityReason = "ci_activity";
     private const int MaxBodyLength = 300;
-    private const string MergeableStateBehind = "behind";
-    private const string MergeableStateUnknown = "unknown";
+
+    private const string PullRequestQuery = """
+        query PullRequestDetails($owner: String!, $repo: String!, $number: Int!) {
+          repository(owner: $owner, name: $repo) {
+            pullRequest(number: $number) {
+              number
+              title
+              state
+              isDraft
+              url
+              headRefOid
+              baseRefOid
+              baseRef {
+                target {
+                  oid
+                }
+              }
+              assignees(first: 10) {
+                nodes {
+                  login
+                }
+              }
+              labels(first: 10) {
+                nodes {
+                  name
+                }
+              }
+              comments(last: 1) {
+                nodes {
+                  body
+                  author {
+                    login
+                  }
+                  url
+                }
+              }
+              reviews(last: 10, states: [CHANGES_REQUESTED]) {
+                nodes {
+                  state
+                  body
+                  author {
+                    login
+                  }
+                  url
+                }
+              }
+            }
+          }
+        }
+        """;
 
     private readonly IHttpClientFactory _httpClientFactory;
 
@@ -45,10 +94,8 @@ public sealed class PullRequestDetailFetcher : IPullRequestDetailFetcher
             return null;
         }
 
-        string apiUrl = notification.Subject.Url.ToString();
-        ApiPullRequest? pr = await this.GetAsync<ApiPullRequest>(
-            url: apiUrl,
-            jsonTypeInfo: NotificationSerializerContext.Default.ApiPullRequest,
+        GraphQlPullRequestData? pr = await this.FetchPullRequestViaGraphQlAsync(
+            subjectUrl: notification.Subject.Url,
             cancellationToken: cancellationToken
         );
 
@@ -57,31 +104,26 @@ public sealed class PullRequestDetailFetcher : IPullRequestDetailFetcher
             return null;
         }
 
-        (string? commentBody, string? commentAuthor, Uri? commentUrl) =
-            await this.FetchCommentAsync(
-                notification: notification,
-                apiUrl: apiUrl,
-                cancellationToken: cancellationToken
-            );
-        (string? reviewState, string? reviewBody, string? reviewAuthor, Uri? reviewUrl) =
-            await this.FetchReviewAsync(
-                notification: notification,
-                apiUrl: apiUrl,
-                cancellationToken: cancellationToken
-            );
         (string? failedRunName, Uri? failedRunUrl) = await this.FetchFailedRunAsync(
             notification: notification,
-            pr: pr,
+            headSha: pr.HeadRefOid,
             cancellationToken: cancellationToken
         );
+
+        (string? commentBody, string? commentAuthor, Uri? commentUrl) = ExtractComment(
+            notification: notification,
+            pr: pr
+        );
+        (string? reviewState, string? reviewBody, string? reviewAuthor, Uri? reviewUrl) =
+            ExtractReview(notification: notification, pr: pr);
 
         return new PullRequestDetails(
             Number: pr.Number,
             Title: pr.Title,
             Status: DetermineStatus(pr),
-            HtmlUrl: new Uri(pr.HtmlUrl),
-            Assignees: [.. pr.Assignees.Select(u => u.Login)],
-            Labels: [.. pr.Labels.Select(l => l.Name)],
+            HtmlUrl: new Uri(pr.Url),
+            Assignees: [.. pr.Assignees?.Nodes?.Select(u => u.Login) ?? []],
+            Labels: [.. pr.Labels?.Nodes?.Select(l => l.Name) ?? []],
             CommentBody: commentBody,
             CommentAuthor: commentAuthor,
             CommentUrl: commentUrl,
@@ -91,95 +133,54 @@ public sealed class PullRequestDetailFetcher : IPullRequestDetailFetcher
             ReviewUrl: reviewUrl,
             FailedRunName: failedRunName,
             FailedRunUrl: failedRunUrl,
-            IsUpToDate: DetermineIsUpToDate(pr.MergeableState)
+            IsUpToDate: DetermineIsUpToDate(baseRefOid: pr.BaseRefOid, baseRef: pr.BaseRef)
         );
     }
 
-    private async ValueTask<(string? body, string? author, Uri? url)> FetchCommentAsync(
-        GitHubNotification notification,
-        string apiUrl,
+    private async ValueTask<GraphQlPullRequestData?> FetchPullRequestViaGraphQlAsync(
+        Uri subjectUrl,
         CancellationToken cancellationToken
     )
     {
-        if (
-            !string.Equals(
-                a: notification.Reason,
-                b: CommentReason,
-                comparisonType: StringComparison.OrdinalIgnoreCase
-            )
-        )
-        {
-            return (null, null, null);
-        }
+        (string owner, string repo, int number) = ParsePullRequestUrl(subjectUrl);
 
-        string commentsUrl = BuildCommentsUrl(apiUrl);
-        ApiIssueComment[]? comments = await this.GetAsync<ApiIssueComment[]>(
-            url: commentsUrl,
-            jsonTypeInfo: NotificationSerializerContext.Default.ApiIssueCommentArray,
+        GraphQlRequest request = new(
+            Query: PullRequestQuery,
+            Variables: new GraphQlVariables(Owner: owner, Repo: repo, Number: number)
+        );
+
+        HttpClient httpClient = this._httpClientFactory.CreateClient("GitHub");
+
+        using HttpRequestMessage message = new(method: HttpMethod.Post, requestUri: "graphql")
+        {
+            Content = JsonContent.Create(
+                inputValue: request,
+                jsonTypeInfo: NotificationSerializerContext.Default.GraphQlRequest
+            ),
+        };
+
+        using HttpResponseMessage response = await httpClient.SendAsync(
+            request: message,
             cancellationToken: cancellationToken
         );
-        ApiIssueComment? latest = comments?.LastOrDefault();
 
-        if (latest is null)
+        if (!response.IsSuccessStatusCode)
         {
-            return (null, null, null);
+            return null;
         }
 
-        return (TruncateBody(latest.Body), latest.User.Login, new Uri(latest.HtmlUrl));
-    }
-
-    private async ValueTask<(
-        string? state,
-        string? body,
-        string? author,
-        Uri? url
-    )> FetchReviewAsync(
-        GitHubNotification notification,
-        string apiUrl,
-        CancellationToken cancellationToken
-    )
-    {
-        if (
-            !string.Equals(
-                a: notification.Reason,
-                b: ReviewRequestedReason,
-                comparisonType: StringComparison.OrdinalIgnoreCase
-            )
-        )
-        {
-            return (null, null, null, null);
-        }
-
-        string reviewsUrl = BuildReviewsUrl(apiUrl);
-        ApiPullRequestReview[]? reviews = await this.GetAsync<ApiPullRequestReview[]>(
-            url: reviewsUrl,
-            jsonTypeInfo: NotificationSerializerContext.Default.ApiPullRequestReviewArray,
-            cancellationToken: cancellationToken
-        );
-        ApiPullRequestReview? changesRequested = reviews?.LastOrDefault(r =>
-            string.Equals(
-                a: r.State,
-                b: ChangesRequestedState,
-                comparisonType: StringComparison.OrdinalIgnoreCase
-            )
+        string json = await response.Content.ReadAsStringAsync(cancellationToken);
+        GraphQlResponse? gqlResponse = JsonSerializer.Deserialize(
+            json: json,
+            jsonTypeInfo: NotificationSerializerContext.Default.GraphQlResponse
         );
 
-        if (changesRequested is null)
-        {
-            return (null, null, null, null);
-        }
-
-        return (
-            changesRequested.State,
-            TruncateBody(changesRequested.Body),
-            changesRequested.User.Login,
-            new Uri(changesRequested.HtmlUrl)
-        );
+        return gqlResponse?.Data?.Repository?.PullRequest;
     }
 
     private async ValueTask<(string? name, Uri? url)> FetchFailedRunAsync(
         GitHubNotification notification,
-        ApiPullRequest pr,
+        string headSha,
         CancellationToken cancellationToken
     )
     {
@@ -196,7 +197,7 @@ public sealed class PullRequestDetailFetcher : IPullRequestDetailFetcher
 
         string runsUrl = BuildWorkflowRunsUrl(
             repoFullName: notification.Repository.FullName,
-            headSha: pr.Head.Sha
+            headSha: headSha
         );
         ApiWorkflowRunsResponse? runsResponse = await this.GetAsync<ApiWorkflowRunsResponse>(
             url: runsUrl,
@@ -219,33 +220,89 @@ public sealed class PullRequestDetailFetcher : IPullRequestDetailFetcher
         return (failedRun.Name, new Uri(failedRun.HtmlUrl));
     }
 
-    private static bool? DetermineIsUpToDate(string? mergeableState)
+    private static (string? body, string? author, Uri? url) ExtractComment(
+        GitHubNotification notification,
+        GraphQlPullRequestData pr
+    )
     {
         if (
-            mergeableState is null
-            || string.Equals(
-                a: mergeableState,
-                b: MergeableStateUnknown,
+            !string.Equals(
+                a: notification.Reason,
+                b: CommentReason,
                 comparisonType: StringComparison.OrdinalIgnoreCase
             )
         )
         {
-            return null;
+            return (null, null, null);
         }
 
-        return !string.Equals(
-            a: mergeableState,
-            b: MergeableStateBehind,
-            comparisonType: StringComparison.OrdinalIgnoreCase
+        GraphQlCommentNode? latest = pr.Comments?.Nodes?.LastOrDefault();
+
+        if (latest is null)
+        {
+            return (null, null, null);
+        }
+
+        return (TruncateBody(latest.Body), latest.Author?.Login, new Uri(latest.Url));
+    }
+
+    private static (string? state, string? body, string? author, Uri? url) ExtractReview(
+        GitHubNotification notification,
+        GraphQlPullRequestData pr
+    )
+    {
+        if (
+            !string.Equals(
+                a: notification.Reason,
+                b: ReviewRequestedReason,
+                comparisonType: StringComparison.OrdinalIgnoreCase
+            )
+        )
+        {
+            return (null, null, null, null);
+        }
+
+        GraphQlReviewNode? changesRequested = pr.Reviews?.Nodes?.LastOrDefault(r =>
+            string.Equals(
+                a: r.State,
+                b: ChangesRequestedState,
+                comparisonType: StringComparison.OrdinalIgnoreCase
+            )
+        );
+
+        if (changesRequested is null)
+        {
+            return (null, null, null, null);
+        }
+
+        return (
+            changesRequested.State,
+            TruncateBody(changesRequested.Body),
+            changesRequested.Author?.Login,
+            new Uri(changesRequested.Url)
         );
     }
 
-    private static string DetermineStatus(ApiPullRequest pr)
+    private static bool? DetermineIsUpToDate(string baseRefOid, GraphQlRefNode? baseRef)
+    {
+        if (baseRef?.Target is null || string.IsNullOrEmpty(baseRefOid))
+        {
+            return null;
+        }
+
+        return string.Equals(
+            a: baseRef.Target.Oid,
+            b: baseRefOid,
+            comparisonType: StringComparison.Ordinal
+        );
+    }
+
+    private static string DetermineStatus(GraphQlPullRequestData pr)
     {
         if (
             string.Equals(
                 a: pr.State,
-                b: "closed",
+                b: "CLOSED",
                 comparisonType: StringComparison.OrdinalIgnoreCase
             )
         )
@@ -253,21 +310,14 @@ public sealed class PullRequestDetailFetcher : IPullRequestDetailFetcher
             return "Closed";
         }
 
-        return pr.Draft ? "Draft" : "Open";
+        return pr.IsDraft ? "Draft" : "Open";
     }
 
-    private static string BuildCommentsUrl(string pullRequestApiUrl)
+    private static (string owner, string repo, int number) ParsePullRequestUrl(Uri url)
     {
-        return pullRequestApiUrl.Replace(
-                oldValue: "/pulls/",
-                newValue: "/issues/",
-                comparisonType: StringComparison.Ordinal
-            ) + "/comments?per_page=1&direction=desc";
-    }
+        string[] segments = url.AbsolutePath.Split('/');
 
-    private static string BuildReviewsUrl(string pullRequestApiUrl)
-    {
-        return pullRequestApiUrl + "/reviews?per_page=10";
+        return (segments[2], segments[3], int.Parse(segments[5], CultureInfo.InvariantCulture));
     }
 
     private static string BuildWorkflowRunsUrl(string repoFullName, string headSha)

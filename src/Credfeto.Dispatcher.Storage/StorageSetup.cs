@@ -1,9 +1,11 @@
+using System;
 using System.IO;
 using Credfeto.Dispatcher.GitHub.Interfaces;
 using Credfeto.Dispatcher.Storage.Services;
 using Credfeto.Services.Startup.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 
 namespace Credfeto.Dispatcher.Storage;
@@ -22,6 +24,8 @@ public static class StorageSetup
         Directory.CreateDirectory(dataPath);
 
         string dbPath = Path.Combine(dataPath, DatabaseFileName);
+
+        services.TryAddSingleton(TimeProvider.System);
 
         return services
             .AddDbContextFactory<DispatcherDbContext>(options =>

@@ -206,6 +206,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
                     status: status,
                     priority: priority,
                     isOnHold: isOnHold,
+                    isUpToDate: null,
                     cancellationToken: cancellationToken
                 );
 

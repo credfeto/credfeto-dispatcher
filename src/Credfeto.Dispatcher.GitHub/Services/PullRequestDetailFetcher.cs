@@ -19,6 +19,8 @@ public sealed class PullRequestDetailFetcher : IPullRequestDetailFetcher
     private const string ChangesRequestedState = "CHANGES_REQUESTED";
     private const string CiActivityReason = "ci_activity";
     private const int MaxBodyLength = 300;
+    private const string MergeableStateBehind = "behind";
+    private const string MergeableStateUnknown = "unknown";
 
     private readonly IHttpClientFactory _httpClientFactory;
 
@@ -88,7 +90,8 @@ public sealed class PullRequestDetailFetcher : IPullRequestDetailFetcher
             ReviewAuthor: reviewAuthor,
             ReviewUrl: reviewUrl,
             FailedRunName: failedRunName,
-            FailedRunUrl: failedRunUrl
+            FailedRunUrl: failedRunUrl,
+            IsUpToDate: DetermineIsUpToDate(pr.MergeableState)
         );
     }
 
@@ -214,6 +217,27 @@ public sealed class PullRequestDetailFetcher : IPullRequestDetailFetcher
         }
 
         return (failedRun.Name, new Uri(failedRun.HtmlUrl));
+    }
+
+    private static bool? DetermineIsUpToDate(string? mergeableState)
+    {
+        if (
+            mergeableState is null
+            || string.Equals(
+                a: mergeableState,
+                b: MergeableStateUnknown,
+                comparisonType: StringComparison.OrdinalIgnoreCase
+            )
+        )
+        {
+            return null;
+        }
+
+        return !string.Equals(
+            a: mergeableState,
+            b: MergeableStateBehind,
+            comparisonType: StringComparison.OrdinalIgnoreCase
+        );
     }
 
     private static string DetermineStatus(ApiPullRequest pr)

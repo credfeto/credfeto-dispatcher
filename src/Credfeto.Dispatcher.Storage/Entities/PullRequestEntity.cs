@@ -22,4 +22,6 @@ public sealed class PullRequestEntity : INotificationEntity
     public WorkPriority Priority { get; set; } = WorkPriority.Unknown;
 
     public bool IsOnHold { get; set; }
+
+    public bool? IsUpToDate { get; set; }
 }

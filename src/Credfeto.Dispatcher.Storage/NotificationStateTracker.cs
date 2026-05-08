@@ -2,7 +2,6 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
-using Credfeto.Date.Interfaces;
 using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Interfaces;
 using Credfeto.Dispatcher.Storage.Entities;
@@ -14,16 +13,16 @@ public sealed class NotificationStateTracker : INotificationStateTracker
 {
     private const string ClosedStatus = "Closed";
 
-    private readonly ICurrentTimeSource _currentTimeSource;
     private readonly IDbContextFactory<DispatcherDbContext> _dbContextFactory;
+    private readonly TimeProvider _timeProvider;
 
     public NotificationStateTracker(
         IDbContextFactory<DispatcherDbContext> dbContextFactory,
-        ICurrentTimeSource currentTimeSource
+        TimeProvider timeProvider
     )
     {
         this._dbContextFactory = dbContextFactory;
-        this._currentTimeSource = currentTimeSource;
+        this._timeProvider = timeProvider;
     }
 
     public Task<bool> ShouldSkipPullRequestAsync(
@@ -47,6 +46,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         string status,
         WorkPriority priority,
         bool isOnHold,
+        bool? isUpToDate,
         CancellationToken cancellationToken
     )
     {
@@ -57,7 +57,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
             keyValues: [repository, pullRequestNumber],
             cancellationToken: cancellationToken
         );
-        DateTimeOffset now = this._currentTimeSource.UtcNow();
+        DateTimeOffset now = this._timeProvider.GetUtcNow();
 
         if (existing is null)
         {
@@ -68,6 +68,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
                     status: status,
                     priority: priority,
                     isOnHold: isOnHold,
+                    isUpToDate: isUpToDate,
                     now: now
                 )
             );
@@ -79,6 +80,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
                 status: status,
                 priority: priority,
                 isOnHold: isOnHold,
+                isUpToDate: isUpToDate,
                 now: now
             );
         }
@@ -118,7 +120,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
             keyValues: [repository, issueNumber],
             cancellationToken: cancellationToken
         );
-        DateTimeOffset now = this._currentTimeSource.UtcNow();
+        DateTimeOffset now = this._timeProvider.GetUtcNow();
 
         if (existing is null)
         {
@@ -164,6 +166,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         string status,
         WorkPriority priority,
         bool isOnHold,
+        bool? isUpToDate,
         in DateTimeOffset now
     )
     {
@@ -174,6 +177,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
             Status = status,
             Priority = priority,
             IsOnHold = isOnHold,
+            IsUpToDate = isUpToDate,
             FirstSeen = now,
             LastUpdated = now,
             WhenClosed = IsClosedStatus(status) ? now : null,
@@ -209,6 +213,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         string status,
         WorkPriority priority,
         bool isOnHold,
+        bool? isUpToDate,
         in DateTimeOffset now
     )
     {
@@ -216,6 +221,11 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         entity.Priority = priority;
         entity.IsOnHold = isOnHold;
         entity.LastUpdated = now;
+
+        if (isUpToDate.HasValue)
+        {
+            entity.IsUpToDate = isUpToDate.Value;
+        }
 
         if (IsClosedStatus(status))
         {

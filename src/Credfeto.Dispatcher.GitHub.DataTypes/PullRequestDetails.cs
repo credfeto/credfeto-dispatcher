@@ -20,5 +20,6 @@ public sealed record PullRequestDetails(
     string? ReviewAuthor,
     Uri? ReviewUrl,
     string? FailedRunName,
-    Uri? FailedRunUrl
+    Uri? FailedRunUrl,
+    bool? IsUpToDate
 );

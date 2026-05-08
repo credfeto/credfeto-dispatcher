@@ -19,6 +19,7 @@ public interface INotificationStateTracker
         string status,
         WorkPriority priority,
         bool isOnHold,
+        bool? isUpToDate,
         CancellationToken cancellationToken
     );
 

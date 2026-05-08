@@ -2,12 +2,11 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using Credfeto.Date.Interfaces;
 using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Interfaces;
 using FunFair.Test.Common;
 using Microsoft.EntityFrameworkCore;
-using NSubstitute;
+using Microsoft.Extensions.Time.Testing;
 using Xunit;
 
 namespace Credfeto.Dispatcher.Storage.Tests.Services;
@@ -30,7 +29,6 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
     private const string OpenStatus = "Open";
     private const string ClosedStatus = "Closed";
 
-    private readonly ICurrentTimeSource _currentTimeSource;
     private readonly INotificationStateTracker _tracker;
 
     public NotificationStateTrackerTests(ITestOutputHelper output)
@@ -47,12 +45,11 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
             ctx.Database.Migrate();
         }
 
-        this._currentTimeSource = GetSubstitute<ICurrentTimeSource>();
-        this._currentTimeSource.UtcNow().Returns(TestNow);
+        FakeTimeProvider timeProvider = new(startDateTime: TestNow);
 
         this._tracker = new NotificationStateTracker(
             new TestDbContextFactory(options),
-            this._currentTimeSource
+            timeProvider
         );
     }
 
@@ -94,6 +91,7 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
             status: OpenStatus,
             priority: WorkPriority.Unknown,
             isOnHold: false,
+            isUpToDate: null,
             cancellationToken: this.CancellationToken()
         );
     }
@@ -107,6 +105,7 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
             status: OpenStatus,
             priority: WorkPriority.Unknown,
             isOnHold: false,
+            isUpToDate: null,
             cancellationToken: this.CancellationToken()
         );
 
@@ -116,6 +115,7 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
             status: ClosedStatus,
             priority: WorkPriority.Unknown,
             isOnHold: false,
+            isUpToDate: null,
             cancellationToken: this.CancellationToken()
         );
     }

@@ -34,6 +34,11 @@ public sealed class DispatcherDbContext : DbContext
         checkId: "IL2026",
         Justification = "EF Core fluent API lambda expressions compile to expression trees that internally use Expression.New(ConstructorInfo,...); the models and properties accessed are preserved by this explicit fluent configuration"
     )]
+    [SuppressMessage(
+        "Philips.CodeAnalysis.DuplicateCodeAnalyzer",
+        "PH2071:Duplicate shape found",
+        Justification = "Fluent API property configuration lines are structurally identical by design; each configures a different entity property."
+    )]
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<PollingStateEntity>().Property(e => e.Key).HasMaxLength(256);
@@ -49,6 +54,11 @@ public sealed class DispatcherDbContext : DbContext
 
         modelBuilder.Entity<PullRequestEntity>().Property(e => e.IsOnHold).HasColumnType("INTEGER");
 
+        modelBuilder
+            .Entity<PullRequestEntity>()
+            .Property(e => e.IsUpToDate)
+            .HasColumnType("INTEGER");
+
         modelBuilder.Entity<IssueEntity>().HasKey(e => new { e.Repository, e.Id });
 
         modelBuilder
@@ -61,6 +71,11 @@ public sealed class DispatcherDbContext : DbContext
 
         modelBuilder.Entity<IssueEntity>().Property(e => e.HasLinkedPr).HasColumnType("INTEGER");
 
+        ConfigureNotificationQueue(modelBuilder);
+    }
+
+    private static void ConfigureNotificationQueue(ModelBuilder modelBuilder)
+    {
         modelBuilder.Entity<NotificationQueueEntity>().HasKey(e => e.SubjectUrl);
 
         modelBuilder

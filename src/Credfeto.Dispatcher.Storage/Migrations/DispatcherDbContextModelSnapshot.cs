@@ -21,6 +21,11 @@ namespace Credfeto.Dispatcher.Storage.Migrations;
 )]
 internal sealed class DispatcherDbContextModelSnapshot : ModelSnapshot
 {
+    [UnconditionalSuppressMessage(
+        category: "Trimming",
+        checkId: "IL2026",
+        Justification = "EF Core HasKey expression trees use Expression.New(ConstructorInfo,...) for composite keys; all entity types and properties are preserved via TrimmerRootAssembly for Credfeto.Dispatcher.Storage"
+    )]
     protected override void BuildModel(ModelBuilder modelBuilder)
     {
         modelBuilder.HasAnnotation("ProductVersion", "10.0.7");

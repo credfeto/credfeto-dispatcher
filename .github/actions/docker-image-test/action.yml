@@ -16,9 +16,47 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: "Wouldn't it be nice if all these things worked"
+    - name: "Start container"
       shell: bash
-      run: echo "Urrgh"
+      run: |
+        docker run -d --rm \
+          --name dispatcher-smoke \
+          -p 18080:8080 \
+          -e Discord__WebhookUrl=http://localhost:1/dummy \
+          -e Discord__NotificationsChannelWebhookUrl=http://localhost:1/dummy \
+          -e GitHub__Token=smoke-test-dummy \
+          "${{inputs.APP_OWNER}}/${{inputs.APP_NAME}}:test"
+
+    - name: "Wait for /priorities to respond"
+      shell: bash
+      run: |
+        for i in $(seq 1 30); do
+          STATUS=$(curl --noproxy localhost -s -o /dev/null -w "%{http_code}" http://localhost:18080/priorities 2>/dev/null || echo "000")
+          if [ "$STATUS" = "200" ]; then
+            echo "Container healthy after ${i}s"
+            exit 0
+          fi
+          echo "  Attempt ${i}: HTTP $STATUS — waiting..."
+          sleep 1
+        done
+        echo "ERROR: /priorities did not return 200 within 30s"
+        docker logs dispatcher-smoke || true
+        exit 1
+
+    - name: "Verify /priorities response body"
+      shell: bash
+      run: |
+        BODY=$(curl --noproxy localhost -s http://localhost:18080/priorities)
+        if [ "$BODY" != "[]" ]; then
+          echo "ERROR: unexpected response body: $BODY"
+          exit 1
+        fi
+        echo "Response: $BODY — PASSED"
+
+    - name: "Stop container"
+      if: always()
+      shell: bash
+      run: docker stop dispatcher-smoke 2>/dev/null || true
 
 #    - name: "Create SBOM"
 #      uses: anchore/sbom-action@v0.18.0

@@ -59,6 +59,9 @@
     <TrimmerRootAssembly Include="Microsoft.EntityFrameworkCore" />
     <TrimmerRootAssembly Include="Microsoft.EntityFrameworkCore.Relational" />
     <TrimmerRootAssembly Include="Microsoft.EntityFrameworkCore.Sqlite" />
+    <!-- EF Core discovers migrations via Assembly.GetTypes() at runtime; without this root
+         the trimmer removes all IMigration implementations and the database is never initialised. -->
+    <TrimmerRootAssembly Include="Credfeto.Dispatcher.Storage" />
     <!-- Ben.Demystifier (used by Serilog) produces IL2104 trim warnings;
          preserve to avoid stack-trace formatting failures at runtime. -->
     <TrimmerRootAssembly Include="Ben.Demystifier" />

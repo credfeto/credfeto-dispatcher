@@ -13,5 +13,6 @@ internal sealed record ApiPullRequest(
     [property: JsonPropertyName("html_url")] string HtmlUrl,
     [property: JsonPropertyName("assignees")] IReadOnlyList<ApiUser> Assignees,
     [property: JsonPropertyName("labels")] IReadOnlyList<ApiLabel> Labels,
-    [property: JsonPropertyName("head")] ApiPullRequestHead Head
+    [property: JsonPropertyName("head")] ApiPullRequestHead Head,
+    [property: JsonPropertyName("mergeable_state")] string? MergeableState
 );

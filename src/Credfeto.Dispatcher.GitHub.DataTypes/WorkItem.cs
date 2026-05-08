@@ -9,5 +9,6 @@ public sealed record WorkItem(
     int Id,
     string ItemType,
     WorkPriority Priority,
-    DateTimeOffset FirstSeen
+    DateTimeOffset FirstSeen,
+    bool? IsUpToDate
 );

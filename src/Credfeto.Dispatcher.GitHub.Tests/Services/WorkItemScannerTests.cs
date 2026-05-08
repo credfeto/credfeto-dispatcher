@@ -259,6 +259,7 @@ public sealed class WorkItemScannerTests : TestBase
                 status: Arg.Any<string>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
 
@@ -293,6 +294,7 @@ public sealed class WorkItemScannerTests : TestBase
                 status: Arg.Any<string>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -315,6 +317,7 @@ public sealed class WorkItemScannerTests : TestBase
                 status: Arg.Any<string>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -342,6 +345,7 @@ public sealed class WorkItemScannerTests : TestBase
                 status: Arg.Any<string>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -369,6 +373,7 @@ public sealed class WorkItemScannerTests : TestBase
                 status: Arg.Any<string>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -396,6 +401,7 @@ public sealed class WorkItemScannerTests : TestBase
                 status: Arg.Any<string>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -420,6 +426,7 @@ public sealed class WorkItemScannerTests : TestBase
                 status: "Open",
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -444,6 +451,7 @@ public sealed class WorkItemScannerTests : TestBase
                 status: "Draft",
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -468,6 +476,7 @@ public sealed class WorkItemScannerTests : TestBase
                 status: Arg.Any<string>(),
                 priority: WorkPriority.Urgent,
                 isOnHold: Arg.Any<bool>(),
+                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -497,6 +506,7 @@ public sealed class WorkItemScannerTests : TestBase
                 status: Arg.Any<string>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: true,
+                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -526,6 +536,7 @@ public sealed class WorkItemScannerTests : TestBase
                 status: Arg.Any<string>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -555,6 +566,7 @@ public sealed class WorkItemScannerTests : TestBase
                 status: Arg.Any<string>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -579,6 +591,7 @@ public sealed class WorkItemScannerTests : TestBase
                 status: Arg.Any<string>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -687,6 +700,7 @@ public sealed class WorkItemScannerTests : TestBase
                 status: Arg.Any<string>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
 
@@ -698,6 +712,7 @@ public sealed class WorkItemScannerTests : TestBase
                 status: Arg.Any<string>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -769,6 +784,7 @@ public sealed class WorkItemScannerTests : TestBase
                 status: Arg.Any<string>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }

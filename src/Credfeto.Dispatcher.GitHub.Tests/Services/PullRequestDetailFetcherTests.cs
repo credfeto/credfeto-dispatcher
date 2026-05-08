@@ -25,7 +25,8 @@ public sealed class PullRequestDetailFetcherTests : TestBase
           "html_url": "https://github.com/owner/repo/pull/42",
           "assignees": [],
           "labels": [],
-          "head": {"sha": "abc123"}
+          "head": {"sha": "abc123"},
+          "mergeable_state": "clean"
         }
         """;
 
@@ -38,7 +39,8 @@ public sealed class PullRequestDetailFetcherTests : TestBase
           "html_url": "https://github.com/owner/repo/pull/42",
           "assignees": [],
           "labels": [],
-          "head": {"sha": "abc123"}
+          "head": {"sha": "abc123"},
+          "mergeable_state": "draft"
         }
         """;
 
@@ -47,6 +49,48 @@ public sealed class PullRequestDetailFetcherTests : TestBase
           "number": 42,
           "title": "Test PR",
           "state": "closed",
+          "draft": false,
+          "html_url": "https://github.com/owner/repo/pull/42",
+          "assignees": [],
+          "labels": [],
+          "head": {"sha": "abc123"},
+          "mergeable_state": "clean"
+        }
+        """;
+
+    private const string BehindPrJson = """
+        {
+          "number": 42,
+          "title": "Test PR",
+          "state": "open",
+          "draft": false,
+          "html_url": "https://github.com/owner/repo/pull/42",
+          "assignees": [],
+          "labels": [],
+          "head": {"sha": "abc123"},
+          "mergeable_state": "behind"
+        }
+        """;
+
+    private const string UnknownMergeStatePrJson = """
+        {
+          "number": 42,
+          "title": "Test PR",
+          "state": "open",
+          "draft": false,
+          "html_url": "https://github.com/owner/repo/pull/42",
+          "assignees": [],
+          "labels": [],
+          "head": {"sha": "abc123"},
+          "mergeable_state": "unknown"
+        }
+        """;
+
+    private const string NullMergeStatePrJson = """
+        {
+          "number": 42,
+          "title": "Test PR",
+          "state": "open",
           "draft": false,
           "html_url": "https://github.com/owner/repo/pull/42",
           "assignees": [],
@@ -64,7 +108,8 @@ public sealed class PullRequestDetailFetcherTests : TestBase
           "html_url": "https://github.com/owner/repo/pull/42",
           "assignees": [{"login": "alice"}, {"login": "bob"}],
           "labels": [],
-          "head": {"sha": "abc123"}
+          "head": {"sha": "abc123"},
+          "mergeable_state": "clean"
         }
         """;
 
@@ -77,7 +122,8 @@ public sealed class PullRequestDetailFetcherTests : TestBase
           "html_url": "https://github.com/owner/repo/pull/42",
           "assignees": [],
           "labels": [{"name": "bug"}, {"name": "enhancement"}],
-          "head": {"sha": "abc123"}
+          "head": {"sha": "abc123"},
+          "mergeable_state": "clean"
         }
         """;
 
@@ -537,5 +583,73 @@ public sealed class PullRequestDetailFetcherTests : TestBase
             result.CommentBody.EndsWith('…'),
             userMessage: "Expected body to end with ellipsis"
         );
+    }
+
+    [Fact]
+    public async Task IsUpToDateIsTrueWhenMergeableStateIsCleanAsync()
+    {
+        using HttpClient client = CreateClient(HttpStatusCode.OK, OpenPrJson);
+        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+
+        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
+
+        PullRequestDetails? result = await this._fetcher.FetchAsync(
+            notification: notification,
+            cancellationToken: this.CancellationToken()
+        );
+
+        Assert.NotNull(result);
+        Assert.Equal(expected: true, actual: result.IsUpToDate);
+    }
+
+    [Fact]
+    public async Task IsUpToDateIsFalseWhenMergeableStateIsBehindAsync()
+    {
+        using HttpClient client = CreateClient(HttpStatusCode.OK, BehindPrJson);
+        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+
+        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
+
+        PullRequestDetails? result = await this._fetcher.FetchAsync(
+            notification: notification,
+            cancellationToken: this.CancellationToken()
+        );
+
+        Assert.NotNull(result);
+        Assert.Equal(expected: false, actual: result.IsUpToDate);
+    }
+
+    [Fact]
+    public async Task IsUpToDateIsNullWhenMergeableStateIsUnknownAsync()
+    {
+        using HttpClient client = CreateClient(HttpStatusCode.OK, UnknownMergeStatePrJson);
+        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+
+        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
+
+        PullRequestDetails? result = await this._fetcher.FetchAsync(
+            notification: notification,
+            cancellationToken: this.CancellationToken()
+        );
+
+        Assert.NotNull(result);
+        Assert.Null(result.IsUpToDate);
+    }
+
+    [Fact]
+    public async Task IsUpToDateIsNullWhenMergeableStateIsAbsentAsync()
+    {
+        using HttpClient client = CreateClient(HttpStatusCode.OK, NullMergeStatePrJson);
+        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+
+        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
+
+        PullRequestDetails? result = await this._fetcher.FetchAsync(
+            notification: notification,
+            cancellationToken: this.CancellationToken()
+        );
+
+        Assert.NotNull(result);
+        Assert.Null(result.IsUpToDate);
     }
 }

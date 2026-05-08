@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Credfeto.Date.Interfaces;
 using Credfeto.Dispatcher.Discord.DataTypes;
 using Credfeto.Dispatcher.Discord.Interfaces;
 using Credfeto.Dispatcher.GitHub.BackgroundServices;
@@ -12,6 +11,7 @@ using Credfeto.Dispatcher.GitHub.Interfaces;
 using FunFair.Test.Common;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Time.Testing;
 using NSubstitute;
 using Xunit;
 
@@ -117,7 +117,8 @@ public sealed class GitHubPollingWorkerTests : TestBase
             ReviewAuthor: null,
             ReviewUrl: null,
             FailedRunName: null,
-            FailedRunUrl: null
+            FailedRunUrl: null,
+            IsUpToDate: null
         );
     }
 
@@ -138,7 +139,8 @@ public sealed class GitHubPollingWorkerTests : TestBase
             ReviewAuthor: null,
             ReviewUrl: null,
             FailedRunName: null,
-            FailedRunUrl: null
+            FailedRunUrl: null,
+            IsUpToDate: null
         );
     }
 
@@ -174,20 +176,17 @@ public sealed class GitHubPollingWorkerTests : TestBase
         IIssueDetailFetcher? issueFetcher = null
     )
     {
-        ICurrentTimeSource currentTimeSource = GetSubstitute<ICurrentTimeSource>();
-        currentTimeSource
-            .UtcNow()
-            .Returns(
-                new DateTimeOffset(
-                    year: 2024,
-                    month: 1,
-                    day: 1,
-                    hour: 0,
-                    minute: 0,
-                    second: 0,
-                    offset: TimeSpan.Zero
-                )
-            );
+        FakeTimeProvider timeProvider = new(
+            startDateTime: new DateTimeOffset(
+                year: 2024,
+                month: 1,
+                day: 1,
+                hour: 0,
+                minute: 0,
+                second: 0,
+                offset: TimeSpan.Zero
+            )
+        );
 
         return new GitHubPollingWorker(
             poller: poller,
@@ -197,7 +196,7 @@ public sealed class GitHubPollingWorkerTests : TestBase
             issueDetailFetcher: issueFetcher ?? new FakeIssueFetcher(result: null),
             notificationStateTracker: this._stateTracker,
             pendingNotificationStore: new FakePendingNotificationStore(),
-            currentTimeSource: currentTimeSource,
+            timeProvider: timeProvider,
             options: Options.Create(new GitHubOptions { PollIntervalSeconds = 30 }),
             notificationQueueOptions: Options.Create(
                 new NotificationQueueOptions { DelaySeconds = 0 }

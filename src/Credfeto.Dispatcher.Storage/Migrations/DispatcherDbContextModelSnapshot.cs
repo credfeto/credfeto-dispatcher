@@ -49,6 +49,7 @@ internal sealed class DispatcherDbContextModelSnapshot : ModelSnapshot
                     new ValueConverter<WorkPriority, int>(v => (int)v, v => (WorkPriority)v)
                 );
             b.Property(e => e.IsOnHold).HasColumnType("INTEGER");
+            b.Property(e => e.IsUpToDate).HasColumnType("INTEGER");
         });
 
         modelBuilder.Entity<IssueEntity>(b =>

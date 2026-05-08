@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
-using Credfeto.Date.Interfaces;
 using Credfeto.Dispatcher.Discord.DataTypes;
 using Credfeto.Dispatcher.Discord.Interfaces;
 using Credfeto.Dispatcher.GitHub.BackgroundServices.LoggingExtensions;
@@ -22,7 +21,6 @@ public sealed class GitHubPollingWorker : BackgroundService
     private const string IssueType = "Issue";
     private const int EmbedColour = 0x5865F2;
 
-    private readonly ICurrentTimeSource _currentTimeSource;
     private readonly IDiscordDispatcher _discordDispatcher;
     private readonly IIssueDetailFetcher _issueDetailFetcher;
     private readonly ILogger<GitHubPollingWorker> _logger;
@@ -33,6 +31,7 @@ public sealed class GitHubPollingWorker : BackgroundService
     private readonly GitHubOptions _options;
     private readonly INotificationPoller _poller;
     private readonly IPullRequestDetailFetcher _pullRequestDetailFetcher;
+    private readonly TimeProvider _timeProvider;
 
     public GitHubPollingWorker(
         INotificationPoller poller,
@@ -42,7 +41,7 @@ public sealed class GitHubPollingWorker : BackgroundService
         IIssueDetailFetcher issueDetailFetcher,
         INotificationStateTracker notificationStateTracker,
         IPendingNotificationStore pendingNotificationStore,
-        ICurrentTimeSource currentTimeSource,
+        TimeProvider timeProvider,
         IOptions<GitHubOptions> options,
         IOptions<NotificationQueueOptions> notificationQueueOptions,
         ILogger<GitHubPollingWorker> logger
@@ -55,7 +54,7 @@ public sealed class GitHubPollingWorker : BackgroundService
         this._issueDetailFetcher = issueDetailFetcher;
         this._notificationStateTracker = notificationStateTracker;
         this._pendingNotificationStore = pendingNotificationStore;
-        this._currentTimeSource = currentTimeSource;
+        this._timeProvider = timeProvider;
         this._options = options.Value;
         this._notificationQueueOptions = notificationQueueOptions.Value;
         this._logger = logger;
@@ -105,7 +104,7 @@ public sealed class GitHubPollingWorker : BackgroundService
             this._notificationQueueOptions.DelaySeconds > 0
                 ? this._notificationQueueOptions.DelaySeconds
                 : 300;
-        DateTimeOffset dispatchAfter = this._currentTimeSource.UtcNow().AddSeconds(delaySeconds);
+        DateTimeOffset dispatchAfter = this._timeProvider.GetUtcNow().AddSeconds(delaySeconds);
 
         foreach (GitHubNotification notification in notifications)
         {
@@ -134,7 +133,7 @@ public sealed class GitHubPollingWorker : BackgroundService
 
     private async ValueTask DispatchReadyItemsAsync(CancellationToken cancellationToken)
     {
-        DateTimeOffset now = this._currentTimeSource.UtcNow();
+        DateTimeOffset now = this._timeProvider.GetUtcNow();
         IReadOnlyList<GitHubNotification> readyItems =
             await this._pendingNotificationStore.GetReadyItemsAsync(
                 now: now,
@@ -268,6 +267,7 @@ public sealed class GitHubPollingWorker : BackgroundService
             status: details.Status,
             priority: prPriority,
             isOnHold: prIsOnHold,
+            isUpToDate: details.IsUpToDate,
             cancellationToken: cancellationToken
         );
 

@@ -80,15 +80,26 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
             foreach (ApiUserRepo repo in items)
             {
-                if (
-                    !repo.Archived
-                    && !repo.Disabled
-                    && repo.Permissions?.Push == true
-                    && this.PassesRepoFilter(repo.FullName)
-                )
+                if (repo.Archived || repo.Disabled)
                 {
-                    repos.Add(repo.FullName);
+                    this._logger.LogRepoSkippedInactive(repo.FullName);
+
+                    continue;
                 }
+
+                if (repo.Permissions?.Push != true)
+                {
+                    this._logger.LogRepoSkippedNoPushPermission(repo.FullName);
+
+                    continue;
+                }
+
+                if (!this.PassesRepoFilter(repo.FullName))
+                {
+                    continue;
+                }
+
+                repos.Add(repo.FullName);
             }
 
             url = nextUrl;
@@ -113,6 +124,8 @@ public sealed class WorkItemScanner : IWorkItemScanner
                 )
             )
             {
+                this._logger.LogRepoSkippedOwnerFilter(repo: fullName, owner: owner);
+
                 return false;
             }
         }
@@ -129,6 +142,8 @@ public sealed class WorkItemScanner : IWorkItemScanner
                 )
             )
             {
+                this._logger.LogRepoSkippedAllowedRepoFilter(repo: fullName);
+
                 return false;
             }
         }
@@ -145,6 +160,8 @@ public sealed class WorkItemScanner : IWorkItemScanner
                 )
             )
             {
+                this._logger.LogRepoSkippedExcludedRepoFilter(repo: fullName);
+
                 return false;
             }
         }

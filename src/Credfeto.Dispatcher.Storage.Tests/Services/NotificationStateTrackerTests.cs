@@ -1,4 +1,3 @@
-using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,16 +12,6 @@ namespace Credfeto.Dispatcher.Storage.Tests.Services;
 
 public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
 {
-    private static readonly DateTimeOffset TestNow = new(
-        year: 2025,
-        month: 1,
-        day: 1,
-        hour: 12,
-        minute: 0,
-        second: 0,
-        offset: TimeSpan.Zero
-    );
-
     private const string TestRepository = "test-owner/test-repo";
     private const int TestPullRequestNumber = 42;
     private const int TestIssueNumber = 7;
@@ -45,7 +34,7 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
             ctx.Database.Migrate();
         }
 
-        FakeTimeProvider timeProvider = new(startDateTime: TestNow);
+        FakeTimeProvider timeProvider = new(startDateTime: TimeSources.Past.UtcNowAsOffset);
 
         this._tracker = new NotificationStateTracker(
             new TestDbContextFactory(options),

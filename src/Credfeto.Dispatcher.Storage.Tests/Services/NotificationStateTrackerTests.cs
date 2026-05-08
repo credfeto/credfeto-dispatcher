@@ -4,8 +4,8 @@ using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Interfaces;
 using FunFair.Test.Common;
+using FunFair.Test.Common.Mocks;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Time.Testing;
 using Xunit;
 
 namespace Credfeto.Dispatcher.Storage.Tests.Services;
@@ -34,11 +34,9 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
             ctx.Database.Migrate();
         }
 
-        FakeTimeProvider timeProvider = new(startDateTime: TimeSources.Past.UtcNowAsOffset);
-
         this._tracker = new NotificationStateTracker(
             new TestDbContextFactory(options),
-            timeProvider
+            MockDateTimeSources.Past
         );
     }
 

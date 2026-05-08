@@ -14,6 +14,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Work item scanner background service that polls configured GitHub repositories for open pull requests and issues, updating notification state with priority, hold status, and linked PR information
 - Work item scanner auto-discovers GitHub repositories with write access via the API — no longer requires explicit Repos configuration. Uses AllowedOwners, AllowedRepos, and ExcludedRepos filters; empty filters mean scan all accessible repos.
 - Enable PublishTrimmed for release builds, convert MaxLength data annotations to fluent API, and update options properties to use set accessors for trim-compatible configuration binding
+- Store whether a pull request branch is up-to-date with its base in the database, exposed via WorkItem and the priorities endpoint so consumers can decide whether to rebase
 ### Fixed
 - EF Core change-tracking comparers trimmed away at publish time causing MissingMethodException at startup; preserve EF Core and Ben.Demystifier assemblies as trimmer roots
 ### Changed
@@ -26,6 +27,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Dependencies - Updated Credfeto.Services.Startup to 1.1.145.1592
 - Dependencies - Updated FunFair.Test.Common to 6.2.22.2198
 - Dependencies - Updated FunFair.Test.Source.Generator to 6.2.22.2198
+- Migrated NotificationStateTracker and GitHubPollingWorker from deprecated ICurrentTimeSource to System.TimeProvider
 ### Deprecated
 ### Removed
 ### Deployment Changes

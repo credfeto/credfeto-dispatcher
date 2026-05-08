@@ -1,0 +1,14 @@
+self-hosted-runner:
+  labels:
+    - build
+    - deploy
+
+# actionlint has no composite-action schema — it treats action.yml files as
+# workflow files and emits false-positive syntax-check errors for the
+# description/inputs/runs keys that are valid only in actions. Suppress those
+# errors on all files under .github/actions/; workflows are still validated.
+paths:
+  '.github/actions/**':
+    ignore:
+      - 'section is missing in workflow'
+      - 'unexpected key .+ for .workflow. section'

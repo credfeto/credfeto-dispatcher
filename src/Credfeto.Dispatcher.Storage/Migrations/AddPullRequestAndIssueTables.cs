@@ -15,6 +15,11 @@ namespace Credfeto.Dispatcher.Storage.Migrations;
 )]
 public sealed partial class AddPullRequestAndIssueTables : Migration
 {
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage(
+        category: "Trimming",
+        checkId: "IL2026",
+        Justification = "EF Core PrimaryKey expression trees use Expression.New(ConstructorInfo,...) for composite keys; all entity types are preserved via TrimmerRootAssembly for Credfeto.Dispatcher.Storage"
+    )]
     protected override void Up(MigrationBuilder migrationBuilder)
     {
         migrationBuilder.CreateTable(

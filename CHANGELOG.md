@@ -33,6 +33,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Dependencies - Updated FunFair.Test.Common to 6.2.22.2198
 - Dependencies - Updated FunFair.Test.Source.Generator to 6.2.22.2198
 - Migrated NotificationStateTracker and GitHubPollingWorker from deprecated ICurrentTimeSource to System.TimeProvider
+- Replaced multiple REST API calls in PullRequestDetailFetcher with a single GitHub GraphQL query, reducing network overhead and eliminating the dependency on the mergeable_state field
 ### Deprecated
 ### Removed
 ### Deployment Changes

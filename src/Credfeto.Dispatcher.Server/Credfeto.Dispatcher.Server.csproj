@@ -7,7 +7,7 @@
     <DisableImplicitNuGetFallbackFolder>true</DisableImplicitNuGetFallbackFolder>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
-    <EnableTrimAnalyzer>false</EnableTrimAnalyzer>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <Features>strict;flow-analysis</Features>
     <GenerateNeutralResourcesLanguageAttribute>true</GenerateNeutralResourcesLanguageAttribute>
@@ -17,9 +17,12 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <IsPackable>false</IsPackable>
     <IsPublishable>true</IsPublishable>
-    <IsTrimmable>false</IsTrimmable>
+    <IsTrimmable>true</IsTrimmable>
+    <PublishTrimmed>true</PublishTrimmed>
     <LangVersion>latest</LangVersion>
     <NoWarn />
+    <!-- IL2104: EF Core, Kestrel, and their transitive deps are not yet fully trim-annotated; downgrade the per-assembly aggregated warning to non-fatal -->
+    <WarningsNotAsErrors>IL2104</WarningsNotAsErrors>
     <NuGetAudit>true</NuGetAudit>
     <NuGetAuditLevel>low</NuGetAuditLevel>
     <NuGetAuditMode>direct</NuGetAuditMode>

@@ -53,4 +53,43 @@ internal static partial class WorkItemScannerLoggingExtensions
 
     [LoggerMessage(EventId = 4, Level = LogLevel.Information, Message = "Work item scan complete")]
     public static partial void LogScanComplete(this ILogger logger);
+
+    [LoggerMessage(
+        EventId = 7,
+        Level = LogLevel.Debug,
+        Message = "Repo {Repo} skipped during discovery: archived or disabled"
+    )]
+    public static partial void LogRepoSkippedInactive(this ILogger logger, string repo);
+
+    [LoggerMessage(
+        EventId = 8,
+        Level = LogLevel.Debug,
+        Message = "Repo {Repo} skipped during discovery: no push permission"
+    )]
+    public static partial void LogRepoSkippedNoPushPermission(this ILogger logger, string repo);
+
+    [LoggerMessage(
+        EventId = 9,
+        Level = LogLevel.Debug,
+        Message = "Repo {Repo} skipped during discovery: owner '{Owner}' not in AllowedOwners"
+    )]
+    public static partial void LogRepoSkippedOwnerFilter(
+        this ILogger logger,
+        string repo,
+        string owner
+    );
+
+    [LoggerMessage(
+        EventId = 10,
+        Level = LogLevel.Debug,
+        Message = "Repo {Repo} skipped during discovery: not in AllowedRepos list"
+    )]
+    public static partial void LogRepoSkippedAllowedRepoFilter(this ILogger logger, string repo);
+
+    [LoggerMessage(
+        EventId = 11,
+        Level = LogLevel.Debug,
+        Message = "Repo {Repo} skipped during discovery: present in ExcludedRepos list"
+    )]
+    public static partial void LogRepoSkippedExcludedRepoFilter(this ILogger logger, string repo);
 }

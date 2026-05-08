@@ -125,6 +125,45 @@ public sealed class WorkItemScannerTests : TestBase
         }]
         """;
 
+    private const string PrWithAiWorkSpaceLabelJson = """
+        [{
+          "number": 7,
+          "title": "AI Work PR (space variant)",
+          "state": "open",
+          "draft": false,
+          "html_url": "https://github.com/owner/repo/pull/7",
+          "assignees": [],
+          "labels": [{"name": "AI Work"}],
+          "head": {"sha": "stu901"}
+        }]
+        """;
+
+    private const string PrWithAiWorkLowercaseLabelJson = """
+        [{
+          "number": 8,
+          "title": "AI Work PR (lowercase variant)",
+          "state": "open",
+          "draft": false,
+          "html_url": "https://github.com/owner/repo/pull/8",
+          "assignees": [],
+          "labels": [{"name": "ai work"}],
+          "head": {"sha": "vwx234"}
+        }]
+        """;
+
+    private const string PrWithOnHoldSpaceLabelJson = """
+        [{
+          "number": 9,
+          "title": "On-hold PR (space variant)",
+          "state": "open",
+          "draft": false,
+          "html_url": "https://github.com/owner/repo/pull/9",
+          "assignees": [],
+          "labels": [{"name": "on hold"}],
+          "head": {"sha": "yza567"}
+        }]
+        """;
+
     private const string PrPage1Json = """
         [{
           "number": 10,
@@ -566,6 +605,96 @@ public sealed class WorkItemScannerTests : TestBase
                 status: Arg.Any<string>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isUpToDate: Arg.Any<bool?>(),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WithSpaceVariantLabelFilter_CallsUpdateAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, PrWithAiWorkSpaceLabelJson);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EmptyJson);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        GitHubOptions options = new()
+        {
+            Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] },
+        };
+
+        WorkItemScanner scanner = this.CreateScanner(options);
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._notificationStateTracker.Received(1)
+            .UpdatePullRequestStateAsync(
+                repository: Repo,
+                pullRequestNumber: 7,
+                status: Arg.Any<string>(),
+                priority: Arg.Any<WorkPriority>(),
+                isOnHold: Arg.Any<bool>(),
+                isUpToDate: Arg.Any<bool?>(),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WithLowercaseVariantLabelFilter_CallsUpdateAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, PrWithAiWorkLowercaseLabelJson);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EmptyJson);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        GitHubOptions options = new()
+        {
+            Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] },
+        };
+
+        WorkItemScanner scanner = this.CreateScanner(options);
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._notificationStateTracker.Received(1)
+            .UpdatePullRequestStateAsync(
+                repository: Repo,
+                pullRequestNumber: 8,
+                status: Arg.Any<string>(),
+                priority: Arg.Any<WorkPriority>(),
+                isOnHold: Arg.Any<bool>(),
+                isUpToDate: Arg.Any<bool?>(),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WithSpaceVariantOnHoldLabel_CallsUpdateWithIsOnHoldTrueAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, PrWithOnHoldSpaceLabelJson);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EmptyJson);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        GitHubOptions options = new()
+        {
+            Filter = new GitHubFilterOptions { NoWorkFilter = ["on-hold"] },
+        };
+
+        WorkItemScanner scanner = this.CreateScanner(options);
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._notificationStateTracker.Received(1)
+            .UpdatePullRequestStateAsync(
+                repository: Repo,
+                pullRequestNumber: 9,
+                status: Arg.Any<string>(),
+                priority: Arg.Any<WorkPriority>(),
+                isOnHold: true,
                 isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );

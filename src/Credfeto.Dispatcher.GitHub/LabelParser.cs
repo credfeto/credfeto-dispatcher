@@ -37,14 +37,35 @@ internal static class LabelParser
 
     public static bool IsOnHold(IReadOnlyList<string> labels, IReadOnlyList<string> noWorkFilter)
     {
-        return labels.Any(label =>
-            noWorkFilter.Any(filter =>
-                string.Equals(
-                    a: label,
-                    b: filter,
-                    comparisonType: StringComparison.OrdinalIgnoreCase
-                )
-            )
+        return labels.Any(label => noWorkFilter.Any(filter => FuzzyEquals(label, filter)));
+    }
+
+    internal static bool FuzzyEquals(string a, string b)
+    {
+        return string.Equals(
+            a: Normalize(a),
+            b: Normalize(b),
+            comparisonType: StringComparison.OrdinalIgnoreCase
         );
+    }
+
+    private static string Normalize(string value)
+    {
+        return value
+            .Replace(
+                oldValue: "-",
+                newValue: string.Empty,
+                comparisonType: StringComparison.Ordinal
+            )
+            .Replace(
+                oldValue: " ",
+                newValue: string.Empty,
+                comparisonType: StringComparison.Ordinal
+            )
+            .Replace(
+                oldValue: "_",
+                newValue: string.Empty,
+                comparisonType: StringComparison.Ordinal
+            );
     }
 }

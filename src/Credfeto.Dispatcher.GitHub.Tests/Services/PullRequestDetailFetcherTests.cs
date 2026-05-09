@@ -26,9 +26,10 @@ public sealed class PullRequestDetailFetcherTests : TestBase
                 "state": "OPEN",
                 "isDraft": false,
                 "url": "https://github.com/owner/repo/pull/42",
+                "body": null,
                 "headRefOid": "abc123",
                 "baseRefOid": "def456",
-                "baseRef": {"target": {"oid": "def456"}},
+                "baseRef": {"name": "main", "target": {"oid": "def456"}},
                 "assignees": {"nodes": []},
                 "labels": {"nodes": []},
                 "comments": {"nodes": []},
@@ -49,9 +50,10 @@ public sealed class PullRequestDetailFetcherTests : TestBase
                 "state": "OPEN",
                 "isDraft": true,
                 "url": "https://github.com/owner/repo/pull/42",
+                "body": null,
                 "headRefOid": "abc123",
                 "baseRefOid": "def456",
-                "baseRef": {"target": {"oid": "def456"}},
+                "baseRef": {"name": "main", "target": {"oid": "def456"}},
                 "assignees": {"nodes": []},
                 "labels": {"nodes": []},
                 "comments": {"nodes": []},
@@ -72,9 +74,10 @@ public sealed class PullRequestDetailFetcherTests : TestBase
                 "state": "CLOSED",
                 "isDraft": false,
                 "url": "https://github.com/owner/repo/pull/42",
+                "body": null,
                 "headRefOid": "abc123",
                 "baseRefOid": "def456",
-                "baseRef": {"target": {"oid": "def456"}},
+                "baseRef": {"name": "main", "target": {"oid": "def456"}},
                 "assignees": {"nodes": []},
                 "labels": {"nodes": []},
                 "comments": {"nodes": []},
@@ -95,9 +98,10 @@ public sealed class PullRequestDetailFetcherTests : TestBase
                 "state": "OPEN",
                 "isDraft": false,
                 "url": "https://github.com/owner/repo/pull/42",
+                "body": null,
                 "headRefOid": "abc123",
                 "baseRefOid": "old-sha",
-                "baseRef": {"target": {"oid": "new-sha"}},
+                "baseRef": {"name": "main", "target": {"oid": "new-sha"}},
                 "assignees": {"nodes": []},
                 "labels": {"nodes": []},
                 "comments": {"nodes": []},
@@ -118,6 +122,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
                 "state": "OPEN",
                 "isDraft": false,
                 "url": "https://github.com/owner/repo/pull/42",
+                "body": null,
                 "headRefOid": "abc123",
                 "baseRefOid": "def456",
                 "baseRef": null,
@@ -141,9 +146,10 @@ public sealed class PullRequestDetailFetcherTests : TestBase
                 "state": "OPEN",
                 "isDraft": false,
                 "url": "https://github.com/owner/repo/pull/42",
+                "body": null,
                 "headRefOid": "abc123",
                 "baseRefOid": "",
-                "baseRef": {"target": {"oid": "def456"}},
+                "baseRef": {"name": "main", "target": {"oid": "def456"}},
                 "assignees": {"nodes": []},
                 "labels": {"nodes": []},
                 "comments": {"nodes": []},
@@ -164,9 +170,10 @@ public sealed class PullRequestDetailFetcherTests : TestBase
                 "state": "OPEN",
                 "isDraft": false,
                 "url": "https://github.com/owner/repo/pull/42",
+                "body": null,
                 "headRefOid": "abc123",
                 "baseRefOid": "def456",
-                "baseRef": {"target": {"oid": "def456"}},
+                "baseRef": {"name": "main", "target": {"oid": "def456"}},
                 "assignees": {"nodes": [{"login": "alice"}, {"login": "bob"}]},
                 "labels": {"nodes": []},
                 "comments": {"nodes": []},
@@ -187,9 +194,10 @@ public sealed class PullRequestDetailFetcherTests : TestBase
                 "state": "OPEN",
                 "isDraft": false,
                 "url": "https://github.com/owner/repo/pull/42",
+                "body": null,
                 "headRefOid": "abc123",
                 "baseRefOid": "def456",
-                "baseRef": {"target": {"oid": "def456"}},
+                "baseRef": {"name": "main", "target": {"oid": "def456"}},
                 "assignees": {"nodes": []},
                 "labels": {"nodes": [{"name": "bug"}, {"name": "enhancement"}]},
                 "comments": {"nodes": []},
@@ -210,12 +218,13 @@ public sealed class PullRequestDetailFetcherTests : TestBase
                 "state": "OPEN",
                 "isDraft": false,
                 "url": "https://github.com/owner/repo/pull/42",
+                "body": null,
                 "headRefOid": "abc123",
                 "baseRefOid": "def456",
-                "baseRef": {"target": {"oid": "def456"}},
+                "baseRef": {"name": "main", "target": {"oid": "def456"}},
                 "assignees": {"nodes": []},
                 "labels": {"nodes": []},
-                "comments": {"nodes": [{"body": "A test comment", "author": {"login": "reviewer"}, "url": "https://github.com/owner/repo/issues/42#issuecomment-1"}]},
+                "comments": {"nodes": [{"body": "A test comment", "author": {"login": "reviewer"}, "url": "https://github.com/owner/repo/issues/42#issuecomment-1", "createdAt": "2024-01-01T00:00:00Z"}]},
                 "reviews": {"nodes": []}
               }
             }
@@ -233,13 +242,14 @@ public sealed class PullRequestDetailFetcherTests : TestBase
                 "state": "OPEN",
                 "isDraft": false,
                 "url": "https://github.com/owner/repo/pull/42",
+                "body": null,
                 "headRefOid": "abc123",
                 "baseRefOid": "def456",
-                "baseRef": {"target": {"oid": "def456"}},
+                "baseRef": {"name": "main", "target": {"oid": "def456"}},
                 "assignees": {"nodes": []},
                 "labels": {"nodes": []},
                 "comments": {"nodes": []},
-                "reviews": {"nodes": [{"state": "CHANGES_REQUESTED", "body": "Please fix this", "author": {"login": "reviewer"}, "url": "https://github.com/owner/repo/pull/42#pullrequestreview-1"}]}
+                "reviews": {"nodes": [{"state": "CHANGES_REQUESTED", "body": "Please fix this", "author": {"login": "reviewer"}, "url": "https://github.com/owner/repo/pull/42#pullrequestreview-1", "submittedAt": "2024-01-01T00:00:00Z"}]}
               }
             }
           }
@@ -256,13 +266,38 @@ public sealed class PullRequestDetailFetcherTests : TestBase
                 "state": "OPEN",
                 "isDraft": false,
                 "url": "https://github.com/owner/repo/pull/42",
+                "body": null,
                 "headRefOid": "abc123",
                 "baseRefOid": "def456",
-                "baseRef": {"target": {"oid": "def456"}},
+                "baseRef": {"name": "main", "target": {"oid": "def456"}},
                 "assignees": {"nodes": []},
                 "labels": {"nodes": []},
                 "comments": {"nodes": []},
-                "reviews": {"nodes": [{"state": "APPROVED", "body": "Looks good", "author": {"login": "reviewer"}, "url": "https://github.com/owner/repo/pull/42#pullrequestreview-1"}]}
+                "reviews": {"nodes": [{"state": "APPROVED", "body": "Looks good", "author": {"login": "reviewer"}, "url": "https://github.com/owner/repo/pull/42#pullrequestreview-1", "submittedAt": "2024-01-01T00:00:00Z"}]}
+              }
+            }
+          }
+        }
+        """;
+
+    private const string OpenPrWithLinkedItemsJson = """
+        {
+          "data": {
+            "repository": {
+              "pullRequest": {
+                "number": 42,
+                "title": "Test PR",
+                "state": "OPEN",
+                "isDraft": false,
+                "url": "https://github.com/owner/repo/pull/42",
+                "body": "Closes #10\nFixes #11",
+                "headRefOid": "abc123",
+                "baseRefOid": "def456",
+                "baseRef": {"name": "main", "target": {"oid": "def456"}},
+                "assignees": {"nodes": []},
+                "labels": {"nodes": []},
+                "comments": {"nodes": []},
+                "reviews": {"nodes": []}
               }
             }
           }
@@ -273,6 +308,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         {
           "workflow_runs": [{
             "name": "CI",
+            "status": "completed",
             "conclusion": "failure",
             "html_url": "https://github.com/owner/repo/actions/runs/123"
           }]
@@ -283,6 +319,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         {
           "workflow_runs": [{
             "name": "CI",
+            "status": "completed",
             "conclusion": "success",
             "html_url": "https://github.com/owner/repo/actions/runs/123"
           }]
@@ -373,8 +410,9 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task ReturnsPullRequestDetailsForOpenPrAsync()
     {
-        using HttpClient client = CreateClient(HttpStatusCode.OK, OpenPrJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
+        using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
+        this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
@@ -390,8 +428,9 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task ReturnsPullRequestDetailsForDraftPrAsync()
     {
-        using HttpClient client = CreateClient(HttpStatusCode.OK, DraftPrJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, DraftPrJson);
+        using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
+        this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
@@ -407,8 +446,9 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task ReturnsPullRequestDetailsForClosedPrAsync()
     {
-        using HttpClient client = CreateClient(HttpStatusCode.OK, ClosedPrJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, ClosedPrJson);
+        using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
+        this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
@@ -424,8 +464,9 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task MapsTitleFromPullRequestAsync()
     {
-        using HttpClient client = CreateClient(HttpStatusCode.OK, OpenPrJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
+        using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
+        this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
@@ -441,8 +482,9 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task MapsNumberFromPullRequestAsync()
     {
-        using HttpClient client = CreateClient(HttpStatusCode.OK, OpenPrJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
+        using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
+        this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
@@ -458,8 +500,9 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task MapsHtmlUrlFromPullRequestAsync()
     {
-        using HttpClient client = CreateClient(HttpStatusCode.OK, OpenPrJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
+        using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
+        this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
@@ -478,8 +521,9 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task MapsAssigneesFromPullRequestAsync()
     {
-        using HttpClient client = CreateClient(HttpStatusCode.OK, PrWithAssigneesJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, PrWithAssigneesJson);
+        using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
+        this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
@@ -497,8 +541,9 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task MapsLabelsFromPullRequestAsync()
     {
-        using HttpClient client = CreateClient(HttpStatusCode.OK, PrWithLabelsJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, PrWithLabelsJson);
+        using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
+        this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
@@ -514,32 +559,11 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     }
 
     [Fact]
-    public async Task FetchesLatestCommentWhenReasonIsCommentAsync()
+    public async Task ReturnsCommentsRegardlessOfNotificationReasonAsync()
     {
-        using HttpClient client = CreateClient(HttpStatusCode.OK, OpenPrWithCommentJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(client);
-
-        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "comment");
-
-        PullRequestDetails? result = await this._fetcher.FetchAsync(
-            notification: notification,
-            cancellationToken: this.CancellationToken()
-        );
-
-        Assert.NotNull(result);
-        Assert.Equal(expected: "A test comment", actual: result.CommentBody);
-        Assert.Equal(expected: "reviewer", actual: result.CommentAuthor);
-        Assert.Equal(
-            expected: new Uri("https://github.com/owner/repo/issues/42#issuecomment-1"),
-            actual: result.CommentUrl
-        );
-    }
-
-    [Fact]
-    public async Task DoesNotReturnCommentWhenReasonIsNotCommentAsync()
-    {
-        using HttpClient client = CreateClient(HttpStatusCode.OK, OpenPrWithCommentJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OpenPrWithCommentJson);
+        using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
+        this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
@@ -549,18 +573,23 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         );
 
         Assert.NotNull(result);
-        Assert.Null(result.CommentBody);
-        Assert.Null(result.CommentAuthor);
-        Assert.Null(result.CommentUrl);
+        Assert.Single(result.Comments);
+        Assert.Equal(expected: "reviewer", actual: result.Comments[0].Author);
+        Assert.Equal(expected: "A test comment", actual: result.Comments[0].Body);
+        Assert.Equal(
+            expected: new Uri("https://github.com/owner/repo/issues/42#issuecomment-1"),
+            actual: result.Comments[0].Url
+        );
     }
 
     [Fact]
-    public async Task ReturnsNullCommentWhenCommentListIsEmptyAsync()
+    public async Task ReturnsEmptyCommentsWhenCommentListIsEmptyAsync()
     {
-        using HttpClient client = CreateClient(HttpStatusCode.OK, OpenPrJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
+        using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
+        this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
 
-        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "comment");
+        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
         PullRequestDetails? result = await this._fetcher.FetchAsync(
             notification: notification,
@@ -568,22 +597,20 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         );
 
         Assert.NotNull(result);
-        Assert.Null(result.CommentBody);
+        Assert.Empty(result.Comments);
     }
 
     [Fact]
-    public async Task FetchesReviewWhenReasonIsReviewRequestedAsync()
+    public async Task ReturnsAllReviewsRegardlessOfNotificationReasonAsync()
     {
-        using HttpClient client = CreateClient(
+        using HttpClient graphQlClient = CreateClient(
             HttpStatusCode.OK,
             OpenPrWithChangesRequestedReviewJson
         );
-        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+        using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
+        this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
 
-        GitHubNotification notification = BuildNotification(
-            type: "PullRequest",
-            reason: "review_requested"
-        );
+        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
         PullRequestDetails? result = await this._fetcher.FetchAsync(
             notification: notification,
@@ -591,21 +618,23 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         );
 
         Assert.NotNull(result);
-        Assert.Equal(expected: "CHANGES_REQUESTED", actual: result.ReviewState);
-        Assert.Equal(expected: "Please fix this", actual: result.ReviewBody);
-        Assert.Equal(expected: "reviewer", actual: result.ReviewAuthor);
+        Assert.Single(result.Reviews);
+        Assert.Equal(expected: "CHANGES_REQUESTED", actual: result.Reviews[0].State);
+        Assert.Equal(expected: "Please fix this", actual: result.Reviews[0].Body);
+        Assert.Equal(expected: "reviewer", actual: result.Reviews[0].Author);
     }
 
     [Fact]
-    public async Task ReturnsNullReviewWhenNoChangesRequestedAsync()
+    public async Task ReturnsApprovedReviewInReviewsListAsync()
     {
-        using HttpClient client = CreateClient(HttpStatusCode.OK, OpenPrWithApprovedReviewJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(client);
-
-        GitHubNotification notification = BuildNotification(
-            type: "PullRequest",
-            reason: "review_requested"
+        using HttpClient graphQlClient = CreateClient(
+            HttpStatusCode.OK,
+            OpenPrWithApprovedReviewJson
         );
+        using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
+        this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
+
+        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
         PullRequestDetails? result = await this._fetcher.FetchAsync(
             notification: notification,
@@ -613,21 +642,18 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         );
 
         Assert.NotNull(result);
-        Assert.Null(result.ReviewState);
-        Assert.Null(result.ReviewBody);
+        Assert.Single(result.Reviews);
+        Assert.Equal(expected: "APPROVED", actual: result.Reviews[0].State);
     }
 
     [Fact]
-    public async Task FetchesFailedRunWhenReasonIsCiActivityAsync()
+    public async Task ReturnsRunsAlwaysNotOnlyForCiActivityAsync()
     {
         using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
         using HttpClient runsClient = CreateClient(HttpStatusCode.OK, WorkflowRunsWithFailureJson);
         this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, runsClient);
 
-        GitHubNotification notification = BuildNotification(
-            type: "PullRequest",
-            reason: "ci_activity"
-        );
+        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
         PullRequestDetails? result = await this._fetcher.FetchAsync(
             notification: notification,
@@ -635,24 +661,23 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         );
 
         Assert.NotNull(result);
-        Assert.Equal(expected: "CI", actual: result.FailedRunName);
+        Assert.Single(result.Runs);
+        Assert.Equal(expected: "CI", actual: result.Runs[0].Name);
+        Assert.Equal(expected: "failure", actual: result.Runs[0].Conclusion);
         Assert.Equal(
             expected: new Uri("https://github.com/owner/repo/actions/runs/123"),
-            actual: result.FailedRunUrl
+            actual: result.Runs[0].Url
         );
     }
 
     [Fact]
-    public async Task ReturnsNullFailedRunWhenAllRunsPassedAsync()
+    public async Task ReturnsSuccessRunsInRunsListAsync()
     {
         using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
         using HttpClient runsClient = CreateClient(HttpStatusCode.OK, WorkflowRunsAllPassedJson);
         this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, runsClient);
 
-        GitHubNotification notification = BuildNotification(
-            type: "PullRequest",
-            reason: "ci_activity"
-        );
+        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
         PullRequestDetails? result = await this._fetcher.FetchAsync(
             notification: notification,
@@ -660,8 +685,46 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         );
 
         Assert.NotNull(result);
-        Assert.Null(result.FailedRunName);
-        Assert.Null(result.FailedRunUrl);
+        Assert.Single(result.Runs);
+        Assert.Equal(expected: "success", actual: result.Runs[0].Conclusion);
+    }
+
+    [Fact]
+    public async Task ReturnsEmptyRunsWhenNoRunsExistAsync()
+    {
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
+        using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
+        this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
+
+        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
+
+        PullRequestDetails? result = await this._fetcher.FetchAsync(
+            notification: notification,
+            cancellationToken: this.CancellationToken()
+        );
+
+        Assert.NotNull(result);
+        Assert.Empty(result.Runs);
+    }
+
+    [Fact]
+    public async Task ParsesLinkedItemsFromBodyAsync()
+    {
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OpenPrWithLinkedItemsJson);
+        using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
+        this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
+
+        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
+
+        PullRequestDetails? result = await this._fetcher.FetchAsync(
+            notification: notification,
+            cancellationToken: this.CancellationToken()
+        );
+
+        Assert.NotNull(result);
+        Assert.Equal(expected: 2, actual: result.LinkedItems.Count);
+        Assert.Contains(result.LinkedItems, item => item.Number == 10);
+        Assert.Contains(result.LinkedItems, item => item.Number == 11);
     }
 
     [Fact]
@@ -678,12 +741,13 @@ public sealed class PullRequestDetailFetcherTests : TestBase
                     "state": "OPEN",
                     "isDraft": false,
                     "url": "https://github.com/owner/repo/pull/42",
+                    "body": null,
                     "headRefOid": "abc123",
                     "baseRefOid": "def456",
-                    "baseRef": {"target": {"oid": "def456"}},
+                    "baseRef": {"name": "main", "target": {"oid": "def456"}},
                     "assignees": {"nodes": []},
                     "labels": {"nodes": []},
-                    "comments": {"nodes": [{"body": "{{{longBody}}}", "author": {"login": "reviewer"}, "url": "https://github.com/owner/repo/issues/42#issuecomment-1"}]},
+                    "comments": {"nodes": [{"body": "{{{longBody}}}", "author": {"login": "reviewer"}, "url": "https://github.com/owner/repo/issues/42#issuecomment-1", "createdAt": "2024-01-01T00:00:00Z"}]},
                     "reviews": {"nodes": []}
                   }
                 }
@@ -691,10 +755,11 @@ public sealed class PullRequestDetailFetcherTests : TestBase
             }
             """;
 
-        using HttpClient client = CreateClient(HttpStatusCode.OK, prWithLongComment);
-        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, prWithLongComment);
+        using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
+        this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
 
-        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "comment");
+        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
         PullRequestDetails? result = await this._fetcher.FetchAsync(
             notification: notification,
@@ -702,10 +767,10 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         );
 
         Assert.NotNull(result);
-        Assert.NotNull(result.CommentBody);
-        Assert.Equal(expected: 301, actual: result.CommentBody.Length);
+        Assert.Single(result.Comments);
+        Assert.Equal(expected: 301, actual: result.Comments[0].Body.Length);
         Assert.True(
-            result.CommentBody.EndsWith('…'),
+            result.Comments[0].Body.EndsWith('…'),
             userMessage: "Expected body to end with ellipsis"
         );
     }
@@ -713,8 +778,9 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task IsUpToDateIsTrueWhenBaseRefOidsMatchAsync()
     {
-        using HttpClient client = CreateClient(HttpStatusCode.OK, OpenPrJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
+        using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
+        this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
@@ -730,8 +796,9 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task IsUpToDateIsFalseWhenBaseRefOidsDifferAsync()
     {
-        using HttpClient client = CreateClient(HttpStatusCode.OK, BehindPrJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, BehindPrJson);
+        using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
+        this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
@@ -747,8 +814,9 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task IsUpToDateIsNullWhenBaseRefIsNullAsync()
     {
-        using HttpClient client = CreateClient(HttpStatusCode.OK, NullBaseRefPrJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, NullBaseRefPrJson);
+        using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
+        this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 
@@ -764,8 +832,9 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task IsUpToDateIsNullWhenBaseRefOidIsEmptyAsync()
     {
-        using HttpClient client = CreateClient(HttpStatusCode.OK, EmptyBaseRefOidPrJson);
-        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, EmptyBaseRefOidPrJson);
+        using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
+        this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
 

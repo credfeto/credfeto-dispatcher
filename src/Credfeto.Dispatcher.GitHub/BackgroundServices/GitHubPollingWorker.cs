@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.Discord.DataTypes;
@@ -498,36 +499,41 @@ public sealed class GitHubPollingWorker : BackgroundService
         PullRequestDetails details
     )
     {
-        if (details.CommentBody is not null)
+        foreach (PullRequestComment comment in details.Comments)
         {
-            string commentValue = details.CommentUrl is not null
-                ? $"[View comment]({details.CommentUrl})\n{details.CommentBody}"
-                : details.CommentBody;
+            string commentValue = $"[View comment]({comment.Url})\n{comment.Body}";
             AddEmbed(
                 fields: fields,
-                name: $"Comment by {details.CommentAuthor}",
+                name: $"Comment by {comment.Author}",
                 value: commentValue,
                 inline: false
             );
         }
 
-        if (details.ReviewBody is not null)
+        foreach (PullRequestReview review in details.Reviews)
         {
-            string reviewHeader = details.ReviewState is not null
-                ? $"Review ({details.ReviewState}) by {details.ReviewAuthor}"
-                : $"Review by {details.ReviewAuthor}";
-            string reviewValue = details.ReviewUrl is not null
-                ? $"[View review]({details.ReviewUrl})\n{details.ReviewBody}"
-                : details.ReviewBody;
+            string reviewHeader = $"Review ({review.State}) by {review.Author}";
+            string reviewValue = review.Body is not null
+                ? $"[View review]({review.Url})\n{review.Body}"
+                : $"[View review]({review.Url})";
             AddEmbed(fields: fields, name: reviewHeader, value: reviewValue, inline: false);
         }
 
-        if (details.FailedRunName is not null && details.FailedRunUrl is not null)
+        foreach (
+            PullRequestRun run in details.Runs.Where(r =>
+                string.Equals(
+                    a: r.Conclusion,
+                    b: "failure",
+                    comparisonType: StringComparison.OrdinalIgnoreCase
+                )
+            )
+        )
         {
+            string requiredMarker = run.IsRequired ? " (required)" : string.Empty;
             AddEmbed(
                 fields: fields,
-                name: "Failed CI Run",
-                value: $"[{details.FailedRunName}]({details.FailedRunUrl})",
+                name: $"Failed CI Run{requiredMarker}",
+                value: $"[{run.Name}]({run.Url})",
                 inline: false
             );
         }

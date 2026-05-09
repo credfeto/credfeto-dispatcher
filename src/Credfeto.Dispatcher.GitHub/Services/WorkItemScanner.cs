@@ -295,13 +295,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
         }
 
         return labelNames.Any(label =>
-            this._options.Filter.LabelFilter.Any(filter =>
-                string.Equals(
-                    a: label,
-                    b: filter,
-                    comparisonType: StringComparison.OrdinalIgnoreCase
-                )
-            )
+            this._options.Filter.LabelFilter.Any(filter => LabelParser.FuzzyEquals(label, filter))
         );
     }
 

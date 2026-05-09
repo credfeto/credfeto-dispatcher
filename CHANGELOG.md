@@ -18,6 +18,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - LastUpdated field included in /priorities API response work items
 - smoke-test script (scripts/smoke-test.sh) and Dockerfile build-time gate to verify the trimmed binary starts and /priorities returns HTTP 200 before the image is finalized
 - Fuzzy case-insensitive label matching for LabelFilter and NoWorkFilter
+- Expanded PullRequestDetails with full comment, review, run, and linked-item lists, PR body, and up-to-date status for issue #36
 ### Fixed
 - EF Core change-tracking comparers trimmed away at publish time causing MissingMethodException at startup; preserve EF Core and Ben.Demystifier assemblies as trimmer roots
 - preserve EF Core migration types as trimmer roots to prevent missing-table errors at runtime on trimmed binaries

@@ -3,7 +3,8 @@ using System.Text.Json.Serialization;
 
 namespace Credfeto.Dispatcher.GitHub.Models;
 
-[DebuggerDisplay("Ref → {Target}")]
+[DebuggerDisplay("{Name} → {Target}")]
 internal sealed record GraphQlRefNode(
+    [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("target")] GraphQlGitObjectNode? Target
 );

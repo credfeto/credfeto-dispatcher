@@ -1,9 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.DataTypes;
@@ -12,14 +14,18 @@ using Credfeto.Dispatcher.GitHub.Models;
 
 namespace Credfeto.Dispatcher.GitHub.Services;
 
-public sealed class PullRequestDetailFetcher : IPullRequestDetailFetcher
+public sealed partial class PullRequestDetailFetcher : IPullRequestDetailFetcher
 {
     private const string PullRequestType = "PullRequest";
-    private const string CommentReason = "comment";
-    private const string ReviewRequestedReason = "review_requested";
-    private const string ChangesRequestedState = "CHANGES_REQUESTED";
-    private const string CiActivityReason = "ci_activity";
     private const int MaxBodyLength = 300;
+
+    [GeneratedRegex(
+        pattern: @"(?:closes|fixes|resolves)\s+#(?<number>\d+)",
+        options: RegexOptions.IgnoreCase
+            | RegexOptions.ExplicitCapture
+            | RegexOptions.NonBacktracking
+    )]
+    private static partial Regex LinkedItemPattern();
 
     private const string PullRequestQuery = """
         query PullRequestDetails($owner: String!, $repo: String!, $number: Int!) {
@@ -30,9 +36,11 @@ public sealed class PullRequestDetailFetcher : IPullRequestDetailFetcher
               state
               isDraft
               url
+              body
               headRefOid
               baseRefOid
               baseRef {
+                name
                 target {
                   oid
                 }
@@ -47,16 +55,17 @@ public sealed class PullRequestDetailFetcher : IPullRequestDetailFetcher
                   name
                 }
               }
-              comments(last: 1) {
+              comments(last: 100) {
                 nodes {
                   body
                   author {
                     login
                   }
                   url
+                  createdAt
                 }
               }
-              reviews(last: 10, states: [CHANGES_REQUESTED]) {
+              reviews(last: 50) {
                 nodes {
                   state
                   body
@@ -64,6 +73,7 @@ public sealed class PullRequestDetailFetcher : IPullRequestDetailFetcher
                     login
                   }
                   url
+                  submittedAt
                 }
               }
             }
@@ -104,18 +114,19 @@ public sealed class PullRequestDetailFetcher : IPullRequestDetailFetcher
             return null;
         }
 
-        (string? failedRunName, Uri? failedRunUrl) = await this.FetchFailedRunAsync(
-            notification: notification,
+        string repoFullName = notification.Repository.FullName;
+        string baseBranchName = pr.BaseRef?.Name ?? string.Empty;
+
+        IReadOnlyList<PullRequestRun> runs = await this.FetchRunsAsync(
+            repoFullName: repoFullName,
             headSha: pr.HeadRefOid,
+            baseBranchName: baseBranchName,
             cancellationToken: cancellationToken
         );
 
-        (string? commentBody, string? commentAuthor, Uri? commentUrl) = ExtractComment(
-            notification: notification,
-            pr: pr
-        );
-        (string? reviewState, string? reviewBody, string? reviewAuthor, Uri? reviewUrl) =
-            ExtractReview(notification: notification, pr: pr);
+        IReadOnlyList<PullRequestComment> comments = ExtractComments(pr);
+        IReadOnlyList<PullRequestReview> reviews = ExtractReviews(pr);
+        IReadOnlyList<LinkedItem> linkedItems = ExtractLinkedItems(pr.Body);
 
         return new PullRequestDetails(
             Number: pr.Number,
@@ -124,15 +135,11 @@ public sealed class PullRequestDetailFetcher : IPullRequestDetailFetcher
             HtmlUrl: new Uri(pr.Url),
             Assignees: [.. pr.Assignees?.Nodes?.Select(u => u.Login) ?? []],
             Labels: [.. pr.Labels?.Nodes?.Select(l => l.Name) ?? []],
-            CommentBody: commentBody,
-            CommentAuthor: commentAuthor,
-            CommentUrl: commentUrl,
-            ReviewState: reviewState,
-            ReviewBody: reviewBody,
-            ReviewAuthor: reviewAuthor,
-            ReviewUrl: reviewUrl,
-            FailedRunName: failedRunName,
-            FailedRunUrl: failedRunUrl,
+            Body: pr.Body,
+            Comments: comments,
+            Reviews: reviews,
+            Runs: runs,
+            LinkedItems: linkedItems,
             IsUpToDate: DetermineIsUpToDate(baseRefOid: pr.BaseRefOid, baseRef: pr.BaseRef)
         );
     }
@@ -178,109 +185,130 @@ public sealed class PullRequestDetailFetcher : IPullRequestDetailFetcher
         return gqlResponse?.Data?.Repository?.PullRequest;
     }
 
-    private async ValueTask<(string? name, Uri? url)> FetchFailedRunAsync(
-        GitHubNotification notification,
+    private async ValueTask<IReadOnlyList<PullRequestRun>> FetchRunsAsync(
+        string repoFullName,
         string headSha,
+        string baseBranchName,
         CancellationToken cancellationToken
     )
     {
-        if (
-            !string.Equals(
-                a: notification.Reason,
-                b: CiActivityReason,
-                comparisonType: StringComparison.OrdinalIgnoreCase
-            )
-        )
-        {
-            return (null, null);
-        }
-
-        string runsUrl = BuildWorkflowRunsUrl(
-            repoFullName: notification.Repository.FullName,
-            headSha: headSha
-        );
+        string runsUrl = $"repos/{repoFullName}/actions/runs?head_sha={headSha}&per_page=100";
         ApiWorkflowRunsResponse? runsResponse = await this.GetAsync<ApiWorkflowRunsResponse>(
             url: runsUrl,
             jsonTypeInfo: NotificationSerializerContext.Default.ApiWorkflowRunsResponse,
             cancellationToken: cancellationToken
         );
-        ApiWorkflowRun? failedRun = runsResponse?.WorkflowRuns.FirstOrDefault(r =>
-            string.Equals(
-                a: r.Conclusion,
-                b: "failure",
-                comparisonType: StringComparison.OrdinalIgnoreCase
-            )
-        );
 
-        if (failedRun is null)
+        if (runsResponse?.WorkflowRuns is not { Count: > 0 })
         {
-            return (null, null);
+            return [];
         }
 
-        return (failedRun.Name, new Uri(failedRun.HtmlUrl));
+        HashSet<string> requiredCheckNames = await this.FetchRequiredCheckNamesAsync(
+            repoFullName: repoFullName,
+            branchName: baseBranchName,
+            cancellationToken: cancellationToken
+        );
+
+        return
+        [
+            .. runsResponse.WorkflowRuns.Select(r => new PullRequestRun(
+                Name: r.Name,
+                Status: r.Status,
+                Conclusion: r.Conclusion,
+                Url: new Uri(r.HtmlUrl),
+                IsRequired: requiredCheckNames.Contains(r.Name)
+            )),
+        ];
     }
 
-    private static (string? body, string? author, Uri? url) ExtractComment(
-        GitHubNotification notification,
-        GraphQlPullRequestData pr
+    private async ValueTask<HashSet<string>> FetchRequiredCheckNamesAsync(
+        string repoFullName,
+        string branchName,
+        CancellationToken cancellationToken
     )
     {
-        if (
-            !string.Equals(
-                a: notification.Reason,
-                b: CommentReason,
-                comparisonType: StringComparison.OrdinalIgnoreCase
-            )
-        )
+        if (string.IsNullOrEmpty(branchName))
         {
-            return (null, null, null);
+            return [];
         }
 
-        GraphQlCommentNode? latest = pr.Comments?.Nodes?.LastOrDefault();
+        string url =
+            $"repos/{repoFullName}/branches/{Uri.EscapeDataString(branchName)}/protection/required_status_checks";
+        ApiRequiredStatusChecks? checks = await this.GetAsync<ApiRequiredStatusChecks>(
+            url: url,
+            jsonTypeInfo: NotificationSerializerContext.Default.ApiRequiredStatusChecks,
+            cancellationToken: cancellationToken
+        );
 
-        if (latest is null)
+        if (checks?.Checks is null)
         {
-            return (null, null, null);
+            return [];
         }
 
-        return (TruncateBody(latest.Body), latest.Author?.Login, new Uri(latest.Url));
+        return [.. checks.Checks.Select(c => c.Context)];
     }
 
-    private static (string? state, string? body, string? author, Uri? url) ExtractReview(
-        GitHubNotification notification,
-        GraphQlPullRequestData pr
-    )
+    private static IReadOnlyList<PullRequestComment> ExtractComments(GraphQlPullRequestData pr)
     {
-        if (
-            !string.Equals(
-                a: notification.Reason,
-                b: ReviewRequestedReason,
-                comparisonType: StringComparison.OrdinalIgnoreCase
-            )
-        )
+        if (pr.Comments?.Nodes is null)
         {
-            return (null, null, null, null);
+            return [];
         }
 
-        GraphQlReviewNode? changesRequested = pr.Reviews?.Nodes?.LastOrDefault(r =>
-            string.Equals(
-                a: r.State,
-                b: ChangesRequestedState,
-                comparisonType: StringComparison.OrdinalIgnoreCase
-            )
-        );
+        return
+        [
+            .. pr.Comments.Nodes.Select(c => new PullRequestComment(
+                Author: c.Author?.Login ?? string.Empty,
+                Body: TruncateBody(c.Body),
+                Url: new Uri(c.Url),
+                CreatedAt: c.CreatedAt
+            )),
+        ];
+    }
 
-        if (changesRequested is null)
+    private static IReadOnlyList<PullRequestReview> ExtractReviews(GraphQlPullRequestData pr)
+    {
+        if (pr.Reviews?.Nodes is null)
         {
-            return (null, null, null, null);
+            return [];
         }
 
-        return (
-            changesRequested.State,
-            TruncateBody(changesRequested.Body),
-            changesRequested.Author?.Login,
-            new Uri(changesRequested.Url)
-        );
+        return
+        [
+            .. pr.Reviews.Nodes.Select(r => new PullRequestReview(
+                Author: r.Author?.Login ?? string.Empty,
+                State: r.State,
+                Body: r.Body is not null ? TruncateBody(r.Body) : null,
+                Url: new Uri(r.Url),
+                SubmittedAt: r.SubmittedAt
+            )),
+        ];
+    }
+
+    private static IReadOnlyList<LinkedItem> ExtractLinkedItems(string? body)
+    {
+        if (string.IsNullOrEmpty(body))
+        {
+            return [];
+        }
+
+        List<LinkedItem> items = [];
+
+        foreach (Match match in LinkedItemPattern().Matches(body))
+        {
+            int number = int.Parse(match.Groups["number"].Value, CultureInfo.InvariantCulture);
+            items.Add(
+                new LinkedItem(
+                    Number: number,
+                    Title: string.Empty,
+                    State: string.Empty,
+                    Url: new Uri($"#{number}", UriKind.Relative)
+                )
+            );
+        }
+
+        return items;
     }
 
     private static bool? DetermineIsUpToDate(string baseRefOid, GraphQlRefNode? baseRef)
@@ -318,11 +346,6 @@ public sealed class PullRequestDetailFetcher : IPullRequestDetailFetcher
         string[] segments = url.AbsolutePath.Split('/');
 
         return (segments[2], segments[3], int.Parse(segments[5], CultureInfo.InvariantCulture));
-    }
-
-    private static string BuildWorkflowRunsUrl(string repoFullName, string headSha)
-    {
-        return $"repos/{repoFullName}/actions/runs?head_sha={headSha}&per_page=10";
     }
 
     private static string TruncateBody(string body)

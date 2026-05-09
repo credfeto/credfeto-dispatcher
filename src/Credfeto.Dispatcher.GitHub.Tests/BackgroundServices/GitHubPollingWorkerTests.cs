@@ -109,15 +109,11 @@ public sealed class GitHubPollingWorkerTests : TestBase
             HtmlUrl: new Uri("https://github.com/owner/repo/pull/42"),
             Assignees: [],
             Labels: [],
-            CommentBody: null,
-            CommentAuthor: null,
-            CommentUrl: null,
-            ReviewState: null,
-            ReviewBody: null,
-            ReviewAuthor: null,
-            ReviewUrl: null,
-            FailedRunName: null,
-            FailedRunUrl: null,
+            Body: null,
+            Comments: [],
+            Reviews: [],
+            Runs: [],
+            LinkedItems: [],
             IsUpToDate: null
         );
     }
@@ -131,15 +127,11 @@ public sealed class GitHubPollingWorkerTests : TestBase
             HtmlUrl: new Uri("https://github.com/owner/repo/pull/42"),
             Assignees: [],
             Labels: [],
-            CommentBody: null,
-            CommentAuthor: null,
-            CommentUrl: null,
-            ReviewState: null,
-            ReviewBody: null,
-            ReviewAuthor: null,
-            ReviewUrl: null,
-            FailedRunName: null,
-            FailedRunUrl: null,
+            Body: null,
+            Comments: [],
+            Reviews: [],
+            Runs: [],
+            LinkedItems: [],
             IsUpToDate: null
         );
     }

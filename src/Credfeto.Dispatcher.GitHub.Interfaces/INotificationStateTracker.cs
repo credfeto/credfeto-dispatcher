@@ -7,36 +7,30 @@ namespace Credfeto.Dispatcher.GitHub.Interfaces;
 public interface INotificationStateTracker
 {
     Task<bool> ShouldSkipPullRequestAsync(
-        string repository,
-        int pullRequestNumber,
-        string currentStatus,
+        GitHubNotification notification,
+        PullRequestDetails details,
         CancellationToken cancellationToken
     );
 
     Task UpdatePullRequestStateAsync(
-        string repository,
-        int pullRequestNumber,
-        string status,
+        GitHubNotification notification,
+        PullRequestDetails details,
         WorkPriority priority,
         bool isOnHold,
-        bool? isUpToDate,
         CancellationToken cancellationToken
     );
 
     Task<bool> ShouldSkipIssueAsync(
-        string repository,
-        int issueNumber,
-        string currentStatus,
+        GitHubNotification notification,
+        IssueDetails details,
         CancellationToken cancellationToken
     );
 
     Task UpdateIssueStateAsync(
-        string repository,
-        int issueNumber,
-        string status,
+        GitHubNotification notification,
+        IssueDetails details,
         WorkPriority priority,
         bool isOnHold,
-        bool hasLinkedPr,
         CancellationToken cancellationToken
     );
 }

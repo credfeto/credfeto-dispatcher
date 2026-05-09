@@ -215,12 +215,15 @@ public sealed class WorkItemScanner : IWorkItemScanner
                 string status = pr.Draft ? "Draft" : "Open";
 
                 await this._notificationStateTracker.UpdatePullRequestStateAsync(
-                    repository: repo,
-                    pullRequestNumber: pr.Number,
-                    status: status,
+                    notification: BuildScanNotification(repo),
+                    details: BuildScannedPullRequestDetails(
+                        pr: pr,
+                        repo: repo,
+                        labelNames: labelNames,
+                        status: status
+                    ),
                     priority: priority,
                     isOnHold: isOnHold,
-                    isUpToDate: null,
                     cancellationToken: cancellationToken
                 );
 
@@ -271,12 +274,14 @@ public sealed class WorkItemScanner : IWorkItemScanner
                 );
 
                 await this._notificationStateTracker.UpdateIssueStateAsync(
-                    repository: repo,
-                    issueNumber: issue.Number,
-                    status: "Open",
+                    notification: BuildScanNotification(repo),
+                    details: BuildScannedIssueDetails(
+                        issue: issue,
+                        repo: repo,
+                        labelNames: labelNames
+                    ),
                     priority: priority,
                     isOnHold: isOnHold,
-                    hasLinkedPr: false,
                     cancellationToken: cancellationToken
                 );
 
@@ -326,6 +331,85 @@ public sealed class WorkItemScanner : IWorkItemScanner
         string? nextUrl = ParseNextLink(response.Headers);
 
         return (items, nextUrl);
+    }
+
+    private static string GetRepoName(string fullName)
+    {
+        int slash = fullName.IndexOf(value: '/', comparisonType: StringComparison.Ordinal);
+
+        return slash >= 0 ? fullName[(slash + 1)..] : fullName;
+    }
+
+    private static GitHubNotification BuildScanNotification(string repo)
+    {
+        Uri repoUri = new($"https://github.com/{repo}");
+
+        return new GitHubNotification(
+            Id: $"scan:{repo}",
+            Reason: "scan",
+            Subject: new NotificationSubject(Title: string.Empty, Url: repoUri, Type: string.Empty),
+            Repository: new NotificationRepository(FullName: repo, Url: repoUri),
+            UpdatedAt: DateTimeOffset.MinValue,
+            Unread: false
+        );
+    }
+
+    private static PullRequestDetails BuildScannedPullRequestDetails(
+        ApiPullRequest pr,
+        string repo,
+        IReadOnlyList<string> labelNames,
+        string status
+    )
+    {
+        string owner = GetOwner(repo);
+        string name = GetRepoName(repo);
+        Uri repoUri = new($"https://github.com/{repo}");
+
+        return new PullRequestDetails(
+            Number: pr.Number,
+            Title: pr.Title,
+            Status: status,
+            HtmlUrl: new Uri(pr.HtmlUrl),
+            Assignees: [.. pr.Assignees.Select(a => a.Login)],
+            Labels: labelNames,
+            Body: null,
+            Comments: [],
+            Reviews: [],
+            Runs: [],
+            LinkedItems: [],
+            IsUpToDate: null,
+            Repository: new ItemRepository(Owner: owner, Name: name, Url: repoUri),
+            LastNotification: new LastNotification(
+                Id: $"scan:{repo}:pr:{pr.Number}",
+                Timestamp: DateTimeOffset.MinValue
+            )
+        );
+    }
+
+    private static IssueDetails BuildScannedIssueDetails(
+        ApiIssue issue,
+        string repo,
+        IReadOnlyList<string> labelNames
+    )
+    {
+        string owner = GetOwner(repo);
+        string name = GetRepoName(repo);
+        Uri repoUri = new($"https://github.com/{repo}");
+
+        return new IssueDetails(
+            Number: issue.Number,
+            Title: issue.Title,
+            Status: "Open",
+            HtmlUrl: new Uri(issue.HtmlUrl),
+            Assignees: [],
+            Labels: labelNames,
+            LinkedPullRequestUrl: null,
+            Repository: new ItemRepository(Owner: owner, Name: name, Url: repoUri),
+            LastNotification: new LastNotification(
+                Id: $"scan:{repo}:issue:{issue.Number}",
+                Timestamp: DateTimeOffset.MinValue
+            )
+        );
     }
 
     private static string? ParseNextLink(HttpResponseHeaders headers)

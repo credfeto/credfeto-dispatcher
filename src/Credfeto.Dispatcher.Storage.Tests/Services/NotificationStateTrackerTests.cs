@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -40,13 +41,104 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
         );
     }
 
+    private static GitHubNotification BuildNotification()
+    {
+        return new GitHubNotification(
+            Id: "test-1",
+            Reason: "subscribed",
+            Subject: new NotificationSubject(
+                Title: "Test",
+                Url: new Uri("https://api.github.com/repos/test-owner/test-repo/pulls/42"),
+                Type: "PullRequest"
+            ),
+            Repository: new NotificationRepository(
+                FullName: TestRepository,
+                Url: new Uri("https://github.com/test-owner/test-repo")
+            ),
+            UpdatedAt: new DateTimeOffset(
+                year: 2024,
+                month: 1,
+                day: 1,
+                hour: 0,
+                minute: 0,
+                second: 0,
+                offset: TimeSpan.Zero
+            ),
+            Unread: true
+        );
+    }
+
+    private static PullRequestDetails BuildPullRequestDetails(string status)
+    {
+        return new PullRequestDetails(
+            Number: TestPullRequestNumber,
+            Title: "Test PR",
+            Status: status,
+            HtmlUrl: new Uri("https://github.com/test-owner/test-repo/pull/42"),
+            Assignees: [],
+            Labels: [],
+            Body: null,
+            Comments: [],
+            Reviews: [],
+            Runs: [],
+            LinkedItems: [],
+            IsUpToDate: null,
+            Repository: new ItemRepository(
+                Owner: "test-owner",
+                Name: "test-repo",
+                Url: new Uri("https://github.com/test-owner/test-repo")
+            ),
+            LastNotification: new LastNotification(
+                Id: "test-1",
+                Timestamp: new DateTimeOffset(
+                    year: 2024,
+                    month: 1,
+                    day: 1,
+                    hour: 0,
+                    minute: 0,
+                    second: 0,
+                    offset: TimeSpan.Zero
+                )
+            )
+        );
+    }
+
+    private static IssueDetails BuildIssueDetails(string status)
+    {
+        return new IssueDetails(
+            Number: TestIssueNumber,
+            Title: "Test Issue",
+            Status: status,
+            HtmlUrl: new Uri("https://github.com/test-owner/test-repo/issues/7"),
+            Assignees: [],
+            Labels: [],
+            LinkedPullRequestUrl: null,
+            Repository: new ItemRepository(
+                Owner: "test-owner",
+                Name: "test-repo",
+                Url: new Uri("https://github.com/test-owner/test-repo")
+            ),
+            LastNotification: new LastNotification(
+                Id: "test-1",
+                Timestamp: new DateTimeOffset(
+                    year: 2024,
+                    month: 1,
+                    day: 1,
+                    hour: 0,
+                    minute: 0,
+                    second: 0,
+                    offset: TimeSpan.Zero
+                )
+            )
+        );
+    }
+
     [Fact]
     public async Task ShouldSkipPullRequestReturnsFalseForOpenStatusAsync()
     {
         bool result = await this._tracker.ShouldSkipPullRequestAsync(
-            repository: TestRepository,
-            pullRequestNumber: TestPullRequestNumber,
-            currentStatus: OpenStatus,
+            notification: BuildNotification(),
+            details: BuildPullRequestDetails(OpenStatus),
             cancellationToken: this.CancellationToken()
         );
 
@@ -60,9 +152,8 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
     public async Task ShouldSkipPullRequestReturnsTrueForClosedStatusAsync()
     {
         bool result = await this._tracker.ShouldSkipPullRequestAsync(
-            repository: TestRepository,
-            pullRequestNumber: TestPullRequestNumber,
-            currentStatus: ClosedStatus,
+            notification: BuildNotification(),
+            details: BuildPullRequestDetails(ClosedStatus),
             cancellationToken: this.CancellationToken()
         );
 
@@ -73,12 +164,10 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
     public Task UpdatePullRequestStateCreatesNewRecordAsync()
     {
         return this._tracker.UpdatePullRequestStateAsync(
-            repository: TestRepository,
-            pullRequestNumber: TestPullRequestNumber,
-            status: OpenStatus,
+            notification: BuildNotification(),
+            details: BuildPullRequestDetails(OpenStatus),
             priority: WorkPriority.Unknown,
             isOnHold: false,
-            isUpToDate: null,
             cancellationToken: this.CancellationToken()
         );
     }
@@ -86,23 +175,21 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
     [Fact]
     public async Task UpdatePullRequestStateUpdatesExistingRecordAsync()
     {
+        GitHubNotification notification = BuildNotification();
+
         await this._tracker.UpdatePullRequestStateAsync(
-            repository: TestRepository,
-            pullRequestNumber: TestPullRequestNumber,
-            status: OpenStatus,
+            notification: notification,
+            details: BuildPullRequestDetails(OpenStatus),
             priority: WorkPriority.Unknown,
             isOnHold: false,
-            isUpToDate: null,
             cancellationToken: this.CancellationToken()
         );
 
         await this._tracker.UpdatePullRequestStateAsync(
-            repository: TestRepository,
-            pullRequestNumber: TestPullRequestNumber,
-            status: ClosedStatus,
+            notification: notification,
+            details: BuildPullRequestDetails(ClosedStatus),
             priority: WorkPriority.Unknown,
             isOnHold: false,
-            isUpToDate: null,
             cancellationToken: this.CancellationToken()
         );
     }
@@ -111,9 +198,8 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
     public async Task ShouldSkipIssueReturnsFalseForOpenStatusAsync()
     {
         bool result = await this._tracker.ShouldSkipIssueAsync(
-            repository: TestRepository,
-            issueNumber: TestIssueNumber,
-            currentStatus: OpenStatus,
+            notification: BuildNotification(),
+            details: BuildIssueDetails(OpenStatus),
             cancellationToken: this.CancellationToken()
         );
 
@@ -124,9 +210,8 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
     public async Task ShouldSkipIssueReturnsTrueForClosedStatusAsync()
     {
         bool result = await this._tracker.ShouldSkipIssueAsync(
-            repository: TestRepository,
-            issueNumber: TestIssueNumber,
-            currentStatus: ClosedStatus,
+            notification: BuildNotification(),
+            details: BuildIssueDetails(ClosedStatus),
             cancellationToken: this.CancellationToken()
         );
 
@@ -137,12 +222,10 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
     public Task UpdateIssueStateCreatesNewRecordAsync()
     {
         return this._tracker.UpdateIssueStateAsync(
-            repository: TestRepository,
-            issueNumber: TestIssueNumber,
-            status: OpenStatus,
+            notification: BuildNotification(),
+            details: BuildIssueDetails(OpenStatus),
             priority: WorkPriority.Unknown,
             isOnHold: false,
-            hasLinkedPr: false,
             cancellationToken: this.CancellationToken()
         );
     }
@@ -150,23 +233,21 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
     [Fact]
     public async Task UpdateIssueStateUpdatesExistingRecordAsync()
     {
+        GitHubNotification notification = BuildNotification();
+
         await this._tracker.UpdateIssueStateAsync(
-            repository: TestRepository,
-            issueNumber: TestIssueNumber,
-            status: OpenStatus,
+            notification: notification,
+            details: BuildIssueDetails(OpenStatus),
             priority: WorkPriority.Unknown,
             isOnHold: false,
-            hasLinkedPr: false,
             cancellationToken: this.CancellationToken()
         );
 
         await this._tracker.UpdateIssueStateAsync(
-            repository: TestRepository,
-            issueNumber: TestIssueNumber,
-            status: ClosedStatus,
+            notification: notification,
+            details: BuildIssueDetails(ClosedStatus),
             priority: WorkPriority.Unknown,
             isOnHold: false,
-            hasLinkedPr: false,
             cancellationToken: this.CancellationToken()
         );
     }

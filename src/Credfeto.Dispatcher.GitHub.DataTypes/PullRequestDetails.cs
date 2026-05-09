@@ -17,5 +17,7 @@ public sealed record PullRequestDetails(
     IReadOnlyList<PullRequestReview> Reviews,
     IReadOnlyList<PullRequestRun> Runs,
     IReadOnlyList<LinkedItem> LinkedItems,
-    bool? IsUpToDate
+    bool? IsUpToDate,
+    ItemRepository Repository,
+    LastNotification LastNotification
 );

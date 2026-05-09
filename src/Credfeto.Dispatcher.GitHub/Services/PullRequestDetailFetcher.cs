@@ -124,9 +124,31 @@ public sealed partial class PullRequestDetailFetcher : IPullRequestDetailFetcher
             cancellationToken: cancellationToken
         );
 
-        IReadOnlyList<PullRequestComment> comments = ExtractComments(pr);
-        IReadOnlyList<PullRequestReview> reviews = ExtractReviews(pr);
-        IReadOnlyList<LinkedItem> linkedItems = ExtractLinkedItems(pr.Body);
+        return BuildPullRequestDetails(
+            notification: notification,
+            pr: pr,
+            repoFullName: repoFullName,
+            runs: runs
+        );
+    }
+
+    private static PullRequestDetails BuildPullRequestDetails(
+        GitHubNotification notification,
+        GraphQlPullRequestData pr,
+        string repoFullName,
+        IReadOnlyList<PullRequestRun> runs
+    )
+    {
+        string[] repoParts = repoFullName.Split('/');
+        ItemRepository repository = new(
+            Owner: repoParts[0],
+            Name: repoParts[1],
+            Url: notification.Repository.Url
+        );
+        LastNotification lastNotification = new(
+            Id: notification.Id,
+            Timestamp: notification.UpdatedAt
+        );
 
         return new PullRequestDetails(
             Number: pr.Number,
@@ -136,11 +158,13 @@ public sealed partial class PullRequestDetailFetcher : IPullRequestDetailFetcher
             Assignees: [.. pr.Assignees?.Nodes?.Select(u => u.Login) ?? []],
             Labels: [.. pr.Labels?.Nodes?.Select(l => l.Name) ?? []],
             Body: pr.Body,
-            Comments: comments,
-            Reviews: reviews,
+            Comments: ExtractComments(pr),
+            Reviews: ExtractReviews(pr),
             Runs: runs,
-            LinkedItems: linkedItems,
-            IsUpToDate: DetermineIsUpToDate(baseRefOid: pr.BaseRefOid, baseRef: pr.BaseRef)
+            LinkedItems: ExtractLinkedItems(pr.Body),
+            IsUpToDate: DetermineIsUpToDate(baseRefOid: pr.BaseRefOid, baseRef: pr.BaseRef),
+            Repository: repository,
+            LastNotification: lastNotification
         );
     }
 

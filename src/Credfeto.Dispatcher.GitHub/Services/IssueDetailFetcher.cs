@@ -58,6 +58,18 @@ public sealed class IssueDetailFetcher : IIssueDetailFetcher
             ? new Uri(issue.PullRequest.HtmlUrl)
             : null;
 
+        string repoFullName = notification.Repository.FullName;
+        string[] repoParts = repoFullName.Split('/');
+        ItemRepository repository = new(
+            Owner: repoParts[0],
+            Name: repoParts[1],
+            Url: notification.Repository.Url
+        );
+        LastNotification lastNotification = new(
+            Id: notification.Id,
+            Timestamp: notification.UpdatedAt
+        );
+
         return new IssueDetails(
             Number: issue.Number,
             Title: issue.Title,
@@ -65,7 +77,9 @@ public sealed class IssueDetailFetcher : IIssueDetailFetcher
             HtmlUrl: new Uri(issue.HtmlUrl),
             Assignees: assignees,
             Labels: labels,
-            LinkedPullRequestUrl: linkedPullRequestUrl
+            LinkedPullRequestUrl: linkedPullRequestUrl,
+            Repository: repository,
+            LastNotification: lastNotification
         );
     }
 

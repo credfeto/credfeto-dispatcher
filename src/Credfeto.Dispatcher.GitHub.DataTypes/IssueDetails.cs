@@ -12,5 +12,7 @@ public sealed record IssueDetails(
     Uri HtmlUrl,
     IReadOnlyList<string> Assignees,
     IReadOnlyList<string> Labels,
-    Uri? LinkedPullRequestUrl
+    Uri? LinkedPullRequestUrl,
+    ItemRepository Repository,
+    LastNotification LastNotification
 );

@@ -100,6 +100,31 @@ public sealed class GitHubPollingWorkerTests : TestBase
         );
     }
 
+    private static ItemRepository BuildTestRepository()
+    {
+        return new ItemRepository(
+            Owner: "owner",
+            Name: "repo",
+            Url: new Uri("https://github.com/owner/repo")
+        );
+    }
+
+    private static LastNotification BuildTestLastNotification()
+    {
+        return new LastNotification(
+            Id: "1",
+            Timestamp: new DateTimeOffset(
+                year: 2024,
+                month: 1,
+                day: 1,
+                hour: 0,
+                minute: 0,
+                second: 0,
+                offset: TimeSpan.Zero
+            )
+        );
+    }
+
     private static PullRequestDetails BuildPrDetails()
     {
         return new PullRequestDetails(
@@ -114,7 +139,9 @@ public sealed class GitHubPollingWorkerTests : TestBase
             Reviews: [],
             Runs: [],
             LinkedItems: [],
-            IsUpToDate: null
+            IsUpToDate: null,
+            Repository: BuildTestRepository(),
+            LastNotification: BuildTestLastNotification()
         );
     }
 
@@ -132,7 +159,9 @@ public sealed class GitHubPollingWorkerTests : TestBase
             Reviews: [],
             Runs: [],
             LinkedItems: [],
-            IsUpToDate: null
+            IsUpToDate: null,
+            Repository: BuildTestRepository(),
+            LastNotification: BuildTestLastNotification()
         );
     }
 
@@ -145,7 +174,20 @@ public sealed class GitHubPollingWorkerTests : TestBase
             HtmlUrl: new Uri("https://github.com/owner/repo/issues/10"),
             Assignees: [],
             Labels: [],
-            LinkedPullRequestUrl: null
+            LinkedPullRequestUrl: null,
+            Repository: BuildTestRepository(),
+            LastNotification: new LastNotification(
+                Id: "2",
+                Timestamp: new DateTimeOffset(
+                    year: 2024,
+                    month: 1,
+                    day: 1,
+                    hour: 0,
+                    minute: 0,
+                    second: 0,
+                    offset: TimeSpan.Zero
+                )
+            )
         );
     }
 
@@ -158,7 +200,20 @@ public sealed class GitHubPollingWorkerTests : TestBase
             HtmlUrl: new Uri("https://github.com/owner/repo/issues/10"),
             Assignees: [],
             Labels: [],
-            LinkedPullRequestUrl: null
+            LinkedPullRequestUrl: null,
+            Repository: BuildTestRepository(),
+            LastNotification: new LastNotification(
+                Id: "2",
+                Timestamp: new DateTimeOffset(
+                    year: 2024,
+                    month: 1,
+                    day: 1,
+                    hour: 0,
+                    minute: 0,
+                    second: 0,
+                    offset: TimeSpan.Zero
+                )
+            )
         );
     }
 

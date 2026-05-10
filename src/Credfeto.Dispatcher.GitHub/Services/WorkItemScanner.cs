@@ -214,7 +214,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
                 );
                 string status = pr.Draft ? "Draft" : "Open";
 
-                await this._notificationStateTracker.UpdatePullRequestStateAsync(
+                await this._notificationStateTracker.UpdateStateAsync(
                     notification: BuildScanNotification(repo),
                     details: BuildScannedPullRequestDetails(
                         pr: pr,
@@ -273,7 +273,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
                     noWorkFilter: this._options.Filter.NoWorkFilter
                 );
 
-                await this._notificationStateTracker.UpdateIssueStateAsync(
+                await this._notificationStateTracker.UpdateStateAsync(
                     notification: BuildScanNotification(repo),
                     details: BuildScannedIssueDetails(
                         issue: issue,

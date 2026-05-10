@@ -25,13 +25,13 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         this._timeProvider = timeProvider;
     }
 
-    public Task<bool> ShouldSkipPullRequestAsync(
+    public ValueTask<bool> ShouldSkipAsync(
         GitHubNotification notification,
         PullRequestDetails details,
         CancellationToken cancellationToken
     )
     {
-        return Task.FromResult(IsClosedStatus(details.Status));
+        return ValueTask.FromResult(IsClosedStatus(details.Status));
     }
 
     [SuppressMessage(
@@ -39,7 +39,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         "PH2071:Duplicate shape found",
         Justification = "Structurally identical but operating on different entity types (PullRequestEntity vs IssueEntity)."
     )]
-    public async Task UpdatePullRequestStateAsync(
+    public async ValueTask UpdateStateAsync(
         GitHubNotification notification,
         PullRequestDetails details,
         WorkPriority priority,
@@ -90,13 +90,13 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         await context.SaveChangesAsync(cancellationToken);
     }
 
-    public Task<bool> ShouldSkipIssueAsync(
+    public ValueTask<bool> ShouldSkipAsync(
         GitHubNotification notification,
         IssueDetails details,
         CancellationToken cancellationToken
     )
     {
-        return Task.FromResult(IsClosedStatus(details.Status));
+        return ValueTask.FromResult(IsClosedStatus(details.Status));
     }
 
     [SuppressMessage(
@@ -104,7 +104,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         "PH2071:Duplicate shape found",
         Justification = "Structurally identical but operating on different entity types (PullRequestEntity vs IssueEntity)."
     )]
-    public async Task UpdateIssueStateAsync(
+    public async ValueTask UpdateStateAsync(
         GitHubNotification notification,
         IssueDetails details,
         WorkPriority priority,

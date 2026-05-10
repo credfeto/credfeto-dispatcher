@@ -229,7 +229,7 @@ public sealed class GitHubPollingWorker : BackgroundService
         }
 
         if (
-            !await this._notificationStateTracker.ShouldSkipPullRequestAsync(
+            !await this._notificationStateTracker.ShouldSkipAsync(
                 notification: notification,
                 details: details,
                 cancellationToken: cancellationToken
@@ -261,7 +261,7 @@ public sealed class GitHubPollingWorker : BackgroundService
             noWorkFilter: this._options.Filter.NoWorkFilter
         );
 
-        await this._notificationStateTracker.UpdatePullRequestStateAsync(
+        await this._notificationStateTracker.UpdateStateAsync(
             notification: notification,
             details: details,
             priority: prPriority,
@@ -293,7 +293,7 @@ public sealed class GitHubPollingWorker : BackgroundService
         }
 
         if (
-            !await this._notificationStateTracker.ShouldSkipIssueAsync(
+            !await this._notificationStateTracker.ShouldSkipAsync(
                 notification: notification,
                 details: details,
                 cancellationToken: cancellationToken
@@ -325,7 +325,7 @@ public sealed class GitHubPollingWorker : BackgroundService
             noWorkFilter: this._options.Filter.NoWorkFilter
         );
 
-        await this._notificationStateTracker.UpdateIssueStateAsync(
+        await this._notificationStateTracker.UpdateStateAsync(
             notification: notification,
             details: details,
             priority: issuePriority,

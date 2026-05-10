@@ -55,15 +55,7 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
                 FullName: TestRepository,
                 Url: new Uri("https://github.com/test-owner/test-repo")
             ),
-            UpdatedAt: new DateTimeOffset(
-                year: 2024,
-                month: 1,
-                day: 1,
-                hour: 0,
-                minute: 0,
-                second: 0,
-                offset: TimeSpan.Zero
-            ),
+            UpdatedAt: MockDateTimeSources.Past.GetUtcNow(),
             Unread: true
         );
     }
@@ -90,15 +82,7 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
             ),
             LastNotification: new LastNotification(
                 Id: "test-1",
-                Timestamp: new DateTimeOffset(
-                    year: 2024,
-                    month: 1,
-                    day: 1,
-                    hour: 0,
-                    minute: 0,
-                    second: 0,
-                    offset: TimeSpan.Zero
-                )
+                Timestamp: MockDateTimeSources.Past.GetUtcNow()
             )
         );
     }
@@ -120,15 +104,7 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
             ),
             LastNotification: new LastNotification(
                 Id: "test-1",
-                Timestamp: new DateTimeOffset(
-                    year: 2024,
-                    month: 1,
-                    day: 1,
-                    hour: 0,
-                    minute: 0,
-                    second: 0,
-                    offset: TimeSpan.Zero
-                )
+                Timestamp: MockDateTimeSources.Past.GetUtcNow()
             )
         );
     }
@@ -136,7 +112,7 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
     [Fact]
     public async Task ShouldSkipPullRequestReturnsFalseForOpenStatusAsync()
     {
-        bool result = await this._tracker.ShouldSkipPullRequestAsync(
+        bool result = await this._tracker.ShouldSkipAsync(
             notification: BuildNotification(),
             details: BuildPullRequestDetails(OpenStatus),
             cancellationToken: this.CancellationToken()
@@ -151,7 +127,7 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
     [Fact]
     public async Task ShouldSkipPullRequestReturnsTrueForClosedStatusAsync()
     {
-        bool result = await this._tracker.ShouldSkipPullRequestAsync(
+        bool result = await this._tracker.ShouldSkipAsync(
             notification: BuildNotification(),
             details: BuildPullRequestDetails(ClosedStatus),
             cancellationToken: this.CancellationToken()
@@ -161,9 +137,9 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
     }
 
     [Fact]
-    public Task UpdatePullRequestStateCreatesNewRecordAsync()
+    public async Task UpdatePullRequestStateCreatesNewRecordAsync()
     {
-        return this._tracker.UpdatePullRequestStateAsync(
+        await this._tracker.UpdateStateAsync(
             notification: BuildNotification(),
             details: BuildPullRequestDetails(OpenStatus),
             priority: WorkPriority.Unknown,
@@ -177,7 +153,7 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
     {
         GitHubNotification notification = BuildNotification();
 
-        await this._tracker.UpdatePullRequestStateAsync(
+        await this._tracker.UpdateStateAsync(
             notification: notification,
             details: BuildPullRequestDetails(OpenStatus),
             priority: WorkPriority.Unknown,
@@ -185,7 +161,7 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
             cancellationToken: this.CancellationToken()
         );
 
-        await this._tracker.UpdatePullRequestStateAsync(
+        await this._tracker.UpdateStateAsync(
             notification: notification,
             details: BuildPullRequestDetails(ClosedStatus),
             priority: WorkPriority.Unknown,
@@ -197,7 +173,7 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
     [Fact]
     public async Task ShouldSkipIssueReturnsFalseForOpenStatusAsync()
     {
-        bool result = await this._tracker.ShouldSkipIssueAsync(
+        bool result = await this._tracker.ShouldSkipAsync(
             notification: BuildNotification(),
             details: BuildIssueDetails(OpenStatus),
             cancellationToken: this.CancellationToken()
@@ -209,7 +185,7 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
     [Fact]
     public async Task ShouldSkipIssueReturnsTrueForClosedStatusAsync()
     {
-        bool result = await this._tracker.ShouldSkipIssueAsync(
+        bool result = await this._tracker.ShouldSkipAsync(
             notification: BuildNotification(),
             details: BuildIssueDetails(ClosedStatus),
             cancellationToken: this.CancellationToken()
@@ -219,9 +195,9 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
     }
 
     [Fact]
-    public Task UpdateIssueStateCreatesNewRecordAsync()
+    public async Task UpdateIssueStateCreatesNewRecordAsync()
     {
-        return this._tracker.UpdateIssueStateAsync(
+        await this._tracker.UpdateStateAsync(
             notification: BuildNotification(),
             details: BuildIssueDetails(OpenStatus),
             priority: WorkPriority.Unknown,
@@ -235,7 +211,7 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
     {
         GitHubNotification notification = BuildNotification();
 
-        await this._tracker.UpdateIssueStateAsync(
+        await this._tracker.UpdateStateAsync(
             notification: notification,
             details: BuildIssueDetails(OpenStatus),
             priority: WorkPriority.Unknown,
@@ -243,7 +219,7 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
             cancellationToken: this.CancellationToken()
         );
 
-        await this._tracker.UpdateIssueStateAsync(
+        await this._tracker.UpdateStateAsync(
             notification: notification,
             details: BuildIssueDetails(ClosedStatus),
             priority: WorkPriority.Unknown,

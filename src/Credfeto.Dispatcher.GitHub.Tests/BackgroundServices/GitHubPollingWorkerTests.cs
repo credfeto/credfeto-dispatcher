@@ -29,19 +29,23 @@ public sealed class GitHubPollingWorkerTests : TestBase
         this._filter = GetSubstitute<INotificationFilter>();
         this._stateTracker = GetSubstitute<INotificationStateTracker>();
 
-        this._stateTracker.ShouldSkipPullRequestAsync(
+        SubstituteExtensions.Returns(
+            this._stateTracker.ShouldSkipAsync(
                 notification: Arg.Any<GitHubNotification>(),
                 details: Arg.Any<PullRequestDetails>(),
                 cancellationToken: Arg.Any<CancellationToken>()
-            )
-            .Returns(Task.FromResult(false));
+            ),
+            _ => false
+        );
 
-        this._stateTracker.ShouldSkipIssueAsync(
+        SubstituteExtensions.Returns(
+            this._stateTracker.ShouldSkipAsync(
                 notification: Arg.Any<GitHubNotification>(),
                 details: Arg.Any<IssueDetails>(),
                 cancellationToken: Arg.Any<CancellationToken>()
-            )
-            .Returns(Task.FromResult(false));
+            ),
+            _ => false
+        );
     }
 
     private static GitHubNotification BuildPrNotification(string reason)
@@ -356,12 +360,14 @@ public sealed class GitHubPollingWorkerTests : TestBase
 
         this._filter.ShouldDispatch(notification).Returns(true);
 
-        this._stateTracker.ShouldSkipPullRequestAsync(
+        SubstituteExtensions.Returns(
+            this._stateTracker.ShouldSkipAsync(
                 notification: Arg.Any<GitHubNotification>(),
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 42 && d.Status == "Closed"),
                 cancellationToken: Arg.Any<CancellationToken>()
-            )
-            .Returns(Task.FromResult(true));
+            ),
+            _ => true
+        );
 
         CancellationToken token = TestContext.Current.CancellationToken;
         using GitHubPollingWorker worker = this.CreateWorker(
@@ -386,12 +392,14 @@ public sealed class GitHubPollingWorkerTests : TestBase
 
         this._filter.ShouldDispatch(notification).Returns(true);
 
-        this._stateTracker.ShouldSkipIssueAsync(
+        SubstituteExtensions.Returns(
+            this._stateTracker.ShouldSkipAsync(
                 notification: Arg.Any<GitHubNotification>(),
                 details: Arg.Is<IssueDetails>(d => d.Number == 10 && d.Status == "Closed"),
                 cancellationToken: Arg.Any<CancellationToken>()
-            )
-            .Returns(Task.FromResult(true));
+            ),
+            _ => true
+        );
 
         CancellationToken token = TestContext.Current.CancellationToken;
         using GitHubPollingWorker worker = this.CreateWorker(
@@ -417,12 +425,14 @@ public sealed class GitHubPollingWorkerTests : TestBase
 
         this._filter.ShouldDispatch(notification).Returns(true);
 
-        this._stateTracker.ShouldSkipPullRequestAsync(
+        SubstituteExtensions.Returns(
+            this._stateTracker.ShouldSkipAsync(
                 notification: Arg.Any<GitHubNotification>(),
                 details: Arg.Any<PullRequestDetails>(),
                 cancellationToken: Arg.Any<CancellationToken>()
-            )
-            .Returns(Task.FromResult(true));
+            ),
+            _ => true
+        );
 
         CancellationToken token = TestContext.Current.CancellationToken;
         using GitHubPollingWorker worker = this.CreateWorker(

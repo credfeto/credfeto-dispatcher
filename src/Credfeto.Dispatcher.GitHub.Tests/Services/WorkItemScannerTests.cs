@@ -292,7 +292,7 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.DidNotReceive()
-            .UpdatePullRequestStateAsync(
+            .UpdateStateAsync(
                 notification: Arg.Any<GitHubNotification>(),
                 details: Arg.Any<PullRequestDetails>(),
                 priority: Arg.Any<WorkPriority>(),
@@ -302,7 +302,7 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.DidNotReceive()
-            .UpdateIssueStateAsync(
+            .UpdateStateAsync(
                 notification: Arg.Any<GitHubNotification>(),
                 details: Arg.Any<IssueDetails>(),
                 priority: Arg.Any<WorkPriority>(),
@@ -323,7 +323,7 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.DidNotReceive()
-            .UpdatePullRequestStateAsync(
+            .UpdateStateAsync(
                 notification: Arg.Any<GitHubNotification>(),
                 details: Arg.Any<PullRequestDetails>(),
                 priority: Arg.Any<WorkPriority>(),
@@ -344,7 +344,7 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.DidNotReceive()
-            .UpdatePullRequestStateAsync(
+            .UpdateStateAsync(
                 notification: Arg.Any<GitHubNotification>(),
                 details: Arg.Any<PullRequestDetails>(),
                 priority: Arg.Any<WorkPriority>(),
@@ -370,7 +370,7 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.DidNotReceive()
-            .UpdatePullRequestStateAsync(
+            .UpdateStateAsync(
                 notification: Arg.Any<GitHubNotification>(),
                 details: Arg.Any<PullRequestDetails>(),
                 priority: Arg.Any<WorkPriority>(),
@@ -396,7 +396,7 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.DidNotReceive()
-            .UpdatePullRequestStateAsync(
+            .UpdateStateAsync(
                 notification: Arg.Any<GitHubNotification>(),
                 details: Arg.Any<PullRequestDetails>(),
                 priority: Arg.Any<WorkPriority>(),
@@ -422,7 +422,7 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.DidNotReceive()
-            .UpdatePullRequestStateAsync(
+            .UpdateStateAsync(
                 notification: Arg.Any<GitHubNotification>(),
                 details: Arg.Any<PullRequestDetails>(),
                 priority: Arg.Any<WorkPriority>(),
@@ -445,7 +445,7 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.Received(1)
-            .UpdatePullRequestStateAsync(
+            .UpdateStateAsync(
                 notification: Arg.Is<GitHubNotification>(n => n.Repository.FullName == Repo),
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 1 && d.Status == "Open"),
                 priority: Arg.Any<WorkPriority>(),
@@ -468,7 +468,7 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.Received(1)
-            .UpdatePullRequestStateAsync(
+            .UpdateStateAsync(
                 notification: Arg.Is<GitHubNotification>(n => n.Repository.FullName == Repo),
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 2 && d.Status == "Draft"),
                 priority: Arg.Any<WorkPriority>(),
@@ -491,7 +491,7 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.Received(1)
-            .UpdatePullRequestStateAsync(
+            .UpdateStateAsync(
                 notification: Arg.Any<GitHubNotification>(),
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 3),
                 priority: WorkPriority.Urgent,
@@ -519,7 +519,7 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.Received(1)
-            .UpdatePullRequestStateAsync(
+            .UpdateStateAsync(
                 notification: Arg.Any<GitHubNotification>(),
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 4),
                 priority: Arg.Any<WorkPriority>(),
@@ -547,7 +547,7 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.Received(1)
-            .UpdatePullRequestStateAsync(
+            .UpdateStateAsync(
                 notification: Arg.Any<GitHubNotification>(),
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 5),
                 priority: Arg.Any<WorkPriority>(),
@@ -575,7 +575,7 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.DidNotReceive()
-            .UpdatePullRequestStateAsync(
+            .UpdateStateAsync(
                 notification: Arg.Any<GitHubNotification>(),
                 details: Arg.Any<PullRequestDetails>(),
                 priority: Arg.Any<WorkPriority>(),
@@ -603,7 +603,7 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.Received(1)
-            .UpdatePullRequestStateAsync(
+            .UpdateStateAsync(
                 notification: Arg.Any<GitHubNotification>(),
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 7),
                 priority: Arg.Any<WorkPriority>(),
@@ -631,7 +631,7 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.Received(1)
-            .UpdatePullRequestStateAsync(
+            .UpdateStateAsync(
                 notification: Arg.Any<GitHubNotification>(),
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 8),
                 priority: Arg.Any<WorkPriority>(),
@@ -659,7 +659,7 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.Received(1)
-            .UpdatePullRequestStateAsync(
+            .UpdateStateAsync(
                 notification: Arg.Any<GitHubNotification>(),
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 9),
                 priority: Arg.Any<WorkPriority>(),
@@ -682,7 +682,7 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.DidNotReceive()
-            .UpdatePullRequestStateAsync(
+            .UpdateStateAsync(
                 notification: Arg.Any<GitHubNotification>(),
                 details: Arg.Any<PullRequestDetails>(),
                 priority: Arg.Any<WorkPriority>(),
@@ -692,7 +692,7 @@ public sealed class WorkItemScannerTests : TestBase
     }
 
     [Fact]
-    public async Task ScanAsync_WithOpenIssue_CallsUpdateIssueStateAsync()
+    public async Task ScanAsync_WithOpenIssue_CallsUpdateStateAsync()
     {
         using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
         using HttpClient prClient = CreateClient(HttpStatusCode.OK, EmptyJson);
@@ -705,7 +705,7 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.Received(1)
-            .UpdateIssueStateAsync(
+            .UpdateStateAsync(
                 notification: Arg.Any<GitHubNotification>(),
                 details: Arg.Is<IssueDetails>(d => d.Number == 20 && d.Status == "Open"),
                 priority: Arg.Any<WorkPriority>(),
@@ -728,7 +728,7 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.DidNotReceive()
-            .UpdateIssueStateAsync(
+            .UpdateStateAsync(
                 notification: Arg.Any<GitHubNotification>(),
                 details: Arg.Any<IssueDetails>(),
                 priority: Arg.Any<WorkPriority>(),
@@ -751,7 +751,7 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.DidNotReceive()
-            .UpdateIssueStateAsync(
+            .UpdateStateAsync(
                 notification: Arg.Any<GitHubNotification>(),
                 details: Arg.Any<IssueDetails>(),
                 priority: Arg.Any<WorkPriority>(),
@@ -783,7 +783,7 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.Received(1)
-            .UpdatePullRequestStateAsync(
+            .UpdateStateAsync(
                 notification: Arg.Any<GitHubNotification>(),
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 10),
                 priority: Arg.Any<WorkPriority>(),
@@ -793,7 +793,7 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.Received(1)
-            .UpdatePullRequestStateAsync(
+            .UpdateStateAsync(
                 notification: Arg.Any<GitHubNotification>(),
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 11),
                 priority: Arg.Any<WorkPriority>(),
@@ -821,7 +821,7 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.Received(1)
-            .UpdateIssueStateAsync(
+            .UpdateStateAsync(
                 notification: Arg.Is<GitHubNotification>(n => n.Repository.FullName == Repo),
                 details: Arg.Is<IssueDetails>(d => d.Number == 20),
                 priority: Arg.Any<WorkPriority>(),
@@ -831,7 +831,7 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.DidNotReceive()
-            .UpdateIssueStateAsync(
+            .UpdateStateAsync(
                 notification: Arg.Is<GitHubNotification>(n => n.Repository.FullName == repo2),
                 details: Arg.Any<IssueDetails>(),
                 priority: Arg.Any<WorkPriority>(),
@@ -859,7 +859,7 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.Received(1)
-            .UpdatePullRequestStateAsync(
+            .UpdateStateAsync(
                 notification: Arg.Is<GitHubNotification>(n => n.Repository.FullName == Repo),
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 1),
                 priority: Arg.Any<WorkPriority>(),

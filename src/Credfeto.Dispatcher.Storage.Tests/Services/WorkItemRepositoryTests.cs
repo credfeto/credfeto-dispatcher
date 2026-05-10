@@ -235,6 +235,109 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         Assert.Equal(expected: 2, actual: single.Id);
     }
 
+    [Fact]
+    public async Task PullRequest_StatusIsReturnedAsync()
+    {
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 1, status: "Open"));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: "Open", actual: single.Status);
+    }
+
+    [Fact]
+    public async Task PullRequest_WhenClosedIsReturnedAsync()
+    {
+        DateTimeOffset closedAt = BaseTime.AddDays(1);
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 1, whenClosed: closedAt));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: closedAt, actual: single.WhenClosed);
+    }
+
+    [Fact]
+    public async Task PullRequest_IsOnHoldIsFalseForIncludedItemsAsync()
+    {
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 1));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.False(
+            single.IsOnHold,
+            userMessage: "IsOnHold should be false for non-on-hold pull requests"
+        );
+    }
+
+    [Fact]
+    public async Task PullRequest_HasLinkedPrIsNullAsync()
+    {
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 1));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Null(single.HasLinkedPr);
+    }
+
+    [Fact]
+    public async Task Issue_StatusIsReturnedAsync()
+    {
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 1));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: "Open", actual: single.Status);
+    }
+
+    [Fact]
+    public async Task Issue_WhenClosedIsNullForOpenItemsAsync()
+    {
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 1));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Null(single.WhenClosed);
+    }
+
+    [Fact]
+    public async Task Issue_IsOnHoldIsFalseForIncludedItemsAsync()
+    {
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 1));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.False(
+            single.IsOnHold,
+            userMessage: "IsOnHold should be false for non-on-hold issues"
+        );
+    }
+
+    [Fact]
+    public async Task Issue_HasLinkedPrIsFalseForUnlinkedItemsAsync()
+    {
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 1));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: false, actual: single.HasLinkedPr);
+    }
+
     private async Task SeedIssuePrioritiesAsync()
     {
         await this._seedContext.Issues.AddRangeAsync(
@@ -263,7 +366,8 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         string repository,
         int id,
         string status = "Open",
-        DateTimeOffset? firstSeen = null
+        DateTimeOffset? firstSeen = null,
+        DateTimeOffset? whenClosed = null
     )
     {
         return new PullRequestEntity
@@ -273,6 +377,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
             Status = status,
             FirstSeen = firstSeen ?? BaseTime,
             LastUpdated = BaseTime,
+            WhenClosed = whenClosed,
         };
     }
 

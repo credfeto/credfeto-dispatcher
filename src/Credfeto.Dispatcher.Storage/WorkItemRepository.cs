@@ -41,7 +41,11 @@ public sealed class WorkItemRepository : IWorkItemRepository
                 e.Priority,
                 e.FirstSeen,
                 e.LastUpdated,
-                e.IsUpToDate
+                e.IsUpToDate,
+                e.Status,
+                e.WhenClosed,
+                e.IsOnHold,
+                null
             ))
             .ToListAsync(cancellationToken);
 
@@ -54,7 +58,11 @@ public sealed class WorkItemRepository : IWorkItemRepository
                 e.Priority,
                 e.FirstSeen,
                 e.LastUpdated,
-                null
+                null,
+                e.Status,
+                e.WhenClosed,
+                e.IsOnHold,
+                e.HasLinkedPr
             ))
             .ToListAsync(cancellationToken);
 

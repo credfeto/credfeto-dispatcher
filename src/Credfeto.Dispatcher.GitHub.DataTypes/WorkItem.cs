@@ -11,5 +11,9 @@ public sealed record WorkItem(
     WorkPriority Priority,
     DateTimeOffset FirstSeen,
     DateTimeOffset LastUpdated,
-    bool? IsUpToDate
+    bool? IsUpToDate,
+    string Status,
+    DateTimeOffset? WhenClosed,
+    bool IsOnHold,
+    bool? HasLinkedPr
 );

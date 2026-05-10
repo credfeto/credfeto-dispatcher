@@ -15,5 +15,9 @@ public sealed record WorkItem(
     string Status,
     DateTimeOffset? WhenClosed,
     bool IsOnHold,
-    bool? HasLinkedPr
+    bool? HasLinkedPr,
+    int CommentCount,
+    string? ReviewDecision,
+    int FailedCheckCount,
+    string? FailedCheckNames
 );

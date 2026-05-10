@@ -338,6 +338,109 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         Assert.Equal(expected: false, actual: single.HasLinkedPr);
     }
 
+    [Fact]
+    public async Task PullRequest_CommentCountIsReturnedAsync()
+    {
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 1, commentCount: 5));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: 5, actual: single.CommentCount);
+    }
+
+    [Fact]
+    public async Task PullRequest_ReviewDecisionIsReturnedWhenSetAsync()
+    {
+        this._seedContext.PullRequests.Add(
+            CreatePr("owner/repo", id: 1, reviewDecision: "ChangesRequested")
+        );
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: "ChangesRequested", actual: single.ReviewDecision);
+    }
+
+    [Fact]
+    public async Task PullRequest_ReviewDecisionIsNullWhenNotSetAsync()
+    {
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 1));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Null(single.ReviewDecision);
+    }
+
+    [Fact]
+    public async Task PullRequest_FailedCheckCountIsReturnedAsync()
+    {
+        this._seedContext.PullRequests.Add(
+            CreatePr("owner/repo", id: 1, failedCheckCount: 2, failedCheckNames: "build,lint")
+        );
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: 2, actual: single.FailedCheckCount);
+        Assert.Equal(expected: "build,lint", actual: single.FailedCheckNames);
+    }
+
+    [Fact]
+    public async Task PullRequest_FailedCheckCountIsZeroWhenNoFailuresAsync()
+    {
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 1));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: 0, actual: single.FailedCheckCount);
+        Assert.Null(single.FailedCheckNames);
+    }
+
+    [Fact]
+    public async Task Issue_CommentCountIsZeroAsync()
+    {
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 1));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: 0, actual: single.CommentCount);
+    }
+
+    [Fact]
+    public async Task Issue_ReviewDecisionIsNullAsync()
+    {
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 1));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Null(single.ReviewDecision);
+    }
+
+    [Fact]
+    public async Task Issue_FailedCheckCountIsZeroAsync()
+    {
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 1));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: 0, actual: single.FailedCheckCount);
+        Assert.Null(single.FailedCheckNames);
+    }
+
     private async Task SeedIssuePrioritiesAsync()
     {
         await this._seedContext.Issues.AddRangeAsync(
@@ -367,7 +470,11 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         int id,
         string status = "Open",
         DateTimeOffset? firstSeen = null,
-        DateTimeOffset? whenClosed = null
+        DateTimeOffset? whenClosed = null,
+        int commentCount = 0,
+        string? reviewDecision = null,
+        int failedCheckCount = 0,
+        string? failedCheckNames = null
     )
     {
         return new PullRequestEntity
@@ -378,6 +485,10 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
             FirstSeen = firstSeen ?? BaseTime,
             LastUpdated = BaseTime,
             WhenClosed = whenClosed,
+            CommentCount = commentCount,
+            ReviewDecision = reviewDecision,
+            FailedCheckCount = failedCheckCount,
+            FailedCheckNames = failedCheckNames,
         };
     }
 

@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.DataTypes;
@@ -12,6 +15,14 @@ namespace Credfeto.Dispatcher.Storage;
 public sealed class NotificationStateTracker : INotificationStateTracker
 {
     private const string ClosedStatus = "Closed";
+
+    private static readonly ImmutableHashSet<string> FailedConclusions = ImmutableHashSet.Create(
+        StringComparer.OrdinalIgnoreCase,
+        "failure",
+        "error",
+        "timed_out",
+        "action_required"
+    );
 
     private readonly IDbContextFactory<DispatcherDbContext> _dbContextFactory;
     private readonly TimeProvider _timeProvider;
@@ -51,6 +62,10 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         int pullRequestNumber = details.Number;
         string status = details.Status;
         bool? isUpToDate = details.IsUpToDate;
+        int commentCount = details.Comments.Count;
+        string? reviewDecision = ComputeReviewDecision(details.Reviews);
+        int failedCheckCount = CountFailedChecks(details.Runs);
+        string? failedCheckNames = BuildFailedCheckNames(details.Runs);
 
         await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(
             cancellationToken
@@ -71,6 +86,10 @@ public sealed class NotificationStateTracker : INotificationStateTracker
                     priority: priority,
                     isOnHold: isOnHold,
                     isUpToDate: isUpToDate,
+                    commentCount: commentCount,
+                    reviewDecision: reviewDecision,
+                    failedCheckCount: failedCheckCount,
+                    failedCheckNames: failedCheckNames,
                     now: now
                 )
             );
@@ -83,6 +102,10 @@ public sealed class NotificationStateTracker : INotificationStateTracker
                 priority: priority,
                 isOnHold: isOnHold,
                 isUpToDate: isUpToDate,
+                commentCount: commentCount,
+                reviewDecision: reviewDecision,
+                failedCheckCount: failedCheckCount,
+                failedCheckNames: failedCheckNames,
                 now: now
             );
         }
@@ -171,6 +194,10 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         WorkPriority priority,
         bool isOnHold,
         bool? isUpToDate,
+        int commentCount,
+        string? reviewDecision,
+        int failedCheckCount,
+        string? failedCheckNames,
         in DateTimeOffset now
     )
     {
@@ -182,6 +209,10 @@ public sealed class NotificationStateTracker : INotificationStateTracker
             Priority = priority,
             IsOnHold = isOnHold,
             IsUpToDate = isUpToDate,
+            CommentCount = commentCount,
+            ReviewDecision = reviewDecision,
+            FailedCheckCount = failedCheckCount,
+            FailedCheckNames = failedCheckNames,
             FirstSeen = now,
             LastUpdated = now,
             WhenClosed = IsClosedStatus(status) ? now : null,
@@ -218,12 +249,20 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         WorkPriority priority,
         bool isOnHold,
         bool? isUpToDate,
+        int commentCount,
+        string? reviewDecision,
+        int failedCheckCount,
+        string? failedCheckNames,
         in DateTimeOffset now
     )
     {
         entity.Status = status;
         entity.Priority = priority;
         entity.IsOnHold = isOnHold;
+        entity.CommentCount = commentCount;
+        entity.ReviewDecision = reviewDecision;
+        entity.FailedCheckCount = failedCheckCount;
+        entity.FailedCheckNames = failedCheckNames;
         entity.LastUpdated = now;
 
         if (isUpToDate.HasValue)
@@ -239,6 +278,45 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         {
             entity.WhenClosed = null;
         }
+    }
+
+    private static string? ComputeReviewDecision(IReadOnlyList<PullRequestReview> reviews)
+    {
+        if (
+            reviews.Any(r =>
+                string.Equals(r.State, "CHANGES_REQUESTED", StringComparison.OrdinalIgnoreCase)
+            )
+        )
+        {
+            return "ChangesRequested";
+        }
+
+        if (
+            reviews.Any(r => string.Equals(r.State, "APPROVED", StringComparison.OrdinalIgnoreCase))
+        )
+        {
+            return "Approved";
+        }
+
+        return null;
+    }
+
+    private static int CountFailedChecks(IReadOnlyList<PullRequestRun> runs)
+    {
+        return runs.Count(r =>
+            r.Conclusion is not null && FailedConclusions.Contains(r.Conclusion)
+        );
+    }
+
+    private static string? BuildFailedCheckNames(IReadOnlyList<PullRequestRun> runs)
+    {
+        string[] failed =
+        [
+            .. runs.Where(r => r.Conclusion is not null && FailedConclusions.Contains(r.Conclusion))
+                .Select(r => r.Name),
+        ];
+
+        return failed.Length > 0 ? string.Join(separator: ',', failed) : null;
     }
 
     private static void UpdateIssueEntity(

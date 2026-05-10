@@ -45,7 +45,11 @@ public sealed class WorkItemRepository : IWorkItemRepository
                 e.Status,
                 e.WhenClosed,
                 e.IsOnHold,
-                null
+                null,
+                e.CommentCount,
+                e.ReviewDecision,
+                e.FailedCheckCount,
+                e.FailedCheckNames
             ))
             .ToListAsync(cancellationToken);
 
@@ -62,7 +66,11 @@ public sealed class WorkItemRepository : IWorkItemRepository
                 e.Status,
                 e.WhenClosed,
                 e.IsOnHold,
-                e.HasLinkedPr
+                e.HasLinkedPr,
+                0,
+                null,
+                0,
+                null
             ))
             .ToListAsync(cancellationToken);
 

@@ -61,7 +61,6 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         string repository = notification.Repository.FullName;
         int pullRequestNumber = details.Number;
         string status = details.Status;
-        bool? isUpToDate = details.IsUpToDate;
         int commentCount = details.Comments.Count;
         string? reviewDecision = ComputeReviewDecision(details.Reviews);
         int failedCheckCount = CountFailedChecks(details.Runs);
@@ -86,7 +85,6 @@ public sealed class NotificationStateTracker : INotificationStateTracker
                     status: status,
                     priority: priority,
                     isOnHold: isOnHold,
-                    isUpToDate: isUpToDate,
                     commentCount: commentCount,
                     reviewDecision: reviewDecision,
                     failedCheckCount: failedCheckCount,
@@ -103,7 +101,6 @@ public sealed class NotificationStateTracker : INotificationStateTracker
                 status: status,
                 priority: priority,
                 isOnHold: isOnHold,
-                isUpToDate: isUpToDate,
                 commentCount: commentCount,
                 reviewDecision: reviewDecision,
                 failedCheckCount: failedCheckCount,
@@ -215,7 +212,6 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         string status,
         WorkPriority priority,
         bool isOnHold,
-        bool? isUpToDate,
         int commentCount,
         string? reviewDecision,
         int failedCheckCount,
@@ -231,7 +227,6 @@ public sealed class NotificationStateTracker : INotificationStateTracker
             Status = status,
             Priority = priority,
             IsOnHold = isOnHold,
-            IsUpToDate = isUpToDate,
             CommentCount = commentCount,
             ReviewDecision = reviewDecision,
             FailedCheckCount = failedCheckCount,
@@ -272,7 +267,6 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         string status,
         WorkPriority priority,
         bool isOnHold,
-        bool? isUpToDate,
         int commentCount,
         string? reviewDecision,
         int failedCheckCount,
@@ -290,11 +284,6 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         entity.FailedCheckNames = failedCheckNames;
         entity.FailedCheckSha = failedCheckSha;
         entity.LastUpdated = now;
-
-        if (isUpToDate.HasValue)
-        {
-            entity.IsUpToDate = isUpToDate.Value;
-        }
 
         if (IsClosedStatus(status))
         {

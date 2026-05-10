@@ -28,8 +28,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
                 "url": "https://github.com/owner/repo/pull/42",
                 "body": null,
                 "headRefOid": "abc123",
-                "baseRefOid": "def456",
-                "baseRef": {"name": "main", "target": {"oid": "def456"}},
+                "baseRef": {"name": "main"},
                 "assignees": {"nodes": []},
                 "labels": {"nodes": []},
                 "comments": {"nodes": []},
@@ -52,8 +51,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
                 "url": "https://github.com/owner/repo/pull/42",
                 "body": null,
                 "headRefOid": "abc123",
-                "baseRefOid": "def456",
-                "baseRef": {"name": "main", "target": {"oid": "def456"}},
+                "baseRef": {"name": "main"},
                 "assignees": {"nodes": []},
                 "labels": {"nodes": []},
                 "comments": {"nodes": []},
@@ -76,80 +74,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
                 "url": "https://github.com/owner/repo/pull/42",
                 "body": null,
                 "headRefOid": "abc123",
-                "baseRefOid": "def456",
-                "baseRef": {"name": "main", "target": {"oid": "def456"}},
-                "assignees": {"nodes": []},
-                "labels": {"nodes": []},
-                "comments": {"nodes": []},
-                "reviews": {"nodes": []}
-              }
-            }
-          }
-        }
-        """;
-
-    private const string BehindPrJson = """
-        {
-          "data": {
-            "repository": {
-              "pullRequest": {
-                "number": 42,
-                "title": "Test PR",
-                "state": "OPEN",
-                "isDraft": false,
-                "url": "https://github.com/owner/repo/pull/42",
-                "body": null,
-                "headRefOid": "abc123",
-                "baseRefOid": "old-sha",
-                "baseRef": {"name": "main", "target": {"oid": "new-sha"}},
-                "assignees": {"nodes": []},
-                "labels": {"nodes": []},
-                "comments": {"nodes": []},
-                "reviews": {"nodes": []}
-              }
-            }
-          }
-        }
-        """;
-
-    private const string NullBaseRefPrJson = """
-        {
-          "data": {
-            "repository": {
-              "pullRequest": {
-                "number": 42,
-                "title": "Test PR",
-                "state": "OPEN",
-                "isDraft": false,
-                "url": "https://github.com/owner/repo/pull/42",
-                "body": null,
-                "headRefOid": "abc123",
-                "baseRefOid": "def456",
-                "baseRef": null,
-                "assignees": {"nodes": []},
-                "labels": {"nodes": []},
-                "comments": {"nodes": []},
-                "reviews": {"nodes": []}
-              }
-            }
-          }
-        }
-        """;
-
-    private const string EmptyBaseRefOidPrJson = """
-        {
-          "data": {
-            "repository": {
-              "pullRequest": {
-                "number": 42,
-                "title": "Test PR",
-                "state": "OPEN",
-                "isDraft": false,
-                "url": "https://github.com/owner/repo/pull/42",
-                "body": null,
-                "headRefOid": "abc123",
-                "baseRefOid": "",
-                "baseRef": {"name": "main", "target": {"oid": "def456"}},
+                "baseRef": {"name": "main"},
                 "assignees": {"nodes": []},
                 "labels": {"nodes": []},
                 "comments": {"nodes": []},
@@ -172,8 +97,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
                 "url": "https://github.com/owner/repo/pull/42",
                 "body": null,
                 "headRefOid": "abc123",
-                "baseRefOid": "def456",
-                "baseRef": {"name": "main", "target": {"oid": "def456"}},
+                "baseRef": {"name": "main"},
                 "assignees": {"nodes": [{"login": "alice"}, {"login": "bob"}]},
                 "labels": {"nodes": []},
                 "comments": {"nodes": []},
@@ -196,8 +120,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
                 "url": "https://github.com/owner/repo/pull/42",
                 "body": null,
                 "headRefOid": "abc123",
-                "baseRefOid": "def456",
-                "baseRef": {"name": "main", "target": {"oid": "def456"}},
+                "baseRef": {"name": "main"},
                 "assignees": {"nodes": []},
                 "labels": {"nodes": [{"name": "bug"}, {"name": "enhancement"}]},
                 "comments": {"nodes": []},
@@ -220,8 +143,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
                 "url": "https://github.com/owner/repo/pull/42",
                 "body": null,
                 "headRefOid": "abc123",
-                "baseRefOid": "def456",
-                "baseRef": {"name": "main", "target": {"oid": "def456"}},
+                "baseRef": {"name": "main"},
                 "assignees": {"nodes": []},
                 "labels": {"nodes": []},
                 "comments": {"nodes": [{"body": "A test comment", "author": {"login": "reviewer"}, "url": "https://github.com/owner/repo/issues/42#issuecomment-1", "createdAt": "2024-01-01T00:00:00Z"}]},
@@ -244,8 +166,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
                 "url": "https://github.com/owner/repo/pull/42",
                 "body": null,
                 "headRefOid": "abc123",
-                "baseRefOid": "def456",
-                "baseRef": {"name": "main", "target": {"oid": "def456"}},
+                "baseRef": {"name": "main"},
                 "assignees": {"nodes": []},
                 "labels": {"nodes": []},
                 "comments": {"nodes": []},
@@ -268,8 +189,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
                 "url": "https://github.com/owner/repo/pull/42",
                 "body": null,
                 "headRefOid": "abc123",
-                "baseRefOid": "def456",
-                "baseRef": {"name": "main", "target": {"oid": "def456"}},
+                "baseRef": {"name": "main"},
                 "assignees": {"nodes": []},
                 "labels": {"nodes": []},
                 "comments": {"nodes": []},
@@ -292,8 +212,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
                 "url": "https://github.com/owner/repo/pull/42",
                 "body": "Closes #10\nFixes #11",
                 "headRefOid": "abc123",
-                "baseRefOid": "def456",
-                "baseRef": {"name": "main", "target": {"oid": "def456"}},
+                "baseRef": {"name": "main"},
                 "assignees": {"nodes": []},
                 "labels": {"nodes": []},
                 "comments": {"nodes": []},
@@ -743,8 +662,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
                     "url": "https://github.com/owner/repo/pull/42",
                     "body": null,
                     "headRefOid": "abc123",
-                    "baseRefOid": "def456",
-                    "baseRef": {"name": "main", "target": {"oid": "def456"}},
+                    "baseRef": {"name": "main"},
                     "assignees": {"nodes": []},
                     "labels": {"nodes": []},
                     "comments": {"nodes": [{"body": "{{{longBody}}}", "author": {"login": "reviewer"}, "url": "https://github.com/owner/repo/issues/42#issuecomment-1", "createdAt": "2024-01-01T00:00:00Z"}]},
@@ -773,77 +691,5 @@ public sealed class PullRequestDetailFetcherTests : TestBase
             result.Comments[0].Body.EndsWith('…'),
             userMessage: "Expected body to end with ellipsis"
         );
-    }
-
-    [Fact]
-    public async Task IsUpToDateIsTrueWhenBaseRefOidsMatchAsync()
-    {
-        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
-        using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
-        this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
-
-        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
-
-        PullRequestDetails? result = await this._fetcher.FetchAsync(
-            notification: notification,
-            cancellationToken: this.CancellationToken()
-        );
-
-        Assert.NotNull(result);
-        Assert.Equal(expected: true, actual: result.IsUpToDate);
-    }
-
-    [Fact]
-    public async Task IsUpToDateIsFalseWhenBaseRefOidsDifferAsync()
-    {
-        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, BehindPrJson);
-        using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
-        this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
-
-        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
-
-        PullRequestDetails? result = await this._fetcher.FetchAsync(
-            notification: notification,
-            cancellationToken: this.CancellationToken()
-        );
-
-        Assert.NotNull(result);
-        Assert.Equal(expected: false, actual: result.IsUpToDate);
-    }
-
-    [Fact]
-    public async Task IsUpToDateIsNullWhenBaseRefIsNullAsync()
-    {
-        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, NullBaseRefPrJson);
-        using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
-        this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
-
-        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
-
-        PullRequestDetails? result = await this._fetcher.FetchAsync(
-            notification: notification,
-            cancellationToken: this.CancellationToken()
-        );
-
-        Assert.NotNull(result);
-        Assert.Null(result.IsUpToDate);
-    }
-
-    [Fact]
-    public async Task IsUpToDateIsNullWhenBaseRefOidIsEmptyAsync()
-    {
-        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, EmptyBaseRefOidPrJson);
-        using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
-        this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
-
-        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
-
-        PullRequestDetails? result = await this._fetcher.FetchAsync(
-            notification: notification,
-            cancellationToken: this.CancellationToken()
-        );
-
-        Assert.NotNull(result);
-        Assert.Null(result.IsUpToDate);
     }
 }

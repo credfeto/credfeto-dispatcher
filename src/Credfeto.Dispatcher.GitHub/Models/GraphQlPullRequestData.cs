@@ -12,7 +12,6 @@ internal sealed record GraphQlPullRequestData(
     [property: JsonPropertyName("url")] string Url,
     [property: JsonPropertyName("body")] string? Body,
     [property: JsonPropertyName("headRefOid")] string HeadRefOid,
-    [property: JsonPropertyName("baseRefOid")] string BaseRefOid,
     [property: JsonPropertyName("baseRef")] GraphQlRefNode? BaseRef,
     [property: JsonPropertyName("assignees")] GraphQlAssigneeConnection? Assignees,
     [property: JsonPropertyName("labels")] GraphQlLabelConnection? Labels,

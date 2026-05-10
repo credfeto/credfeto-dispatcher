@@ -38,12 +38,8 @@ public sealed partial class PullRequestDetailFetcher : IPullRequestDetailFetcher
               url
               body
               headRefOid
-              baseRefOid
               baseRef {
                 name
-                target {
-                  oid
-                }
               }
               assignees(first: 10) {
                 nodes {
@@ -162,7 +158,6 @@ public sealed partial class PullRequestDetailFetcher : IPullRequestDetailFetcher
             Reviews: ExtractReviews(pr),
             Runs: runs,
             LinkedItems: ExtractLinkedItems(pr.Body),
-            IsUpToDate: DetermineIsUpToDate(baseRefOid: pr.BaseRefOid, baseRef: pr.BaseRef),
             Repository: repository,
             LastNotification: lastNotification
         );
@@ -334,20 +329,6 @@ public sealed partial class PullRequestDetailFetcher : IPullRequestDetailFetcher
         }
 
         return items;
-    }
-
-    private static bool? DetermineIsUpToDate(string baseRefOid, GraphQlRefNode? baseRef)
-    {
-        if (baseRef?.Target is null || string.IsNullOrEmpty(baseRefOid))
-        {
-            return null;
-        }
-
-        return string.Equals(
-            a: baseRef.Target.Oid,
-            b: baseRefOid,
-            comparisonType: StringComparison.Ordinal
-        );
     }
 
     private static string DetermineStatus(GraphQlPullRequestData pr)

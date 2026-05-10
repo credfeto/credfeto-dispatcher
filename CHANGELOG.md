@@ -42,6 +42,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Replaced multiple REST API calls in PullRequestDetailFetcher with a single GitHub GraphQL query, reducing network overhead and eliminating the dependency on the mergeable_state field
 - Simplified INotificationStateTracker API to accept GitHubNotification and PullRequestDetails/IssueDetails objects instead of individual scalar parameters
 - INotificationStateTracker: changed Task/Task<bool> return types to ValueTask/ValueTask<bool>, renamed methods to overloads
+- Structured WorkItem fields: LinkedPrNumbers as ImmutableArray<int>, ReviewDecision as enum, FailedCheckNames as ImmutableArray<string>, added FailedCheckSha
 ### Deprecated
 ### Removed
 ### Deployment Changes

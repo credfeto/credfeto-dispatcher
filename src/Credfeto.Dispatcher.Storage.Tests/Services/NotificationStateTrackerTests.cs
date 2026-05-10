@@ -74,7 +74,6 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
             Reviews: [],
             Runs: [],
             LinkedItems: [],
-            IsUpToDate: null,
             Repository: new ItemRepository(
                 Owner: "test-owner",
                 Name: "test-repo",

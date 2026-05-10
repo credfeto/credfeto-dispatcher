@@ -141,7 +141,6 @@ public sealed class GitHubPollingWorkerTests : TestBase
             Reviews: [],
             Runs: [],
             LinkedItems: [],
-            IsUpToDate: null,
             Repository: BuildTestRepository(),
             LastNotification: BuildTestLastNotification()
         );
@@ -161,7 +160,6 @@ public sealed class GitHubPollingWorkerTests : TestBase
             Reviews: [],
             Runs: [],
             LinkedItems: [],
-            IsUpToDate: null,
             Repository: BuildTestRepository(),
             LastNotification: BuildTestLastNotification()
         );

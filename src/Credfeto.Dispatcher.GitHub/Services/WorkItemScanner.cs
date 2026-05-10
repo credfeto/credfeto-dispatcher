@@ -377,7 +377,6 @@ public sealed class WorkItemScanner : IWorkItemScanner
             Reviews: [],
             Runs: [],
             LinkedItems: [],
-            IsUpToDate: null,
             Repository: new ItemRepository(Owner: owner, Name: name, Url: repoUri),
             LastNotification: new LastNotification(
                 Id: $"scan:{repo}:pr:{pr.Number}",

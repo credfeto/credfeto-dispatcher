@@ -54,11 +54,6 @@ public sealed class DispatcherDbContext : DbContext
 
         modelBuilder.Entity<PullRequestEntity>().Property(e => e.IsOnHold).HasColumnType("INTEGER");
 
-        modelBuilder
-            .Entity<PullRequestEntity>()
-            .Property(e => e.IsUpToDate)
-            .HasColumnType("INTEGER");
-
         modelBuilder.Entity<IssueEntity>().HasKey(e => new { e.Repository, e.Id });
 
         modelBuilder

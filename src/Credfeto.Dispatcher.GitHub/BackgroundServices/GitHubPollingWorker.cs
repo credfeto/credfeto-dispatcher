@@ -229,10 +229,9 @@ public sealed class GitHubPollingWorker : BackgroundService
         }
 
         if (
-            !await this._notificationStateTracker.ShouldSkipPullRequestAsync(
-                repository: notification.Repository.FullName,
-                pullRequestNumber: details.Number,
-                currentStatus: details.Status,
+            !await this._notificationStateTracker.ShouldSkipAsync(
+                notification: notification,
+                details: details,
                 cancellationToken: cancellationToken
             )
         )
@@ -262,13 +261,11 @@ public sealed class GitHubPollingWorker : BackgroundService
             noWorkFilter: this._options.Filter.NoWorkFilter
         );
 
-        await this._notificationStateTracker.UpdatePullRequestStateAsync(
-            repository: notification.Repository.FullName,
-            pullRequestNumber: details.Number,
-            status: details.Status,
+        await this._notificationStateTracker.UpdateStateAsync(
+            notification: notification,
+            details: details,
             priority: prPriority,
             isOnHold: prIsOnHold,
-            isUpToDate: details.IsUpToDate,
             cancellationToken: cancellationToken
         );
 
@@ -296,10 +293,9 @@ public sealed class GitHubPollingWorker : BackgroundService
         }
 
         if (
-            !await this._notificationStateTracker.ShouldSkipIssueAsync(
-                repository: notification.Repository.FullName,
-                issueNumber: details.Number,
-                currentStatus: details.Status,
+            !await this._notificationStateTracker.ShouldSkipAsync(
+                notification: notification,
+                details: details,
                 cancellationToken: cancellationToken
             )
         )
@@ -328,15 +324,12 @@ public sealed class GitHubPollingWorker : BackgroundService
             labels: details.Labels,
             noWorkFilter: this._options.Filter.NoWorkFilter
         );
-        bool issueHasLinkedPr = details.LinkedPullRequestUrl is not null;
 
-        await this._notificationStateTracker.UpdateIssueStateAsync(
-            repository: notification.Repository.FullName,
-            issueNumber: details.Number,
-            status: details.Status,
+        await this._notificationStateTracker.UpdateStateAsync(
+            notification: notification,
+            details: details,
             priority: issuePriority,
             isOnHold: issueIsOnHold,
-            hasLinkedPr: issueHasLinkedPr,
             cancellationToken: cancellationToken
         );
 

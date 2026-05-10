@@ -292,25 +292,21 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.DidNotReceive()
-            .UpdatePullRequestStateAsync(
-                repository: Arg.Any<string>(),
-                pullRequestNumber: Arg.Any<int>(),
-                status: Arg.Any<string>(),
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Any<PullRequestDetails>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
-                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
 
         await this
             ._notificationStateTracker.DidNotReceive()
-            .UpdateIssueStateAsync(
-                repository: Arg.Any<string>(),
-                issueNumber: Arg.Any<int>(),
-                status: Arg.Any<string>(),
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Any<IssueDetails>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
-                hasLinkedPr: Arg.Any<bool>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -327,13 +323,11 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.DidNotReceive()
-            .UpdatePullRequestStateAsync(
-                repository: Arg.Any<string>(),
-                pullRequestNumber: Arg.Any<int>(),
-                status: Arg.Any<string>(),
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Any<PullRequestDetails>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
-                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -350,13 +344,11 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.DidNotReceive()
-            .UpdatePullRequestStateAsync(
-                repository: Arg.Any<string>(),
-                pullRequestNumber: Arg.Any<int>(),
-                status: Arg.Any<string>(),
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Any<PullRequestDetails>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
-                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -378,13 +370,11 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.DidNotReceive()
-            .UpdatePullRequestStateAsync(
-                repository: Arg.Any<string>(),
-                pullRequestNumber: Arg.Any<int>(),
-                status: Arg.Any<string>(),
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Any<PullRequestDetails>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
-                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -406,13 +396,11 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.DidNotReceive()
-            .UpdatePullRequestStateAsync(
-                repository: Arg.Any<string>(),
-                pullRequestNumber: Arg.Any<int>(),
-                status: Arg.Any<string>(),
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Any<PullRequestDetails>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
-                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -434,13 +422,11 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.DidNotReceive()
-            .UpdatePullRequestStateAsync(
-                repository: Arg.Any<string>(),
-                pullRequestNumber: Arg.Any<int>(),
-                status: Arg.Any<string>(),
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Any<PullRequestDetails>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
-                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -459,13 +445,11 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.Received(1)
-            .UpdatePullRequestStateAsync(
-                repository: Repo,
-                pullRequestNumber: 1,
-                status: "Open",
+            .UpdateStateAsync(
+                notification: Arg.Is<GitHubNotification>(n => n.Repository.FullName == Repo),
+                details: Arg.Is<PullRequestDetails>(d => d.Number == 1 && d.Status == "Open"),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
-                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -484,13 +468,11 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.Received(1)
-            .UpdatePullRequestStateAsync(
-                repository: Repo,
-                pullRequestNumber: 2,
-                status: "Draft",
+            .UpdateStateAsync(
+                notification: Arg.Is<GitHubNotification>(n => n.Repository.FullName == Repo),
+                details: Arg.Is<PullRequestDetails>(d => d.Number == 2 && d.Status == "Draft"),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
-                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -509,13 +491,11 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.Received(1)
-            .UpdatePullRequestStateAsync(
-                repository: Repo,
-                pullRequestNumber: 3,
-                status: Arg.Any<string>(),
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Is<PullRequestDetails>(d => d.Number == 3),
                 priority: WorkPriority.Urgent,
                 isOnHold: Arg.Any<bool>(),
-                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -539,13 +519,11 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.Received(1)
-            .UpdatePullRequestStateAsync(
-                repository: Repo,
-                pullRequestNumber: 4,
-                status: Arg.Any<string>(),
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Is<PullRequestDetails>(d => d.Number == 4),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: true,
-                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -569,13 +547,11 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.Received(1)
-            .UpdatePullRequestStateAsync(
-                repository: Repo,
-                pullRequestNumber: 5,
-                status: Arg.Any<string>(),
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Is<PullRequestDetails>(d => d.Number == 5),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
-                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -599,13 +575,11 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.DidNotReceive()
-            .UpdatePullRequestStateAsync(
-                repository: Arg.Any<string>(),
-                pullRequestNumber: Arg.Any<int>(),
-                status: Arg.Any<string>(),
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Any<PullRequestDetails>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
-                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -629,13 +603,11 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.Received(1)
-            .UpdatePullRequestStateAsync(
-                repository: Repo,
-                pullRequestNumber: 7,
-                status: Arg.Any<string>(),
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Is<PullRequestDetails>(d => d.Number == 7),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
-                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -659,13 +631,11 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.Received(1)
-            .UpdatePullRequestStateAsync(
-                repository: Repo,
-                pullRequestNumber: 8,
-                status: Arg.Any<string>(),
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Is<PullRequestDetails>(d => d.Number == 8),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
-                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -689,13 +659,11 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.Received(1)
-            .UpdatePullRequestStateAsync(
-                repository: Repo,
-                pullRequestNumber: 9,
-                status: Arg.Any<string>(),
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Is<PullRequestDetails>(d => d.Number == 9),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: true,
-                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -714,19 +682,17 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.DidNotReceive()
-            .UpdatePullRequestStateAsync(
-                repository: Arg.Any<string>(),
-                pullRequestNumber: Arg.Any<int>(),
-                status: Arg.Any<string>(),
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Any<PullRequestDetails>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
-                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
 
     [Fact]
-    public async Task ScanAsync_WithOpenIssue_CallsUpdateIssueStateAsync()
+    public async Task ScanAsync_WithOpenIssue_CallsUpdateStateAsync()
     {
         using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
         using HttpClient prClient = CreateClient(HttpStatusCode.OK, EmptyJson);
@@ -739,13 +705,11 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.Received(1)
-            .UpdateIssueStateAsync(
-                repository: Repo,
-                issueNumber: 20,
-                status: "Open",
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Is<IssueDetails>(d => d.Number == 20 && d.Status == "Open"),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
-                hasLinkedPr: Arg.Is<bool>(v => !v),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -764,13 +728,11 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.DidNotReceive()
-            .UpdateIssueStateAsync(
-                repository: Arg.Any<string>(),
-                issueNumber: Arg.Any<int>(),
-                status: Arg.Any<string>(),
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Any<IssueDetails>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
-                hasLinkedPr: Arg.Any<bool>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -789,13 +751,11 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.DidNotReceive()
-            .UpdateIssueStateAsync(
-                repository: Arg.Any<string>(),
-                issueNumber: Arg.Any<int>(),
-                status: Arg.Any<string>(),
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Any<IssueDetails>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
-                hasLinkedPr: Arg.Any<bool>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -823,25 +783,21 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.Received(1)
-            .UpdatePullRequestStateAsync(
-                repository: Repo,
-                pullRequestNumber: 10,
-                status: Arg.Any<string>(),
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Is<PullRequestDetails>(d => d.Number == 10),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
-                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
 
         await this
             ._notificationStateTracker.Received(1)
-            .UpdatePullRequestStateAsync(
-                repository: Repo,
-                pullRequestNumber: 11,
-                status: Arg.Any<string>(),
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Is<PullRequestDetails>(d => d.Number == 11),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
-                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -865,25 +821,21 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.Received(1)
-            .UpdateIssueStateAsync(
-                repository: Repo,
-                issueNumber: 20,
-                status: Arg.Any<string>(),
+            .UpdateStateAsync(
+                notification: Arg.Is<GitHubNotification>(n => n.Repository.FullName == Repo),
+                details: Arg.Is<IssueDetails>(d => d.Number == 20),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
-                hasLinkedPr: Arg.Any<bool>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
 
         await this
             ._notificationStateTracker.DidNotReceive()
-            .UpdateIssueStateAsync(
-                repository: repo2,
-                issueNumber: Arg.Any<int>(),
-                status: Arg.Any<string>(),
+            .UpdateStateAsync(
+                notification: Arg.Is<GitHubNotification>(n => n.Repository.FullName == repo2),
+                details: Arg.Any<IssueDetails>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
-                hasLinkedPr: Arg.Any<bool>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -907,13 +859,11 @@ public sealed class WorkItemScannerTests : TestBase
 
         await this
             ._notificationStateTracker.Received(1)
-            .UpdatePullRequestStateAsync(
-                repository: Repo,
-                pullRequestNumber: 1,
-                status: Arg.Any<string>(),
+            .UpdateStateAsync(
+                notification: Arg.Is<GitHubNotification>(n => n.Repository.FullName == Repo),
+                details: Arg.Is<PullRequestDetails>(d => d.Number == 1),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
-                isUpToDate: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }

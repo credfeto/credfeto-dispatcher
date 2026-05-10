@@ -25,14 +25,13 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         this._timeProvider = timeProvider;
     }
 
-    public Task<bool> ShouldSkipPullRequestAsync(
-        string repository,
-        int pullRequestNumber,
-        string currentStatus,
+    public ValueTask<bool> ShouldSkipAsync(
+        GitHubNotification notification,
+        PullRequestDetails details,
         CancellationToken cancellationToken
     )
     {
-        return Task.FromResult(IsClosedStatus(currentStatus));
+        return ValueTask.FromResult(IsClosedStatus(details.Status));
     }
 
     [SuppressMessage(
@@ -40,16 +39,19 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         "PH2071:Duplicate shape found",
         Justification = "Structurally identical but operating on different entity types (PullRequestEntity vs IssueEntity)."
     )]
-    public async Task UpdatePullRequestStateAsync(
-        string repository,
-        int pullRequestNumber,
-        string status,
+    public async ValueTask UpdateStateAsync(
+        GitHubNotification notification,
+        PullRequestDetails details,
         WorkPriority priority,
         bool isOnHold,
-        bool? isUpToDate,
         CancellationToken cancellationToken
     )
     {
+        string repository = notification.Repository.FullName;
+        int pullRequestNumber = details.Number;
+        string status = details.Status;
+        bool? isUpToDate = details.IsUpToDate;
+
         await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(
             cancellationToken
         );
@@ -88,14 +90,13 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         await context.SaveChangesAsync(cancellationToken);
     }
 
-    public Task<bool> ShouldSkipIssueAsync(
-        string repository,
-        int issueNumber,
-        string currentStatus,
+    public ValueTask<bool> ShouldSkipAsync(
+        GitHubNotification notification,
+        IssueDetails details,
         CancellationToken cancellationToken
     )
     {
-        return Task.FromResult(IsClosedStatus(currentStatus));
+        return ValueTask.FromResult(IsClosedStatus(details.Status));
     }
 
     [SuppressMessage(
@@ -103,16 +104,19 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         "PH2071:Duplicate shape found",
         Justification = "Structurally identical but operating on different entity types (PullRequestEntity vs IssueEntity)."
     )]
-    public async Task UpdateIssueStateAsync(
-        string repository,
-        int issueNumber,
-        string status,
+    public async ValueTask UpdateStateAsync(
+        GitHubNotification notification,
+        IssueDetails details,
         WorkPriority priority,
         bool isOnHold,
-        bool hasLinkedPr,
         CancellationToken cancellationToken
     )
     {
+        string repository = notification.Repository.FullName;
+        int issueNumber = details.Number;
+        string status = details.Status;
+        bool hasLinkedPr = details.LinkedPullRequestUrl is not null;
+
         await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(
             cancellationToken
         );

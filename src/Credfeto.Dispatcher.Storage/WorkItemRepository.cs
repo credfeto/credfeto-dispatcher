@@ -64,8 +64,10 @@ public sealed class WorkItemRepository : IWorkItemRepository
         [
             .. combined
                 .OrderBy(w => FindIndex(owners, GetOwner(w.Repository)))
-                .ThenBy(w => FindIndex(repos, w.Repository))
+                .ThenBy(w => GetOwner(w.Repository), comparer: StringComparer.OrdinalIgnoreCase)
                 .ThenBy(w => IsPullRequest(w) ? 0 : 1)
+                .ThenBy(w => FindIndex(repos, w.Repository))
+                .ThenBy(w => w.Repository, comparer: StringComparer.OrdinalIgnoreCase)
                 .ThenByDescending(w => (int)w.Priority)
                 .ThenBy(w => w.FirstSeen),
         ];

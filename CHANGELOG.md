@@ -21,6 +21,8 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Expanded PullRequestDetails with full comment, review, run, and linked-item lists, PR body, and up-to-date status for issue #36
 - ItemRepository and LastNotification context to PullRequestDetails and IssueDetails for issue #35
 - Order priorities by owner (alphabetically or configured order), then type (PRs first), then repository (alphabetically or configured order), then issue priority (Urgent > High > Medium > Low > untagged)
+- Return all work item details (status, whenClosed, isOnHold, hasLinkedPr) from the /priorities endpoint
+- Persist and return comment count, review decision, and failed CI check details for pull requests
 ### Fixed
 - EF Core change-tracking comparers trimmed away at publish time causing MissingMethodException at startup; preserve EF Core and Ben.Demystifier assemblies as trimmer roots
 - preserve EF Core migration types as trimmer roots to prevent missing-table errors at runtime on trimmed binaries
@@ -40,6 +42,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Replaced multiple REST API calls in PullRequestDetailFetcher with a single GitHub GraphQL query, reducing network overhead and eliminating the dependency on the mergeable_state field
 - Simplified INotificationStateTracker API to accept GitHubNotification and PullRequestDetails/IssueDetails objects instead of individual scalar parameters
 - INotificationStateTracker: changed Task/Task<bool> return types to ValueTask/ValueTask<bool>, renamed methods to overloads
+- Structured WorkItem fields: LinkedPrNumbers as ImmutableArray<int>, ReviewDecision as enum, FailedCheckNames as ImmutableArray<string>, added FailedCheckSha
 ### Deprecated
 ### Removed
 ### Deployment Changes

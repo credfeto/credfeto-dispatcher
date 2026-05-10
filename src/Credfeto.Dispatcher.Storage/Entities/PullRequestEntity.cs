@@ -24,4 +24,14 @@ public sealed class PullRequestEntity : INotificationEntity
     public bool IsOnHold { get; set; }
 
     public bool? IsUpToDate { get; set; }
+
+    public int CommentCount { get; set; }
+
+    public string? ReviewDecision { get; set; }
+
+    public int FailedCheckCount { get; set; }
+
+    public string? FailedCheckNames { get; set; }
+
+    public string? FailedCheckSha { get; set; }
 }

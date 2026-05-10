@@ -8,5 +8,6 @@ internal sealed record ApiWorkflowRun(
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("status")] string Status,
     [property: JsonPropertyName("conclusion")] string? Conclusion,
-    [property: JsonPropertyName("html_url")] string HtmlUrl
+    [property: JsonPropertyName("html_url")] string HtmlUrl,
+    [property: JsonPropertyName("head_sha")] string HeadSha
 );

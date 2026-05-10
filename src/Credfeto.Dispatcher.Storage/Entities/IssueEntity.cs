@@ -23,5 +23,5 @@ public sealed class IssueEntity : INotificationEntity
 
     public bool IsOnHold { get; set; }
 
-    public bool HasLinkedPr { get; set; }
+    public int? LinkedPrNumber { get; set; }
 }

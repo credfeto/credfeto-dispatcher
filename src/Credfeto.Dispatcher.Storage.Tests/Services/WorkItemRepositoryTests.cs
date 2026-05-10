@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.DataTypes;
@@ -225,7 +226,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
     [Fact]
     public async Task IssuesWithLinkedPrsAreExcludedAsync()
     {
-        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 1, hasLinkedPr: true));
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 1, linkedPrNumber: 42));
         this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 2));
         await this._seedContext.SaveChangesAsync(this.CancellationToken());
 
@@ -233,6 +234,213 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
 
         WorkItem single = Assert.Single(result);
         Assert.Equal(expected: 2, actual: single.Id);
+    }
+
+    [Fact]
+    public async Task PullRequest_StatusIsReturnedAsync()
+    {
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 1, status: "Open"));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: "Open", actual: single.Status);
+    }
+
+    [Fact]
+    public async Task PullRequest_WhenClosedIsReturnedAsync()
+    {
+        DateTimeOffset closedAt = BaseTime.AddDays(1);
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 1, whenClosed: closedAt));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: closedAt, actual: single.WhenClosed);
+    }
+
+    [Fact]
+    public async Task PullRequest_IsOnHoldIsFalseForIncludedItemsAsync()
+    {
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 1));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.False(
+            single.IsOnHold,
+            userMessage: "IsOnHold should be false for non-on-hold pull requests"
+        );
+    }
+
+    [Fact]
+    public async Task PullRequest_LinkedPrNumbersIsEmptyAsync()
+    {
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 1));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Empty(single.LinkedPrNumbers);
+    }
+
+    [Fact]
+    public async Task Issue_StatusIsReturnedAsync()
+    {
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 1));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: "Open", actual: single.Status);
+    }
+
+    [Fact]
+    public async Task Issue_WhenClosedIsNullForOpenItemsAsync()
+    {
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 1));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Null(single.WhenClosed);
+    }
+
+    [Fact]
+    public async Task Issue_IsOnHoldIsFalseForIncludedItemsAsync()
+    {
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 1));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.False(
+            single.IsOnHold,
+            userMessage: "IsOnHold should be false for non-on-hold issues"
+        );
+    }
+
+    [Fact]
+    public async Task Issue_LinkedPrNumbersIsEmptyForUnlinkedItemsAsync()
+    {
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 1));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Empty(single.LinkedPrNumbers);
+    }
+
+    [Fact]
+    public async Task PullRequest_CommentCountIsReturnedAsync()
+    {
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 1, commentCount: 5));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: 5, actual: single.CommentCount);
+    }
+
+    [Fact]
+    public async Task PullRequest_ReviewDecisionIsReturnedWhenSetAsync()
+    {
+        this._seedContext.PullRequests.Add(
+            CreatePr("owner/repo", id: 1, reviewDecision: "ChangesRequested")
+        );
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: ReviewDecisionState.ChangesRequested, actual: single.ReviewDecision);
+    }
+
+    [Fact]
+    public async Task PullRequest_ReviewDecisionIsNotReviewedWhenNotSetAsync()
+    {
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 1));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: ReviewDecisionState.NotReviewed, actual: single.ReviewDecision);
+    }
+
+    [Fact]
+    public async Task PullRequest_FailedCheckCountIsReturnedAsync()
+    {
+        this._seedContext.PullRequests.Add(
+            CreatePr("owner/repo", id: 1, failedCheckCount: 2, failedCheckNames: "build,lint")
+        );
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: 2, actual: single.FailedCheckCount);
+        ImmutableArray<string> expectedNames = ["build", "lint"];
+        Assert.Equal(expected: expectedNames, actual: single.FailedCheckNames);
+    }
+
+    [Fact]
+    public async Task PullRequest_FailedCheckCountIsZeroWhenNoFailuresAsync()
+    {
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 1));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: 0, actual: single.FailedCheckCount);
+        Assert.Empty(single.FailedCheckNames);
+    }
+
+    [Fact]
+    public async Task Issue_CommentCountIsZeroAsync()
+    {
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 1));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: 0, actual: single.CommentCount);
+    }
+
+    [Fact]
+    public async Task Issue_ReviewDecisionIsNotApplicableAsync()
+    {
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 1));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: ReviewDecisionState.NotApplicable, actual: single.ReviewDecision);
+    }
+
+    [Fact]
+    public async Task Issue_FailedCheckCountIsZeroAsync()
+    {
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 1));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: 0, actual: single.FailedCheckCount);
+        Assert.Empty(single.FailedCheckNames);
     }
 
     private async Task SeedIssuePrioritiesAsync()
@@ -263,7 +471,12 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         string repository,
         int id,
         string status = "Open",
-        DateTimeOffset? firstSeen = null
+        DateTimeOffset? firstSeen = null,
+        DateTimeOffset? whenClosed = null,
+        int commentCount = 0,
+        string? reviewDecision = null,
+        int failedCheckCount = 0,
+        string? failedCheckNames = null
     )
     {
         return new PullRequestEntity
@@ -273,6 +486,11 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
             Status = status,
             FirstSeen = firstSeen ?? BaseTime,
             LastUpdated = BaseTime,
+            WhenClosed = whenClosed,
+            CommentCount = commentCount,
+            ReviewDecision = reviewDecision,
+            FailedCheckCount = failedCheckCount,
+            FailedCheckNames = failedCheckNames,
         };
     }
 
@@ -281,7 +499,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         int id,
         WorkPriority priority = WorkPriority.Unknown,
         bool isOnHold = false,
-        bool hasLinkedPr = false,
+        int? linkedPrNumber = null,
         DateTimeOffset? firstSeen = null
     )
     {
@@ -292,7 +510,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
             Status = "Open",
             Priority = priority,
             IsOnHold = isOnHold,
-            HasLinkedPr = hasLinkedPr,
+            LinkedPrNumber = linkedPrNumber,
             FirstSeen = firstSeen ?? BaseTime,
             LastUpdated = BaseTime,
         };

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Immutable;
 using System.Diagnostics;
 
 namespace Credfeto.Dispatcher.GitHub.DataTypes;
@@ -11,5 +12,14 @@ public sealed record WorkItem(
     WorkPriority Priority,
     DateTimeOffset FirstSeen,
     DateTimeOffset LastUpdated,
-    bool? IsUpToDate
+    bool? IsUpToDate,
+    string Status,
+    DateTimeOffset? WhenClosed,
+    bool IsOnHold,
+    ImmutableArray<int> LinkedPrNumbers,
+    int CommentCount,
+    ReviewDecisionState ReviewDecision,
+    int FailedCheckCount,
+    ImmutableArray<string> FailedCheckNames,
+    string? FailedCheckSha
 );

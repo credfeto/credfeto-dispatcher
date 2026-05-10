@@ -21,6 +21,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Expanded PullRequestDetails with full comment, review, run, and linked-item lists, PR body, and up-to-date status for issue #36
 - ItemRepository and LastNotification context to PullRequestDetails and IssueDetails for issue #35
 - Order priorities by owner (alphabetically or configured order), then type (PRs first), then repository (alphabetically or configured order), then issue priority (Urgent > High > Medium > Low > untagged)
+- Return all work item details (status, whenClosed, isOnHold, hasLinkedPr) from the /priorities endpoint
 ### Fixed
 - EF Core change-tracking comparers trimmed away at publish time causing MissingMethodException at startup; preserve EF Core and Ben.Demystifier assemblies as trimmer roots
 - preserve EF Core migration types as trimmer roots to prevent missing-table errors at runtime on trimmed binaries

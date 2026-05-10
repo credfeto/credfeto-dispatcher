@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.DataTypes;
@@ -225,7 +226,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
     [Fact]
     public async Task IssuesWithLinkedPrsAreExcludedAsync()
     {
-        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 1, hasLinkedPr: true));
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 1, linkedPrNumber: 42));
         this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 2));
         await this._seedContext.SaveChangesAsync(this.CancellationToken());
 
@@ -276,7 +277,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
     }
 
     [Fact]
-    public async Task PullRequest_HasLinkedPrIsNullAsync()
+    public async Task PullRequest_LinkedPrNumbersIsEmptyAsync()
     {
         this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 1));
         await this._seedContext.SaveChangesAsync(this.CancellationToken());
@@ -284,7 +285,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
 
         WorkItem single = Assert.Single(result);
-        Assert.Null(single.HasLinkedPr);
+        Assert.Empty(single.LinkedPrNumbers);
     }
 
     [Fact]
@@ -327,7 +328,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
     }
 
     [Fact]
-    public async Task Issue_HasLinkedPrIsFalseForUnlinkedItemsAsync()
+    public async Task Issue_LinkedPrNumbersIsEmptyForUnlinkedItemsAsync()
     {
         this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 1));
         await this._seedContext.SaveChangesAsync(this.CancellationToken());
@@ -335,7 +336,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
 
         WorkItem single = Assert.Single(result);
-        Assert.Equal(expected: false, actual: single.HasLinkedPr);
+        Assert.Empty(single.LinkedPrNumbers);
     }
 
     [Fact]
@@ -361,11 +362,11 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
 
         WorkItem single = Assert.Single(result);
-        Assert.Equal(expected: "ChangesRequested", actual: single.ReviewDecision);
+        Assert.Equal(expected: ReviewDecisionState.ChangesRequested, actual: single.ReviewDecision);
     }
 
     [Fact]
-    public async Task PullRequest_ReviewDecisionIsNullWhenNotSetAsync()
+    public async Task PullRequest_ReviewDecisionIsNotReviewedWhenNotSetAsync()
     {
         this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 1));
         await this._seedContext.SaveChangesAsync(this.CancellationToken());
@@ -373,7 +374,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
 
         WorkItem single = Assert.Single(result);
-        Assert.Null(single.ReviewDecision);
+        Assert.Equal(expected: ReviewDecisionState.NotReviewed, actual: single.ReviewDecision);
     }
 
     [Fact]
@@ -388,7 +389,8 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
 
         WorkItem single = Assert.Single(result);
         Assert.Equal(expected: 2, actual: single.FailedCheckCount);
-        Assert.Equal(expected: "build,lint", actual: single.FailedCheckNames);
+        ImmutableArray<string> expectedNames = ["build", "lint"];
+        Assert.Equal(expected: expectedNames, actual: single.FailedCheckNames);
     }
 
     [Fact]
@@ -401,7 +403,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
 
         WorkItem single = Assert.Single(result);
         Assert.Equal(expected: 0, actual: single.FailedCheckCount);
-        Assert.Null(single.FailedCheckNames);
+        Assert.Empty(single.FailedCheckNames);
     }
 
     [Fact]
@@ -417,7 +419,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
     }
 
     [Fact]
-    public async Task Issue_ReviewDecisionIsNullAsync()
+    public async Task Issue_ReviewDecisionIsNotApplicableAsync()
     {
         this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 1));
         await this._seedContext.SaveChangesAsync(this.CancellationToken());
@@ -425,7 +427,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
 
         WorkItem single = Assert.Single(result);
-        Assert.Null(single.ReviewDecision);
+        Assert.Equal(expected: ReviewDecisionState.NotApplicable, actual: single.ReviewDecision);
     }
 
     [Fact]
@@ -438,7 +440,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
 
         WorkItem single = Assert.Single(result);
         Assert.Equal(expected: 0, actual: single.FailedCheckCount);
-        Assert.Null(single.FailedCheckNames);
+        Assert.Empty(single.FailedCheckNames);
     }
 
     private async Task SeedIssuePrioritiesAsync()
@@ -497,7 +499,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         int id,
         WorkPriority priority = WorkPriority.Unknown,
         bool isOnHold = false,
-        bool hasLinkedPr = false,
+        int? linkedPrNumber = null,
         DateTimeOffset? firstSeen = null
     )
     {
@@ -508,7 +510,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
             Status = "Open",
             Priority = priority,
             IsOnHold = isOnHold,
-            HasLinkedPr = hasLinkedPr,
+            LinkedPrNumber = linkedPrNumber,
             FirstSeen = firstSeen ?? BaseTime,
             LastUpdated = BaseTime,
         };

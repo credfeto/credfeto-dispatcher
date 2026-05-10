@@ -241,7 +241,8 @@ public sealed partial class PullRequestDetailFetcher : IPullRequestDetailFetcher
                 Status: r.Status,
                 Conclusion: r.Conclusion,
                 Url: new Uri(r.HtmlUrl),
-                IsRequired: requiredCheckNames.Contains(r.Name)
+                IsRequired: requiredCheckNames.Contains(r.Name),
+                HeadSha: r.HeadSha
             )),
         ];
     }

@@ -69,7 +69,7 @@ public sealed class DispatcherDbContext : DbContext
 
         modelBuilder.Entity<IssueEntity>().Property(e => e.IsOnHold).HasColumnType("INTEGER");
 
-        modelBuilder.Entity<IssueEntity>().Property(e => e.HasLinkedPr).HasColumnType("INTEGER");
+        modelBuilder.Entity<IssueEntity>().Property(e => e.LinkedPrNumber).HasColumnType("INTEGER");
 
         ConfigureNotificationQueue(modelBuilder);
     }

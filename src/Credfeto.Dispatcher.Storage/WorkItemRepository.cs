@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Interfaces;
+using Credfeto.Dispatcher.Storage.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace Credfeto.Dispatcher.Storage;
@@ -32,47 +34,16 @@ public sealed class WorkItemRepository : IWorkItemRepository
             cancellationToken
         );
 
-        List<WorkItem> pullRequests = await context
+        List<PullRequestEntity> prEntities = await context
             .PullRequests.Where(e => e.Status != ClosedStatus && !e.IsOnHold)
-            .Select(e => new WorkItem(
-                e.Repository,
-                e.Id,
-                PullRequestType,
-                e.Priority,
-                e.FirstSeen,
-                e.LastUpdated,
-                e.IsUpToDate,
-                e.Status,
-                e.WhenClosed,
-                e.IsOnHold,
-                null,
-                e.CommentCount,
-                e.ReviewDecision,
-                e.FailedCheckCount,
-                e.FailedCheckNames
-            ))
             .ToListAsync(cancellationToken);
 
-        List<WorkItem> issues = await context
-            .Issues.Where(e => e.Status != ClosedStatus && !e.IsOnHold && !e.HasLinkedPr)
-            .Select(e => new WorkItem(
-                e.Repository,
-                e.Id,
-                IssueType,
-                e.Priority,
-                e.FirstSeen,
-                e.LastUpdated,
-                null,
-                e.Status,
-                e.WhenClosed,
-                e.IsOnHold,
-                e.HasLinkedPr,
-                0,
-                null,
-                0,
-                null
-            ))
+        List<IssueEntity> issueEntities = await context
+            .Issues.Where(e => e.Status != ClosedStatus && !e.IsOnHold && e.LinkedPrNumber == null)
             .ToListAsync(cancellationToken);
+
+        List<WorkItem> pullRequests = [.. prEntities.Select(MapPullRequest)];
+        List<WorkItem> issues = [.. issueEntities.Select(MapIssue)];
 
         List<WorkItem> combined = [.. pullRequests, .. issues];
 
@@ -87,6 +58,97 @@ public sealed class WorkItemRepository : IWorkItemRepository
                 .ThenByDescending(w => (int)w.Priority)
                 .ThenBy(w => w.FirstSeen),
         ];
+    }
+
+    private static WorkItem MapPullRequest(PullRequestEntity e)
+    {
+        return new WorkItem(
+            Repository: e.Repository,
+            Id: e.Id,
+            ItemType: PullRequestType,
+            Priority: e.Priority,
+            FirstSeen: e.FirstSeen,
+            LastUpdated: e.LastUpdated,
+            IsUpToDate: e.IsUpToDate,
+            Status: e.Status,
+            WhenClosed: e.WhenClosed,
+            IsOnHold: e.IsOnHold,
+            LinkedPrNumbers: [],
+            CommentCount: e.CommentCount,
+            ReviewDecision: MapReviewDecision(e.ReviewDecision, isPullRequest: true),
+            FailedCheckCount: e.FailedCheckCount,
+            FailedCheckNames: SplitNames(e.FailedCheckNames),
+            FailedCheckSha: e.FailedCheckSha
+        );
+    }
+
+    private static WorkItem MapIssue(IssueEntity e)
+    {
+        return new WorkItem(
+            Repository: e.Repository,
+            Id: e.Id,
+            ItemType: IssueType,
+            Priority: e.Priority,
+            FirstSeen: e.FirstSeen,
+            LastUpdated: e.LastUpdated,
+            IsUpToDate: null,
+            Status: e.Status,
+            WhenClosed: e.WhenClosed,
+            IsOnHold: e.IsOnHold,
+            LinkedPrNumbers: e.LinkedPrNumber.HasValue ? [e.LinkedPrNumber.Value] : [],
+            CommentCount: 0,
+            ReviewDecision: ReviewDecisionState.NotApplicable,
+            FailedCheckCount: 0,
+            FailedCheckNames: [],
+            FailedCheckSha: null
+        );
+    }
+
+    private static ReviewDecisionState MapReviewDecision(string? reviewDecision, bool isPullRequest)
+    {
+        if (!isPullRequest)
+        {
+            return ReviewDecisionState.NotApplicable;
+        }
+
+        if (string.IsNullOrEmpty(reviewDecision))
+        {
+            return ReviewDecisionState.NotReviewed;
+        }
+
+        if (
+            string.Equals(
+                a: reviewDecision,
+                b: "Approved",
+                comparisonType: StringComparison.OrdinalIgnoreCase
+            )
+        )
+        {
+            return ReviewDecisionState.Approved;
+        }
+
+        if (
+            string.Equals(
+                a: reviewDecision,
+                b: "ChangesRequested",
+                comparisonType: StringComparison.OrdinalIgnoreCase
+            )
+        )
+        {
+            return ReviewDecisionState.ChangesRequested;
+        }
+
+        return ReviewDecisionState.NotReviewed;
+    }
+
+    private static ImmutableArray<string> SplitNames(string? names)
+    {
+        if (string.IsNullOrEmpty(names))
+        {
+            return [];
+        }
+
+        return [.. names.Split(',', StringSplitOptions.RemoveEmptyEntries)];
     }
 
     private static bool IsPullRequest(WorkItem w)

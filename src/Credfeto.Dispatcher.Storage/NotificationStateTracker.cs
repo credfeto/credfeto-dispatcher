@@ -66,6 +66,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         string? reviewDecision = ComputeReviewDecision(details.Reviews);
         int failedCheckCount = CountFailedChecks(details.Runs);
         string? failedCheckNames = BuildFailedCheckNames(details.Runs);
+        string? failedCheckSha = BuildFailedCheckSha(details.Runs);
 
         await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(
             cancellationToken
@@ -90,6 +91,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
                     reviewDecision: reviewDecision,
                     failedCheckCount: failedCheckCount,
                     failedCheckNames: failedCheckNames,
+                    failedCheckSha: failedCheckSha,
                     now: now
                 )
             );
@@ -106,6 +108,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
                 reviewDecision: reviewDecision,
                 failedCheckCount: failedCheckCount,
                 failedCheckNames: failedCheckNames,
+                failedCheckSha: failedCheckSha,
                 now: now
             );
         }
@@ -138,7 +141,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         string repository = notification.Repository.FullName;
         int issueNumber = details.Number;
         string status = details.Status;
-        bool hasLinkedPr = details.LinkedPullRequestUrl is not null;
+        int? linkedPrNumber = ExtractPrNumber(details.LinkedPullRequestUrl);
 
         await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(
             cancellationToken
@@ -158,7 +161,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
                     status: status,
                     priority: priority,
                     isOnHold: isOnHold,
-                    hasLinkedPr: hasLinkedPr,
+                    linkedPrNumber: linkedPrNumber,
                     now: now
                 )
             );
@@ -170,7 +173,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
                 status: status,
                 priority: priority,
                 isOnHold: isOnHold,
-                hasLinkedPr: hasLinkedPr,
+                linkedPrNumber: linkedPrNumber,
                 now: now
             );
         }
@@ -187,6 +190,25 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         );
     }
 
+    private static int? ExtractPrNumber(Uri? linkedPullRequestUrl)
+    {
+        if (linkedPullRequestUrl is null)
+        {
+            return null;
+        }
+
+        string[] segments = linkedPullRequestUrl.AbsolutePath.TrimEnd('/').Split('/');
+
+        return int.TryParse(
+            segments[^1],
+            style: System.Globalization.NumberStyles.Integer,
+            provider: System.Globalization.CultureInfo.InvariantCulture,
+            out int number
+        )
+            ? number
+            : null;
+    }
+
     private static PullRequestEntity CreatePullRequestEntity(
         string repository,
         int id,
@@ -198,6 +220,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         string? reviewDecision,
         int failedCheckCount,
         string? failedCheckNames,
+        string? failedCheckSha,
         in DateTimeOffset now
     )
     {
@@ -213,6 +236,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
             ReviewDecision = reviewDecision,
             FailedCheckCount = failedCheckCount,
             FailedCheckNames = failedCheckNames,
+            FailedCheckSha = failedCheckSha,
             FirstSeen = now,
             LastUpdated = now,
             WhenClosed = IsClosedStatus(status) ? now : null,
@@ -225,7 +249,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         string status,
         WorkPriority priority,
         bool isOnHold,
-        bool hasLinkedPr,
+        int? linkedPrNumber,
         in DateTimeOffset now
     )
     {
@@ -236,7 +260,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
             Status = status,
             Priority = priority,
             IsOnHold = isOnHold,
-            HasLinkedPr = hasLinkedPr,
+            LinkedPrNumber = linkedPrNumber,
             FirstSeen = now,
             LastUpdated = now,
             WhenClosed = IsClosedStatus(status) ? now : null,
@@ -253,6 +277,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         string? reviewDecision,
         int failedCheckCount,
         string? failedCheckNames,
+        string? failedCheckSha,
         in DateTimeOffset now
     )
     {
@@ -263,6 +288,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         entity.ReviewDecision = reviewDecision;
         entity.FailedCheckCount = failedCheckCount;
         entity.FailedCheckNames = failedCheckNames;
+        entity.FailedCheckSha = failedCheckSha;
         entity.LastUpdated = now;
 
         if (isUpToDate.HasValue)
@@ -319,19 +345,31 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         return failed.Length > 0 ? string.Join(separator: ',', failed) : null;
     }
 
+    private static string? BuildFailedCheckSha(IReadOnlyList<PullRequestRun> runs)
+    {
+        string[] shas =
+        [
+            .. runs.Where(r => r.Conclusion is not null && FailedConclusions.Contains(r.Conclusion))
+                .Select(r => r.HeadSha)
+                .Distinct(StringComparer.OrdinalIgnoreCase),
+        ];
+
+        return shas.Length > 0 ? shas[0] : null;
+    }
+
     private static void UpdateIssueEntity(
         IssueEntity entity,
         string status,
         WorkPriority priority,
         bool isOnHold,
-        bool hasLinkedPr,
+        int? linkedPrNumber,
         in DateTimeOffset now
     )
     {
         entity.Status = status;
         entity.Priority = priority;
         entity.IsOnHold = isOnHold;
-        entity.HasLinkedPr = hasLinkedPr;
+        entity.LinkedPrNumber = linkedPrNumber;
         entity.LastUpdated = now;
 
         if (IsClosedStatus(status))

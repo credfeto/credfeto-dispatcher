@@ -32,4 +32,6 @@ public sealed class PullRequestEntity : INotificationEntity
     public int FailedCheckCount { get; set; }
 
     public string? FailedCheckNames { get; set; }
+
+    public string? FailedCheckSha { get; set; }
 }

@@ -9,5 +9,6 @@ public sealed record PullRequestRun(
     string Status,
     string? Conclusion,
     Uri Url,
-    bool IsRequired
+    bool IsRequired,
+    string HeadSha
 );

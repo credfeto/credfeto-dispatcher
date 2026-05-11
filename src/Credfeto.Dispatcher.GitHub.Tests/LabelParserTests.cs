@@ -1,3 +1,4 @@
+using System;
 using Credfeto.Dispatcher.GitHub.DataTypes;
 using FunFair.Test.Common;
 using Xunit;
@@ -7,105 +8,41 @@ namespace Credfeto.Dispatcher.GitHub.Tests;
 public sealed class LabelParserTests : TestBase
 {
     [Fact]
-    public void ParsePriorityReturnsUnknownForEmptyList()
-    {
-        WorkPriority result = LabelParser.ParsePriority([]);
-
-        Assert.Equal(expected: WorkPriority.Unknown, actual: result);
-    }
+    public void ParsePriorityReturnsUnknownForEmptyList() =>
+        AssertPriority(WorkPriority.Unknown, []);
 
     [Fact]
-    public void ParsePriorityReturnsSecurityForSecurityLabel()
-    {
-        WorkPriority result = LabelParser.ParsePriority(["Security"]);
-
-        Assert.Equal(expected: WorkPriority.Security, actual: result);
-    }
+    public void ParsePriorityReturnsSecurityWhenSecurityAndUrgentBothPresent() =>
+        AssertPriority(WorkPriority.Security, ["Urgent", "Security"]);
 
     [Fact]
-    public void ParsePriorityReturnsSecurityForLowercaseSecurityLabel()
-    {
-        WorkPriority result = LabelParser.ParsePriority(["security"]);
-
-        Assert.Equal(expected: WorkPriority.Security, actual: result);
-    }
+    public void ParsePriorityReturnsUnknownForIrrelevantLabels() =>
+        AssertPriority(WorkPriority.Unknown, ["bug", "enhancement"]);
 
     [Fact]
-    public void ParsePriorityReturnsSecurityWhenSecurityAndUrgentBothPresent()
-    {
-        WorkPriority result = LabelParser.ParsePriority(["Urgent", "Security"]);
-
-        Assert.Equal(expected: WorkPriority.Security, actual: result);
-    }
-
-    [Fact]
-    public void ParsePriorityReturnsUrgentForUrgentLabel()
-    {
-        WorkPriority result = LabelParser.ParsePriority(["Urgent"]);
-
-        Assert.Equal(expected: WorkPriority.Urgent, actual: result);
-    }
-
-    [Fact]
-    public void ParsePriorityReturnsHighForHighLabel()
-    {
-        WorkPriority result = LabelParser.ParsePriority(["High"]);
-
-        Assert.Equal(expected: WorkPriority.High, actual: result);
-    }
-
-    [Fact]
-    public void ParsePriorityReturnsMediumForMediumLabel()
-    {
-        WorkPriority result = LabelParser.ParsePriority(["Medium"]);
-
-        Assert.Equal(expected: WorkPriority.Medium, actual: result);
-    }
-
-    [Fact]
-    public void ParsePriorityReturnsLowForLowLabel()
-    {
-        WorkPriority result = LabelParser.ParsePriority(["Low"]);
-
-        Assert.Equal(expected: WorkPriority.Low, actual: result);
-    }
-
-    [Theory]
-    [InlineData("security")]
-    [InlineData("Security")]
-    [InlineData("SECURITY")]
-    public void ParsePriorityReturnsSecurityCaseInsensitively(string label)
-    {
-        WorkPriority result = LabelParser.ParsePriority([label]);
-
-        Assert.Equal(expected: WorkPriority.Security, actual: result);
-    }
-
-    [Theory]
-    [InlineData("urgent")]
-    [InlineData("Urgent")]
-    [InlineData("URGENT")]
-    public void ParsePriorityReturnsUrgentCaseInsensitively(string label)
-    {
-        WorkPriority result = LabelParser.ParsePriority([label]);
-
-        Assert.Equal(expected: WorkPriority.Urgent, actual: result);
-    }
-
-    [Fact]
-    public void ParsePrioritySecurityRanksHigherThanUrgentNumerically()
-    {
+    public void SecurityRanksHigherThanUrgentNumerically() =>
         Assert.True(
             WorkPriority.Security > WorkPriority.Urgent,
             userMessage: "Security priority must be numerically higher than Urgent"
         );
-    }
 
-    [Fact]
-    public void ParsePriorityReturnsUnknownForIrrelevantLabel()
+    [Theory]
+    [InlineData("Security", WorkPriority.Security)]
+    [InlineData("security", WorkPriority.Security)]
+    [InlineData("SECURITY", WorkPriority.Security)]
+    [InlineData("Urgent", WorkPriority.Urgent)]
+    [InlineData("urgent", WorkPriority.Urgent)]
+    [InlineData("URGENT", WorkPriority.Urgent)]
+    [InlineData("High", WorkPriority.High)]
+    [InlineData("Medium", WorkPriority.Medium)]
+    [InlineData("Low", WorkPriority.Low)]
+    public void ParsePriorityReturnsExpectedForSingleLabel(string label, WorkPriority expected) =>
+        AssertPriority(expected, [label]);
+
+    private static void AssertPriority(WorkPriority expected, in ReadOnlySpan<string> labels)
     {
-        WorkPriority result = LabelParser.ParsePriority(["bug", "enhancement"]);
+        WorkPriority result = LabelParser.ParsePriority(labels.ToArray());
 
-        Assert.Equal(expected: WorkPriority.Unknown, actual: result);
+        Assert.Equal(expected: expected, actual: result);
     }
 }

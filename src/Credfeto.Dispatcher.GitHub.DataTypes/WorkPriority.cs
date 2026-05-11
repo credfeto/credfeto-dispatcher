@@ -7,4 +7,5 @@ public enum WorkPriority
     Medium = 2,
     High = 3,
     Urgent = 4,
+    Security = 5,
 }

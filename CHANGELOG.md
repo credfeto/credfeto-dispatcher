@@ -43,6 +43,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Simplified INotificationStateTracker API to accept GitHubNotification and PullRequestDetails/IssueDetails objects instead of individual scalar parameters
 - INotificationStateTracker: changed Task/Task<bool> return types to ValueTask/ValueTask<bool>, renamed methods to overloads
 - Structured WorkItem fields: LinkedPrNumbers as ImmutableArray<int>, ReviewDecision as enum, FailedCheckNames as ImmutableArray<string>, added FailedCheckSha
+- Security label now has higher priority than Urgent in issue priority ordering
 ### Deprecated
 ### Removed
 - Removed IsUpToDate field from WorkItem and PullRequestDetails as it was never populated in production

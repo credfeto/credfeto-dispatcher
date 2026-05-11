@@ -86,6 +86,19 @@ public sealed class WorkItemScannerTests : TestBase
         }]
         """;
 
+    private const string PrWithSecurityLabelJson = """
+        [{
+          "number": 9,
+          "title": "Security PR",
+          "state": "open",
+          "draft": false,
+          "html_url": "https://github.com/owner/repo/pull/9",
+          "assignees": [],
+          "labels": [{"name": "Security"}],
+          "head": {"sha": "vwx234"}
+        }]
+        """;
+
     private const string PrWithOnHoldLabelJson = """
         [{
           "number": 4,
@@ -495,6 +508,29 @@ public sealed class WorkItemScannerTests : TestBase
                 notification: Arg.Any<GitHubNotification>(),
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 3),
                 priority: WorkPriority.Urgent,
+                isOnHold: Arg.Any<bool>(),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WithSecurityPriorityLabel_CallsUpdateWithSecurityPriorityAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, PrWithSecurityLabelJson);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EmptyJson);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        WorkItemScanner scanner = this.CreateScanner();
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._notificationStateTracker.Received(1)
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Is<PullRequestDetails>(d => d.Number == 9),
+                priority: WorkPriority.Security,
                 isOnHold: Arg.Any<bool>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );

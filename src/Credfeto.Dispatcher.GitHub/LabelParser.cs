@@ -11,6 +11,16 @@ internal static class LabelParser
     {
         foreach (string label in labels)
         {
+            if (
+                label.Contains(
+                    value: "security",
+                    comparisonType: StringComparison.OrdinalIgnoreCase
+                )
+            )
+            {
+                return WorkPriority.Security;
+            }
+
             if (label.Contains(value: "urgent", comparisonType: StringComparison.OrdinalIgnoreCase))
             {
                 return WorkPriority.Urgent;

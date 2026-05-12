@@ -18,7 +18,10 @@ runs:
             excludedFiles.push('.pre-commit-config.yaml');
           }
 
-          const isExcludedFile = (file) => excludedFiles.includes(file);
+          const isExcludedFile = (file) => {
+            const basename = file.split('/').pop();
+            return excludedFiles.includes(basename);
+          };
 
           const trackedFiles = execSync('git ls-files', { encoding: 'utf8' })
             .split(/\r?\n/)

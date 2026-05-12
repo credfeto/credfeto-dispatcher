@@ -23,6 +23,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Order priorities by owner (alphabetically or configured order), then type (PRs first), then repository (alphabetically or configured order), then issue priority (Urgent > High > Medium > Low > untagged)
 - Return all work item details (status, whenClosed, isOnHold, hasLinkedPr) from the /priorities endpoint
 - Persist and return comment count, review decision, and failed CI check details for pull requests
+- Polling for modified issues that contain mentions of the configured user
 ### Fixed
 - EF Core change-tracking comparers trimmed away at publish time causing MissingMethodException at startup; preserve EF Core and Ben.Demystifier assemblies as trimmer roots
 - preserve EF Core migration types as trimmer roots to prevent missing-table errors at runtime on trimmed binaries

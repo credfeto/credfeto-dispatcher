@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
@@ -257,25 +257,22 @@ public sealed class WorkItemScannerTests : TestBase
 
     private WorkItemScanner CreateScanner(GitHubOptions? options = null)
     {
-        return new WorkItemScanner(
+        GitHubRepoHelper helper = new(
             httpClientFactory: this._httpClientFactory,
+            logger: this.GetTypedLogger<GitHubRepoHelper>()
+        );
+
+        return new WorkItemScanner(
+            helper: helper,
             notificationStateTracker: this._notificationStateTracker,
             options: Options.Create(options ?? new GitHubOptions()),
             logger: this.GetTypedLogger<WorkItemScanner>()
         );
     }
 
-    private static HttpClient CreateClient(
-        HttpStatusCode statusCode,
-        string? content = null,
-        string? linkUrl = null
-    )
+    private static HttpClient CreateClient(HttpStatusCode statusCode, string? content = null, string? linkUrl = null)
     {
-        FixedResponseHandler? handler = new(
-            statusCode: statusCode,
-            content: content,
-            linkUrl: linkUrl
-        );
+        FixedResponseHandler? handler = new(statusCode: statusCode, content: content, linkUrl: linkUrl);
 
         try
         {
@@ -372,10 +369,7 @@ public sealed class WorkItemScannerTests : TestBase
         using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient);
 
-        GitHubOptions options = new()
-        {
-            Filter = new GitHubFilterOptions { AllowedOwners = ["other-owner"] },
-        };
+        GitHubOptions options = new() { Filter = new GitHubFilterOptions { AllowedOwners = ["other-owner"] } };
 
         WorkItemScanner scanner = this.CreateScanner(options);
 
@@ -398,10 +392,7 @@ public sealed class WorkItemScannerTests : TestBase
         using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient);
 
-        GitHubOptions options = new()
-        {
-            Filter = new GitHubFilterOptions { AllowedRepos = ["owner/other-repo"] },
-        };
+        GitHubOptions options = new() { Filter = new GitHubFilterOptions { AllowedRepos = ["owner/other-repo"] } };
 
         WorkItemScanner scanner = this.CreateScanner(options);
 
@@ -424,10 +415,7 @@ public sealed class WorkItemScannerTests : TestBase
         using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient);
 
-        GitHubOptions options = new()
-        {
-            Filter = new GitHubFilterOptions { ExcludedRepos = [Repo] },
-        };
+        GitHubOptions options = new() { Filter = new GitHubFilterOptions { ExcludedRepos = [Repo] } };
 
         WorkItemScanner scanner = this.CreateScanner(options);
 
@@ -544,10 +532,7 @@ public sealed class WorkItemScannerTests : TestBase
         using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EmptyJson);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
 
-        GitHubOptions options = new()
-        {
-            Filter = new GitHubFilterOptions { NoWorkFilter = ["on-hold"] },
-        };
+        GitHubOptions options = new() { Filter = new GitHubFilterOptions { NoWorkFilter = ["on-hold"] } };
 
         WorkItemScanner scanner = this.CreateScanner(options);
 
@@ -572,10 +557,7 @@ public sealed class WorkItemScannerTests : TestBase
         using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EmptyJson);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
 
-        GitHubOptions options = new()
-        {
-            Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] },
-        };
+        GitHubOptions options = new() { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } };
 
         WorkItemScanner scanner = this.CreateScanner(options);
 
@@ -600,10 +582,7 @@ public sealed class WorkItemScannerTests : TestBase
         using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EmptyJson);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
 
-        GitHubOptions options = new()
-        {
-            Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] },
-        };
+        GitHubOptions options = new() { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } };
 
         WorkItemScanner scanner = this.CreateScanner(options);
 
@@ -628,10 +607,7 @@ public sealed class WorkItemScannerTests : TestBase
         using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EmptyJson);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
 
-        GitHubOptions options = new()
-        {
-            Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] },
-        };
+        GitHubOptions options = new() { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } };
 
         WorkItemScanner scanner = this.CreateScanner(options);
 
@@ -656,10 +632,7 @@ public sealed class WorkItemScannerTests : TestBase
         using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EmptyJson);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
 
-        GitHubOptions options = new()
-        {
-            Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] },
-        };
+        GitHubOptions options = new() { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } };
 
         WorkItemScanner scanner = this.CreateScanner(options);
 
@@ -684,10 +657,7 @@ public sealed class WorkItemScannerTests : TestBase
         using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EmptyJson);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
 
-        GitHubOptions options = new()
-        {
-            Filter = new GitHubFilterOptions { NoWorkFilter = ["on-hold"] },
-        };
+        GitHubOptions options = new() { Filter = new GitHubFilterOptions { NoWorkFilter = ["on-hold"] } };
 
         WorkItemScanner scanner = this.CreateScanner(options);
 
@@ -799,19 +769,13 @@ public sealed class WorkItemScannerTests : TestBase
     [Fact]
     public async Task ScanAsync_WithPaginatedPullRequests_ProcessesBothPagesAsync()
     {
-        const string page2Url =
-            "https://api.github.com/repos/owner/repo/pulls?state=open&per_page=100&page=2";
+        const string page2Url = "https://api.github.com/repos/owner/repo/pulls?state=open&per_page=100&page=2";
 
         using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
-        using HttpClient prPage1Client = CreateClient(
-            HttpStatusCode.OK,
-            PrPage1Json,
-            linkUrl: page2Url
-        );
+        using HttpClient prPage1Client = CreateClient(HttpStatusCode.OK, PrPage1Json, linkUrl: page2Url);
         using HttpClient prPage2Client = CreateClient(HttpStatusCode.OK, PrPage2Json);
         using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EmptyJson);
-        this._httpClientFactory.CreateClient("GitHub")
-            .Returns(repoClient, prPage1Client, prPage2Client, issueClient);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prPage1Client, prPage2Client, issueClient);
 
         WorkItemScanner scanner = this.CreateScanner();
 
@@ -884,10 +848,7 @@ public sealed class WorkItemScannerTests : TestBase
         using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EmptyJson);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
 
-        GitHubOptions options = new()
-        {
-            Filter = new GitHubFilterOptions { AllowedOwners = [Owner] },
-        };
+        GitHubOptions options = new() { Filter = new GitHubFilterOptions { AllowedOwners = [Owner] } };
 
         WorkItemScanner scanner = this.CreateScanner(options);
 

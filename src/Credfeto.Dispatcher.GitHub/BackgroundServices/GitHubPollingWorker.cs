@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -30,12 +30,14 @@ public sealed class GitHubPollingWorker : BackgroundService
     private readonly INotificationStateTracker _notificationStateTracker;
     private readonly NotificationQueueOptions _notificationQueueOptions;
     private readonly GitHubOptions _options;
+    private readonly IModifiedIssueMentionPoller _modifiedIssueMentionPoller;
     private readonly INotificationPoller _poller;
     private readonly IPullRequestDetailFetcher _pullRequestDetailFetcher;
     private readonly TimeProvider _timeProvider;
 
     public GitHubPollingWorker(
         INotificationPoller poller,
+        IModifiedIssueMentionPoller modifiedIssueMentionPoller,
         INotificationFilter notificationFilter,
         IDiscordDispatcher discordDispatcher,
         IPullRequestDetailFetcher pullRequestDetailFetcher,
@@ -49,6 +51,7 @@ public sealed class GitHubPollingWorker : BackgroundService
     )
     {
         this._poller = poller;
+        this._modifiedIssueMentionPoller = modifiedIssueMentionPoller;
         this._notificationFilter = notificationFilter;
         this._discordDispatcher = discordDispatcher;
         this._pullRequestDetailFetcher = pullRequestDetailFetcher;
@@ -81,13 +84,9 @@ public sealed class GitHubPollingWorker : BackgroundService
                 this._logger.LogPollingError(exception: exception);
             }
 
-            int pollIntervalSeconds =
-                this._options.PollIntervalSeconds > 0 ? this._options.PollIntervalSeconds : 60;
+            int pollIntervalSeconds = this._options.PollIntervalSeconds > 0 ? this._options.PollIntervalSeconds : 60;
 
-            await Task.Delay(
-                millisecondsDelay: pollIntervalSeconds * 1000,
-                cancellationToken: stoppingToken
-            );
+            await Task.Delay(millisecondsDelay: pollIntervalSeconds * 1000, cancellationToken: stoppingToken);
         }
 
         this._logger.LogWorkerStopping();
@@ -95,18 +94,40 @@ public sealed class GitHubPollingWorker : BackgroundService
 
     private async ValueTask PollAndEnqueueAsync(CancellationToken cancellationToken)
     {
-        IReadOnlyList<GitHubNotification> notifications = await this._poller.PollAsync(
-            cancellationToken
-        );
+        IReadOnlyList<GitHubNotification> notifications = await this._poller.PollAsync(cancellationToken);
 
         this._logger.LogPolledNotifications(count: notifications.Count);
 
         int delaySeconds =
-            this._notificationQueueOptions.DelaySeconds > 0
-                ? this._notificationQueueOptions.DelaySeconds
-                : 300;
+            this._notificationQueueOptions.DelaySeconds > 0 ? this._notificationQueueOptions.DelaySeconds : 300;
         DateTimeOffset dispatchAfter = this._timeProvider.GetUtcNow().AddSeconds(delaySeconds);
 
+        await this.EnqueueNotificationsAsync(
+            notifications: notifications,
+            dispatchAfter: dispatchAfter,
+            cancellationToken: cancellationToken
+        );
+
+        if (this._options.Filter.PollIssueEdits)
+        {
+            IReadOnlyList<GitHubNotification> mentionNotifications = await this._modifiedIssueMentionPoller.PollAsync(
+                cancellationToken
+            );
+
+            await this.EnqueueNotificationsAsync(
+                notifications: mentionNotifications,
+                dispatchAfter: dispatchAfter,
+                cancellationToken: cancellationToken
+            );
+        }
+    }
+
+    private async ValueTask EnqueueNotificationsAsync(
+        IReadOnlyList<GitHubNotification> notifications,
+        DateTimeOffset dispatchAfter,
+        CancellationToken cancellationToken
+    )
+    {
         foreach (GitHubNotification notification in notifications)
         {
             if (this._notificationFilter.ShouldDispatch(notification))
@@ -135,11 +156,10 @@ public sealed class GitHubPollingWorker : BackgroundService
     private async ValueTask DispatchReadyItemsAsync(CancellationToken cancellationToken)
     {
         DateTimeOffset now = this._timeProvider.GetUtcNow();
-        IReadOnlyList<GitHubNotification> readyItems =
-            await this._pendingNotificationStore.GetReadyItemsAsync(
-                now: now,
-                cancellationToken: cancellationToken
-            );
+        IReadOnlyList<GitHubNotification> readyItems = await this._pendingNotificationStore.GetReadyItemsAsync(
+            now: now,
+            cancellationToken: cancellationToken
+        );
 
         foreach (GitHubNotification notification in readyItems)
         {
@@ -148,10 +168,7 @@ public sealed class GitHubPollingWorker : BackgroundService
                 repository: notification.Repository.FullName,
                 title: notification.Subject.Title
             );
-            await this.ProcessNotificationAsync(
-                notification: notification,
-                cancellationToken: cancellationToken
-            );
+            await this.ProcessNotificationAsync(notification: notification, cancellationToken: cancellationToken);
             await this._pendingNotificationStore.RemoveAsync(
                 notification: notification,
                 cancellationToken: cancellationToken
@@ -202,10 +219,7 @@ public sealed class GitHubPollingWorker : BackgroundService
         }
 
         DiscordMessage fallbackMessage = BuildBasicMessage(notification);
-        await this._discordDispatcher.SendAsync(
-            message: fallbackMessage,
-            cancellationToken: cancellationToken
-        );
+        await this._discordDispatcher.SendAsync(message: fallbackMessage, cancellationToken: cancellationToken);
     }
 
     [SuppressMessage(
@@ -236,14 +250,8 @@ public sealed class GitHubPollingWorker : BackgroundService
             )
         )
         {
-            DiscordMessage message = BuildPullRequestMessage(
-                notification: notification,
-                details: details
-            );
-            await this._discordDispatcher.SendAsync(
-                message: message,
-                cancellationToken: cancellationToken
-            );
+            DiscordMessage message = BuildPullRequestMessage(notification: notification, details: details);
+            await this._discordDispatcher.SendAsync(message: message, cancellationToken: cancellationToken);
         }
         else
         {
@@ -256,10 +264,7 @@ public sealed class GitHubPollingWorker : BackgroundService
         }
 
         WorkPriority prPriority = LabelParser.ParsePriority(details.Labels);
-        bool prIsOnHold = LabelParser.IsOnHold(
-            labels: details.Labels,
-            noWorkFilter: this._options.Filter.NoWorkFilter
-        );
+        bool prIsOnHold = LabelParser.IsOnHold(labels: details.Labels, noWorkFilter: this._options.Filter.NoWorkFilter);
 
         await this._notificationStateTracker.UpdateStateAsync(
             notification: notification,
@@ -300,14 +305,8 @@ public sealed class GitHubPollingWorker : BackgroundService
             )
         )
         {
-            DiscordMessage message = BuildIssueMessage(
-                notification: notification,
-                details: details
-            );
-            await this._discordDispatcher.SendAsync(
-                message: message,
-                cancellationToken: cancellationToken
-            );
+            DiscordMessage message = BuildIssueMessage(notification: notification, details: details);
+            await this._discordDispatcher.SendAsync(message: message, cancellationToken: cancellationToken);
         }
         else
         {
@@ -356,19 +355,11 @@ public sealed class GitHubPollingWorker : BackgroundService
         "PH2071:Duplicate shape found",
         Justification = "Structurally identical to BuildPullRequestMessage but builds messages for issues."
     )]
-    private static DiscordMessage BuildIssueMessage(
-        GitHubNotification notification,
-        IssueDetails details
-    )
+    private static DiscordMessage BuildIssueMessage(GitHubNotification notification, IssueDetails details)
     {
         List<DiscordEmbedField> fields = [];
         AddEmbed(fields: fields, name: "Status", value: details.Status, inline: true);
-        AddEmbed(
-            fields: fields,
-            name: "Reason",
-            value: FormatReason(notification.Reason),
-            inline: true
-        );
+        AddEmbed(fields: fields, name: "Reason", value: FormatReason(notification.Reason), inline: true);
 
         if (details.Assignees.Count > 0)
         {
@@ -419,15 +410,9 @@ public sealed class GitHubPollingWorker : BackgroundService
         "PH2071:Duplicate shape found",
         Justification = "Structurally identical to BuildIssueMessage but builds messages for pull requests."
     )]
-    private static DiscordMessage BuildPullRequestMessage(
-        GitHubNotification notification,
-        PullRequestDetails details
-    )
+    private static DiscordMessage BuildPullRequestMessage(GitHubNotification notification, PullRequestDetails details)
     {
-        List<DiscordEmbedField> fields = BuildPullRequestFields(
-            notification: notification,
-            details: details
-        );
+        List<DiscordEmbedField> fields = BuildPullRequestFields(notification: notification, details: details);
 
         DiscordEmbed embed = new(
             Title: details.Title,
@@ -455,12 +440,7 @@ public sealed class GitHubPollingWorker : BackgroundService
     {
         List<DiscordEmbedField> fields = [];
         AddEmbed(fields: fields, name: "Status", value: details.Status, inline: true);
-        AddEmbed(
-            fields: fields,
-            name: "Reason",
-            value: FormatReason(notification.Reason),
-            inline: true
-        );
+        AddEmbed(fields: fields, name: "Reason", value: FormatReason(notification.Reason), inline: true);
 
         if (details.Assignees.Count > 0)
         {
@@ -487,20 +467,12 @@ public sealed class GitHubPollingWorker : BackgroundService
         return fields;
     }
 
-    private static void AddPullRequestSpecificFields(
-        List<DiscordEmbedField> fields,
-        PullRequestDetails details
-    )
+    private static void AddPullRequestSpecificFields(List<DiscordEmbedField> fields, PullRequestDetails details)
     {
         foreach (PullRequestComment comment in details.Comments)
         {
             string commentValue = $"[View comment]({comment.Url})\n{comment.Body}";
-            AddEmbed(
-                fields: fields,
-                name: $"Comment by {comment.Author}",
-                value: commentValue,
-                inline: false
-            );
+            AddEmbed(fields: fields, name: $"Comment by {comment.Author}", value: commentValue, inline: false);
         }
 
         foreach (PullRequestReview review in details.Reviews)
@@ -514,11 +486,7 @@ public sealed class GitHubPollingWorker : BackgroundService
 
         foreach (
             PullRequestRun run in details.Runs.Where(r =>
-                string.Equals(
-                    a: r.Conclusion,
-                    b: "failure",
-                    comparisonType: StringComparison.OrdinalIgnoreCase
-                )
+                string.Equals(a: r.Conclusion, b: "failure", comparisonType: StringComparison.OrdinalIgnoreCase)
             )
         )
         {
@@ -532,12 +500,7 @@ public sealed class GitHubPollingWorker : BackgroundService
         }
     }
 
-    private static void AddEmbed(
-        List<DiscordEmbedField> fields,
-        string name,
-        string value,
-        bool inline
-    )
+    private static void AddEmbed(List<DiscordEmbedField> fields, string name, string value, bool inline)
     {
         fields.Add(new DiscordEmbedField(Name: name, Value: value, Inline: inline));
     }

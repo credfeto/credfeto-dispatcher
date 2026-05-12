@@ -1,10 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Text.Json;
-using System.Text.Json.Serialization.Metadata;
 using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.Configuration;
@@ -19,19 +15,19 @@ namespace Credfeto.Dispatcher.GitHub.Services;
 
 public sealed class WorkItemScanner : IWorkItemScanner
 {
-    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly GitHubRepoHelper _helper;
     private readonly ILogger<WorkItemScanner> _logger;
     private readonly INotificationStateTracker _notificationStateTracker;
     private readonly GitHubOptions _options;
 
     public WorkItemScanner(
-        IHttpClientFactory httpClientFactory,
+        GitHubRepoHelper helper,
         INotificationStateTracker notificationStateTracker,
         IOptions<GitHubOptions> options,
         ILogger<WorkItemScanner> logger
     )
     {
-        this._httpClientFactory = httpClientFactory;
+        this._helper = helper;
         this._notificationStateTracker = notificationStateTracker;
         this._options = options.Value;
         this._logger = logger;
@@ -39,7 +35,10 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
     public async Task ScanAsync(CancellationToken cancellationToken)
     {
-        IReadOnlyList<string> repos = await this.DiscoverReposAsync(cancellationToken);
+        IReadOnlyList<string> repos = await this._helper.DiscoverReposAsync(
+            shouldInclude: this.ShouldIncludeRepo,
+            cancellationToken: cancellationToken
+        );
 
         if (repos.Count == 0)
         {
@@ -56,32 +55,6 @@ public sealed class WorkItemScanner : IWorkItemScanner
         }
 
         this._logger.LogScanComplete();
-    }
-
-    private async Task<IReadOnlyList<string>> DiscoverReposAsync(CancellationToken cancellationToken)
-    {
-        List<string> repos = [];
-        string? url = "user/repos?affiliation=owner,collaborator,organization_member&per_page=100";
-
-        while (url is not null)
-        {
-            (ApiUserRepo[]? items, string? nextUrl) = await this.GetPagedAsync(
-                url: url,
-                jsonTypeInfo: NotificationSerializerContext.Default.ApiUserRepoArray,
-                cancellationToken: cancellationToken
-            );
-
-            if (items is null)
-            {
-                break;
-            }
-
-            repos.AddRange(items.Where(this.ShouldIncludeRepo).Select(r => r.FullName));
-
-            url = nextUrl;
-        }
-
-        return repos;
     }
 
     private bool ShouldIncludeRepo(ApiUserRepo repo)
@@ -173,7 +146,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
         while (url is not null)
         {
-            (ApiPullRequest[]? items, string? nextUrl) = await this.GetPagedAsync(
+            (ApiPullRequest[]? items, string? nextUrl) = await this._helper.GetPagedAsync(
                 url: url,
                 jsonTypeInfo: NotificationSerializerContext.Default.ApiPullRequestArray,
                 cancellationToken: cancellationToken
@@ -221,7 +194,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
         while (url is not null)
         {
-            (ApiIssue[]? items, string? nextUrl) = await this.GetPagedAsync(
+            (ApiIssue[]? items, string? nextUrl) = await this._helper.GetPagedAsync(
                 url: url,
                 jsonTypeInfo: NotificationSerializerContext.Default.ApiIssueArray,
                 cancellationToken: cancellationToken
@@ -277,35 +250,6 @@ public sealed class WorkItemScanner : IWorkItemScanner
         return labelNames.Any(label =>
             this._options.Filter.LabelFilter.Any(filter => LabelParser.FuzzyEquals(label, filter))
         );
-    }
-
-    private async ValueTask<(T[]? items, string? nextUrl)> GetPagedAsync<T>(
-        string url,
-        JsonTypeInfo<T[]> jsonTypeInfo,
-        CancellationToken cancellationToken
-    )
-        where T : class
-    {
-        HttpClient httpClient = this._httpClientFactory.CreateClient("GitHub");
-
-        using HttpRequestMessage request = new(method: HttpMethod.Get, requestUri: url);
-        using HttpResponseMessage response = await httpClient.SendAsync(
-            request: request,
-            cancellationToken: cancellationToken
-        );
-
-        if (!response.IsSuccessStatusCode)
-        {
-            this._logger.LogPageFetchFailed(url: url);
-
-            return (null, null);
-        }
-
-        string json = await response.Content.ReadAsStringAsync(cancellationToken);
-        T[]? items = JsonSerializer.Deserialize(json: json, jsonTypeInfo: jsonTypeInfo);
-        string? nextUrl = ParseNextLink(response.Headers);
-
-        return (items, nextUrl);
     }
 
     private static string GetRepoName(string fullName)
@@ -381,33 +325,5 @@ public sealed class WorkItemScanner : IWorkItemScanner
                 Timestamp: DateTimeOffset.MinValue
             )
         );
-    }
-
-    private static string? ParseNextLink(HttpResponseHeaders headers)
-    {
-        if (!headers.TryGetValues(name: "Link", out IEnumerable<string>? linkValues))
-        {
-            return null;
-        }
-
-        foreach (string linkHeader in linkValues)
-        {
-            foreach (string part in linkHeader.Split(','))
-            {
-                string[] sections = part.Split(';');
-
-                if (sections.Length != 2)
-                {
-                    continue;
-                }
-
-                if (sections[1].Trim().Equals(value: "rel=\"next\"", comparisonType: StringComparison.Ordinal))
-                {
-                    return sections[0].Trim().Trim('<', '>');
-                }
-            }
-        }
-
-        return null;
     }
 }

@@ -30,13 +30,15 @@ public static class GitHubSetup
             .Services.AddSingleton<GitHubRepoHelper>()
             .AddSingleton<INotificationPoller, NotificationPoller>()
             .AddSingleton<IModifiedIssueMentionPoller, ModifiedIssueMentionPoller>()
+            .AddSingleton<IRepoEventPoller, RepoEventPoller>()
             .AddSingleton<INotificationFilter, NotificationFilter>()
             .AddSingleton<IPullRequestDetailFetcher, PullRequestDetailFetcher>()
             .AddSingleton<IIssueDetailFetcher, IssueDetailFetcher>()
             .AddSingleton<IWorkItemScanner, WorkItemScanner>()
             .AddHostedService<StartupNotificationService>()
             .AddHostedService<GitHubPollingWorker>()
-            .AddHostedService<WorkItemScannerService>();
+            .AddHostedService<WorkItemScannerService>()
+            .AddHostedService<RepoEventPollerService>();
     }
 
     private static void ConfigureGitHubHttpClient(IServiceProvider serviceProvider, HttpClient client)

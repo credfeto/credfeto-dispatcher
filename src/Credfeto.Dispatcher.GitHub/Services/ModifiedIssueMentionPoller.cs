@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -139,6 +140,11 @@ public sealed class ModifiedIssueMentionPoller : IModifiedIssueMentionPoller
         return this.PassesRepoFilter(repo.FullName);
     }
 
+    [SuppressMessage(
+        "Philips.CodeAnalysis.DuplicateCodeAnalyzer",
+        "PH2071:Duplicate shape found",
+        Justification = "Structurally identical filter pattern shared with WorkItemScanner and RepoEventPoller."
+    )]
     private bool PassesRepoFilter(string fullName)
     {
         if (this._options.Filter.AllowedOwners.Count > 0)

@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace Credfeto.Dispatcher.GitHub.Models;
 
+[JsonSerializable(typeof(ApiEvent[]))]
 [JsonSerializable(typeof(ApiNotification[]))]
 [JsonSerializable(typeof(ApiPullRequest))]
 [JsonSerializable(typeof(ApiPullRequest[]))]

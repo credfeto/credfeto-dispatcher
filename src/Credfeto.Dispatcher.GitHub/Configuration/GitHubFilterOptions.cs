@@ -20,5 +20,7 @@ public sealed class GitHubFilterOptions
 
     public bool PollIssueEdits { get; set; }
 
+    public bool PollEvents { get; set; }
+
     public string MentionedUser { get; set; } = string.Empty;
 }

@@ -1,4 +1,4 @@
-using Credfeto.Dispatcher.GitHub.Configuration;
+﻿using Credfeto.Dispatcher.GitHub.Configuration;
 using Credfeto.Dispatcher.GitHub.Interfaces;
 using Credfeto.Dispatcher.GitHub.Services;
 using FunFair.Test.Common;
@@ -18,9 +18,7 @@ public sealed class GitHubSetupTests : DependencyInjectionTestsBase
     {
         return services
             .AddGitHub()
-            .AddMockedService<IOptions<GitHubOptions>>(static o =>
-                o.Value.Returns(new GitHubOptions())
-            )
+            .AddMockedService<IOptions<GitHubOptions>>(static o => o.Value.Returns(new GitHubOptions()))
             .AddMockedService<IETagStore>()
             .AddMockedService<INotificationStateTracker>();
     }
@@ -71,5 +69,17 @@ public sealed class GitHubSetupTests : DependencyInjectionTestsBase
     public void WorkItemScannerShouldBeOfCorrectType()
     {
         this.RequireServiceInCollectionFor<IWorkItemScanner, WorkItemScanner>();
+    }
+
+    [Fact]
+    public void RepoEventPollerShouldBeRegistered()
+    {
+        this.RequireService<IRepoEventPoller>();
+    }
+
+    [Fact]
+    public void RepoEventPollerShouldBeOfCorrectType()
+    {
+        this.RequireServiceInCollectionFor<IRepoEventPoller, RepoEventPoller>();
     }
 }

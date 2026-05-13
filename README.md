@@ -17,7 +17,7 @@ Because it uses only the GitHub REST Notifications API with a personal access to
 
 ## Architecture
 
-```
+```text
 Credfeto.Dispatcher.Server          - .NET Generic Host entry point
 Credfeto.Dispatcher.GitHub          - GitHub Notifications API polling + ETag state
 Credfeto.Dispatcher.GitHub.Interfaces - IGitHubNotificationPoller, INotificationFilter
@@ -53,9 +53,52 @@ Set the following in `appsettings.json` or environment variables:
 }
 ```
 
+## API
+
+### `GET /priorities`
+
+Returns the current prioritised work item list with freshness metadata.
+
+```json
+{
+  "as_of": "2026-05-13T14:32:18Z",
+  "lag_seconds": 47,
+  "priorities": [
+    {
+      "repository": "owner/repo",
+      "id": 123,
+      "itemType": "PullRequest",
+      "priority": "Urgent",
+      "firstSeen": "2026-05-10T09:00:00Z",
+      "lastUpdated": "2026-05-13T14:31:31Z",
+      "status": "Open",
+      "whenClosed": null,
+      "isOnHold": false,
+      "linkedPrNumbers": [],
+      "commentCount": 4,
+      "reviewDecision": "Approved",
+      "failedCheckCount": 0,
+      "failedCheckNames": [],
+      "failedCheckSha": null,
+      "author": "dependabot[bot]"
+    }
+  ]
+}
+```
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `as_of` | ISO-8601 UTC | Timestamp of the most recent ingest that contributed to this snapshot |
+| `lag_seconds` | integer | `now − as_of` in whole seconds; higher values indicate a staler snapshot |
+| `priorities` | array | Ordered work items (PRs before issues; by owner, repo, priority, age) |
+
+### `GET /ping`
+
+Lightweight health check — returns `{"value":"Pong!"}` without touching the database.
+
 ## Running locally
 
-1. Create a GitHub personal access token with `notifications` scope at https://github.com/settings/tokens
+1. Create a GitHub personal access token with `notifications` scope at [github.com/settings/tokens](https://github.com/settings/tokens)
 2. Create a Discord incoming webhook in your server's channel settings (Edit Channel → Integrations → Webhooks)
 3. Configure `appsettings-local.json` (gitignored) with your tokens
 4. Run `dotnet run --project src/Credfeto.Dispatcher.Server`

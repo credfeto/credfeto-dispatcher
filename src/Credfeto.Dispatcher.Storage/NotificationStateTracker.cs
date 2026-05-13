@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
@@ -27,10 +27,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
     private readonly IDbContextFactory<DispatcherDbContext> _dbContextFactory;
     private readonly TimeProvider _timeProvider;
 
-    public NotificationStateTracker(
-        IDbContextFactory<DispatcherDbContext> dbContextFactory,
-        TimeProvider timeProvider
-    )
+    public NotificationStateTracker(IDbContextFactory<DispatcherDbContext> dbContextFactory, TimeProvider timeProvider)
     {
         this._dbContextFactory = dbContextFactory;
         this._timeProvider = timeProvider;
@@ -66,10 +63,9 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         int failedCheckCount = CountFailedChecks(details.Runs);
         string? failedCheckNames = BuildFailedCheckNames(details.Runs);
         string? failedCheckSha = BuildFailedCheckSha(details.Runs);
+        string? author = details.Author;
 
-        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(
-            cancellationToken
-        );
+        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(cancellationToken);
         PullRequestEntity? existing = await context.PullRequests.FindAsync(
             keyValues: [repository, pullRequestNumber],
             cancellationToken: cancellationToken
@@ -90,6 +86,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
                     failedCheckCount: failedCheckCount,
                     failedCheckNames: failedCheckNames,
                     failedCheckSha: failedCheckSha,
+                    author: author,
                     now: now
                 )
             );
@@ -106,6 +103,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
                 failedCheckCount: failedCheckCount,
                 failedCheckNames: failedCheckNames,
                 failedCheckSha: failedCheckSha,
+                author: author,
                 now: now
             );
         }
@@ -140,9 +138,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         string status = details.Status;
         int? linkedPrNumber = ExtractPrNumber(details.LinkedPullRequestUrl);
 
-        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(
-            cancellationToken
-        );
+        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(cancellationToken);
         IssueEntity? existing = await context.Issues.FindAsync(
             keyValues: [repository, issueNumber],
             cancellationToken: cancellationToken
@@ -180,11 +176,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
 
     private static bool IsClosedStatus(string status)
     {
-        return string.Equals(
-            a: status,
-            b: ClosedStatus,
-            comparisonType: StringComparison.OrdinalIgnoreCase
-        );
+        return string.Equals(a: status, b: ClosedStatus, comparisonType: StringComparison.OrdinalIgnoreCase);
     }
 
     private static int? ExtractPrNumber(Uri? linkedPullRequestUrl)
@@ -217,6 +209,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         int failedCheckCount,
         string? failedCheckNames,
         string? failedCheckSha,
+        string? author,
         in DateTimeOffset now
     )
     {
@@ -232,6 +225,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
             FailedCheckCount = failedCheckCount,
             FailedCheckNames = failedCheckNames,
             FailedCheckSha = failedCheckSha,
+            Author = author,
             FirstSeen = now,
             LastUpdated = now,
             WhenClosed = IsClosedStatus(status) ? now : null,
@@ -272,6 +266,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         int failedCheckCount,
         string? failedCheckNames,
         string? failedCheckSha,
+        string? author,
         in DateTimeOffset now
     )
     {
@@ -283,6 +278,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         entity.FailedCheckCount = failedCheckCount;
         entity.FailedCheckNames = failedCheckNames;
         entity.FailedCheckSha = failedCheckSha;
+        entity.Author = author ?? entity.Author;
         entity.LastUpdated = now;
 
         if (IsClosedStatus(status))
@@ -297,18 +293,12 @@ public sealed class NotificationStateTracker : INotificationStateTracker
 
     private static string? ComputeReviewDecision(IReadOnlyList<PullRequestReview> reviews)
     {
-        if (
-            reviews.Any(r =>
-                string.Equals(r.State, "CHANGES_REQUESTED", StringComparison.OrdinalIgnoreCase)
-            )
-        )
+        if (reviews.Any(r => string.Equals(r.State, "CHANGES_REQUESTED", StringComparison.OrdinalIgnoreCase)))
         {
             return "ChangesRequested";
         }
 
-        if (
-            reviews.Any(r => string.Equals(r.State, "APPROVED", StringComparison.OrdinalIgnoreCase))
-        )
+        if (reviews.Any(r => string.Equals(r.State, "APPROVED", StringComparison.OrdinalIgnoreCase)))
         {
             return "Approved";
         }
@@ -318,9 +308,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
 
     private static int CountFailedChecks(IReadOnlyList<PullRequestRun> runs)
     {
-        return runs.Count(r =>
-            r.Conclusion is not null && FailedConclusions.Contains(r.Conclusion)
-        );
+        return runs.Count(r => r.Conclusion is not null && FailedConclusions.Contains(r.Conclusion));
     }
 
     private static string? BuildFailedCheckNames(IReadOnlyList<PullRequestRun> runs)

@@ -16,5 +16,6 @@ internal sealed record GraphQlPullRequestData(
     [property: JsonPropertyName("assignees")] GraphQlAssigneeConnection? Assignees,
     [property: JsonPropertyName("labels")] GraphQlLabelConnection? Labels,
     [property: JsonPropertyName("comments")] GraphQlCommentConnection? Comments,
-    [property: JsonPropertyName("reviews")] GraphQlReviewConnection? Reviews
+    [property: JsonPropertyName("reviews")] GraphQlReviewConnection? Reviews,
+    [property: JsonPropertyName("author")] GraphQlActor? Author
 );

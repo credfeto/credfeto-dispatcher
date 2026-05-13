@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -16,23 +16,25 @@ public sealed class WorkItemRepository : IWorkItemRepository
     private const string PullRequestType = "PullRequest";
     private const string IssueType = "Issue";
     private const string ClosedStatus = "Closed";
+    private const string DependabotLogin = "dependabot[bot]";
 
     private readonly IDbContextFactory<DispatcherDbContext> _dbContextFactory;
+    private readonly TimeProvider _timeProvider;
 
-    public WorkItemRepository(IDbContextFactory<DispatcherDbContext> dbContextFactory)
+    public WorkItemRepository(IDbContextFactory<DispatcherDbContext> dbContextFactory, TimeProvider timeProvider)
     {
         this._dbContextFactory = dbContextFactory;
+        this._timeProvider = timeProvider;
     }
 
     public async Task<IReadOnlyList<WorkItem>> GetPrioritisedWorkItemsAsync(
         IReadOnlyList<string> owners,
         IReadOnlyList<string> repos,
+        TimeSpan stuckDependabotTimeout,
         CancellationToken cancellationToken
     )
     {
-        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(
-            cancellationToken
-        );
+        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         List<PullRequestEntity> prEntities = await context
             .PullRequests.Where(e => e.Status != ClosedStatus && !e.IsOnHold)
@@ -42,10 +44,15 @@ public sealed class WorkItemRepository : IWorkItemRepository
             .Issues.Where(e => e.Status != ClosedStatus && !e.IsOnHold && e.LinkedPrNumber == null)
             .ToListAsync(cancellationToken);
 
-        List<WorkItem> pullRequests = [.. prEntities.Select(MapPullRequest)];
+        DateTimeOffset now = this._timeProvider.GetUtcNow();
+
+        List<WorkItem> pullRequests =
+        [
+            .. prEntities.Select(e => MapPullRequest(entity: e, now: now, stuckDependabotTimeout)),
+        ];
         List<WorkItem> issues = [.. issueEntities.Select(MapIssue)];
 
-        List<WorkItem> combined = [.. pullRequests, .. issues];
+        List<WorkItem> combined = Deduplicate([.. pullRequests, .. issues]);
 
         return
         [
@@ -60,25 +67,64 @@ public sealed class WorkItemRepository : IWorkItemRepository
         ];
     }
 
-    private static WorkItem MapPullRequest(PullRequestEntity e)
+    private static List<WorkItem> Deduplicate(IReadOnlyList<WorkItem> items)
     {
+        // Defensive: a PR and an Issue can share the same numeric Id in the same repo.
+        // DistinctBy ensures the merged list never surfaces the same (Repository, Id) pair twice.
+        return [.. items.DistinctBy(static w => (w.Repository, w.Id))];
+    }
+
+    private static WorkItem MapPullRequest(
+        PullRequestEntity entity,
+        in DateTimeOffset now,
+        in TimeSpan stuckDependabotTimeout
+    )
+    {
+        WorkPriority priority = IsStuckDependabotPullRequest(
+            entity: entity,
+            now: now,
+            stuckDependabotTimeout: stuckDependabotTimeout
+        )
+            ? WorkPriority.Security
+            : entity.Priority;
+
         return new WorkItem(
-            Repository: e.Repository,
-            Id: e.Id,
+            Repository: entity.Repository,
+            Id: entity.Id,
             ItemType: PullRequestType,
-            Priority: e.Priority,
-            FirstSeen: e.FirstSeen,
-            LastUpdated: e.LastUpdated,
-            Status: e.Status,
-            WhenClosed: e.WhenClosed,
-            IsOnHold: e.IsOnHold,
+            Priority: priority,
+            FirstSeen: entity.FirstSeen,
+            LastUpdated: entity.LastUpdated,
+            Status: entity.Status,
+            WhenClosed: entity.WhenClosed,
+            IsOnHold: entity.IsOnHold,
             LinkedPrNumbers: [],
-            CommentCount: e.CommentCount,
-            ReviewDecision: MapReviewDecision(e.ReviewDecision, isPullRequest: true),
-            FailedCheckCount: e.FailedCheckCount,
-            FailedCheckNames: SplitNames(e.FailedCheckNames),
-            FailedCheckSha: e.FailedCheckSha
+            CommentCount: entity.CommentCount,
+            ReviewDecision: MapReviewDecision(entity.ReviewDecision, isPullRequest: true),
+            FailedCheckCount: entity.FailedCheckCount,
+            FailedCheckNames: SplitNames(entity.FailedCheckNames),
+            FailedCheckSha: entity.FailedCheckSha,
+            Author: entity.Author
         );
+    }
+
+    private static bool IsStuckDependabotPullRequest(
+        PullRequestEntity entity,
+        in DateTimeOffset now,
+        in TimeSpan stuckDependabotTimeout
+    )
+    {
+        if (stuckDependabotTimeout <= TimeSpan.Zero)
+        {
+            return false;
+        }
+
+        if (!string.Equals(a: entity.Author, b: DependabotLogin, comparisonType: StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return now - entity.FirstSeen >= stuckDependabotTimeout;
     }
 
     private static WorkItem MapIssue(IssueEntity e)
@@ -98,7 +144,8 @@ public sealed class WorkItemRepository : IWorkItemRepository
             ReviewDecision: ReviewDecisionState.NotApplicable,
             FailedCheckCount: 0,
             FailedCheckNames: [],
-            FailedCheckSha: null
+            FailedCheckSha: null,
+            Author: null
         );
     }
 
@@ -114,24 +161,12 @@ public sealed class WorkItemRepository : IWorkItemRepository
             return ReviewDecisionState.NotReviewed;
         }
 
-        if (
-            string.Equals(
-                a: reviewDecision,
-                b: "Approved",
-                comparisonType: StringComparison.OrdinalIgnoreCase
-            )
-        )
+        if (string.Equals(a: reviewDecision, b: "Approved", comparisonType: StringComparison.OrdinalIgnoreCase))
         {
             return ReviewDecisionState.Approved;
         }
 
-        if (
-            string.Equals(
-                a: reviewDecision,
-                b: "ChangesRequested",
-                comparisonType: StringComparison.OrdinalIgnoreCase
-            )
-        )
+        if (string.Equals(a: reviewDecision, b: "ChangesRequested", comparisonType: StringComparison.OrdinalIgnoreCase))
         {
             return ReviewDecisionState.ChangesRequested;
         }
@@ -151,24 +186,14 @@ public sealed class WorkItemRepository : IWorkItemRepository
 
     private static bool IsPullRequest(WorkItem w)
     {
-        return string.Equals(
-            a: w.ItemType,
-            b: PullRequestType,
-            comparisonType: StringComparison.Ordinal
-        );
+        return string.Equals(a: w.ItemType, b: PullRequestType, comparisonType: StringComparison.Ordinal);
     }
 
     private static int FindIndex(IReadOnlyList<string> list, string value)
     {
         for (int i = 0; i < list.Count; i++)
         {
-            if (
-                string.Equals(
-                    a: list[i],
-                    b: value,
-                    comparisonType: StringComparison.OrdinalIgnoreCase
-                )
-            )
+            if (string.Equals(a: list[i], b: value, comparisonType: StringComparison.OrdinalIgnoreCase))
             {
                 return i;
             }

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -28,6 +29,7 @@ internal static partial class Endpoints
         IReadOnlyList<WorkItem> items = await workItemRepository.GetPrioritisedWorkItemsAsync(
             owners: config.Owners,
             repos: config.Repos,
+            stuckDependabotTimeout: TimeSpan.FromHours(config.StuckDependabotTimeoutHours),
             cancellationToken: cancellationToken
         );
 

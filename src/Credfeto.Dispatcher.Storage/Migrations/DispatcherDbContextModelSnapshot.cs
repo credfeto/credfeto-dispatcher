@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics.CodeAnalysis;
 using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.Storage.Entities;
@@ -50,15 +50,14 @@ internal sealed class DispatcherDbContextModelSnapshot : ModelSnapshot
             b.Property(e => e.WhenClosed).HasColumnType("TEXT");
             b.Property(e => e.Priority)
                 .HasColumnType("INTEGER")
-                .HasConversion(
-                    new ValueConverter<WorkPriority, int>(v => (int)v, v => (WorkPriority)v)
-                );
+                .HasConversion(new ValueConverter<WorkPriority, int>(v => (int)v, v => (WorkPriority)v));
             b.Property(e => e.IsOnHold).HasColumnType("INTEGER");
             b.Property(e => e.CommentCount).HasColumnType("INTEGER");
             b.Property(e => e.ReviewDecision).HasColumnType("TEXT");
             b.Property(e => e.FailedCheckCount).HasColumnType("INTEGER");
             b.Property(e => e.FailedCheckNames).HasColumnType("TEXT");
             b.Property(e => e.FailedCheckSha).HasColumnType("TEXT");
+            b.Property(e => e.Author).HasColumnType("TEXT");
         });
 
         modelBuilder.Entity<IssueEntity>(b =>
@@ -73,9 +72,7 @@ internal sealed class DispatcherDbContextModelSnapshot : ModelSnapshot
             b.Property(e => e.WhenClosed).HasColumnType("TEXT");
             b.Property(e => e.Priority)
                 .HasColumnType("INTEGER")
-                .HasConversion(
-                    new ValueConverter<WorkPriority, int>(v => (int)v, v => (WorkPriority)v)
-                );
+                .HasConversion(new ValueConverter<WorkPriority, int>(v => (int)v, v => (WorkPriority)v));
             b.Property(e => e.IsOnHold).HasColumnType("INTEGER");
             b.Property(e => e.LinkedPrNumber).HasColumnType("INTEGER");
         });
@@ -92,49 +89,30 @@ internal sealed class DispatcherDbContextModelSnapshot : ModelSnapshot
             b.HasIndex(e => e.DispatchAfter).HasDatabaseName("IX_NotificationQueue_DispatchAfter");
             b.Property(e => e.SubjectUrl)
                 .HasColumnType("TEXT")
-                .HasConversion(
-                    new ValueConverter<Uri, string>(
-                        v => v.AbsoluteUri,
-                        v => new Uri(v, UriKind.Absolute)
-                    )
-                );
+                .HasConversion(new ValueConverter<Uri, string>(v => v.AbsoluteUri, v => new Uri(v, UriKind.Absolute)));
             b.Property(e => e.NotificationId).IsRequired().HasColumnType("TEXT");
             b.Property(e => e.Repository).IsRequired().HasColumnType("TEXT");
             b.Property(e => e.RepositoryUrl)
                 .IsRequired()
                 .HasColumnType("TEXT")
-                .HasConversion(
-                    new ValueConverter<Uri, string>(
-                        v => v.AbsoluteUri,
-                        v => new Uri(v, UriKind.Absolute)
-                    )
-                );
+                .HasConversion(new ValueConverter<Uri, string>(v => v.AbsoluteUri, v => new Uri(v, UriKind.Absolute)));
             b.Property(e => e.SubjectType).IsRequired().HasColumnType("TEXT");
             b.Property(e => e.SubjectTitle).IsRequired().HasColumnType("TEXT");
             b.Property(e => e.Reason).IsRequired().HasColumnType("TEXT");
             b.Property(e => e.UpdatedAt)
                 .HasColumnType("INTEGER")
                 .HasConversion(
-                    new ValueConverter<DateTimeOffset, long>(
-                        v => v.UtcTicks,
-                        v => new DateTimeOffset(v, TimeSpan.Zero)
-                    )
+                    new ValueConverter<DateTimeOffset, long>(v => v.UtcTicks, v => new DateTimeOffset(v, TimeSpan.Zero))
                 );
             b.Property(e => e.QueuedAt)
                 .HasColumnType("INTEGER")
                 .HasConversion(
-                    new ValueConverter<DateTimeOffset, long>(
-                        v => v.UtcTicks,
-                        v => new DateTimeOffset(v, TimeSpan.Zero)
-                    )
+                    new ValueConverter<DateTimeOffset, long>(v => v.UtcTicks, v => new DateTimeOffset(v, TimeSpan.Zero))
                 );
             b.Property(e => e.DispatchAfter)
                 .HasColumnType("INTEGER")
                 .HasConversion(
-                    new ValueConverter<DateTimeOffset, long>(
-                        v => v.UtcTicks,
-                        v => new DateTimeOffset(v, TimeSpan.Zero)
-                    )
+                    new ValueConverter<DateTimeOffset, long>(v => v.UtcTicks, v => new DateTimeOffset(v, TimeSpan.Zero))
                 );
         });
     }

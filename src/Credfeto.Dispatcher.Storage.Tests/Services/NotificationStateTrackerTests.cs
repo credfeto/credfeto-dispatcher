@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -25,20 +25,16 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
         : base(output)
     {
         string dbPath = Path.Combine(this.TempFolder, "test.db");
-        DbContextOptions<DispatcherDbContext> options =
-            new DbContextOptionsBuilder<DispatcherDbContext>()
-                .UseSqlite($"DataSource={dbPath}")
-                .Options;
+        DbContextOptions<DispatcherDbContext> options = new DbContextOptionsBuilder<DispatcherDbContext>()
+            .UseSqlite($"DataSource={dbPath}")
+            .Options;
 
         using (DispatcherDbContext ctx = new(options))
         {
             ctx.Database.Migrate();
         }
 
-        this._tracker = new NotificationStateTracker(
-            new TestDbContextFactory(options),
-            MockDateTimeSources.Past
-        );
+        this._tracker = new NotificationStateTracker(new TestDbContextFactory(options), MockDateTimeSources.Past);
     }
 
     private static GitHubNotification BuildNotification()
@@ -79,10 +75,8 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
                 Name: "test-repo",
                 Url: new Uri("https://github.com/test-owner/test-repo")
             ),
-            LastNotification: new LastNotification(
-                Id: "test-1",
-                Timestamp: MockDateTimeSources.Past.GetUtcNow()
-            )
+            LastNotification: new LastNotification(Id: "test-1", Timestamp: MockDateTimeSources.Past.GetUtcNow()),
+            Author: null
         );
     }
 
@@ -101,10 +95,7 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
                 Name: "test-repo",
                 Url: new Uri("https://github.com/test-owner/test-repo")
             ),
-            LastNotification: new LastNotification(
-                Id: "test-1",
-                Timestamp: MockDateTimeSources.Past.GetUtcNow()
-            )
+            LastNotification: new LastNotification(Id: "test-1", Timestamp: MockDateTimeSources.Past.GetUtcNow())
         );
     }
 
@@ -117,10 +108,7 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
             cancellationToken: this.CancellationToken()
         );
 
-        Assert.False(
-            result,
-            "Expected ShouldSkipPullRequest to return false for non-closed status"
-        );
+        Assert.False(result, "Expected ShouldSkipPullRequest to return false for non-closed status");
     }
 
     [Fact]
@@ -241,9 +229,7 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
             return new DispatcherDbContext(this._options);
         }
 
-        public Task<DispatcherDbContext> CreateDbContextAsync(
-            CancellationToken cancellationToken = default
-        )
+        public Task<DispatcherDbContext> CreateDbContextAsync(CancellationToken cancellationToken = default)
         {
             return Task.FromResult(new DispatcherDbContext(this._options));
         }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
@@ -58,9 +58,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
         this._logger.LogScanComplete();
     }
 
-    private async Task<IReadOnlyList<string>> DiscoverReposAsync(
-        CancellationToken cancellationToken
-    )
+    private async Task<IReadOnlyList<string>> DiscoverReposAsync(CancellationToken cancellationToken)
     {
         List<string> repos = [];
         string? url = "user/repos?affiliation=owner,collaborator,organization_member&per_page=100";
@@ -113,11 +111,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
             if (
                 !this._options.Filter.AllowedOwners.Any(o =>
-                    string.Equals(
-                        a: o,
-                        b: owner,
-                        comparisonType: StringComparison.OrdinalIgnoreCase
-                    )
+                    string.Equals(a: o, b: owner, comparisonType: StringComparison.OrdinalIgnoreCase)
                 )
             )
             {
@@ -131,11 +125,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
         {
             if (
                 !this._options.Filter.AllowedRepos.Any(r =>
-                    string.Equals(
-                        a: r,
-                        b: fullName,
-                        comparisonType: StringComparison.OrdinalIgnoreCase
-                    )
+                    string.Equals(a: r, b: fullName, comparisonType: StringComparison.OrdinalIgnoreCase)
                 )
             )
             {
@@ -149,11 +139,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
         {
             if (
                 this._options.Filter.ExcludedRepos.Any(r =>
-                    string.Equals(
-                        a: r,
-                        b: fullName,
-                        comparisonType: StringComparison.OrdinalIgnoreCase
-                    )
+                    string.Equals(a: r, b: fullName, comparisonType: StringComparison.OrdinalIgnoreCase)
                 )
             )
             {
@@ -216,12 +202,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
                 await this._notificationStateTracker.UpdateStateAsync(
                     notification: BuildScanNotification(repo),
-                    details: BuildScannedPullRequestDetails(
-                        pr: pr,
-                        repo: repo,
-                        labelNames: labelNames,
-                        status: status
-                    ),
+                    details: BuildScannedPullRequestDetails(pr: pr, repo: repo, labelNames: labelNames, status: status),
                     priority: priority,
                     isOnHold: isOnHold,
                     cancellationToken: cancellationToken
@@ -258,9 +239,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
                     continue;
                 }
 
-                IReadOnlyList<string> labelNames = issue.Labels is null
-                    ? []
-                    : [.. issue.Labels.Select(l => l.Name)];
+                IReadOnlyList<string> labelNames = issue.Labels is null ? [] : [.. issue.Labels.Select(l => l.Name)];
 
                 if (!this.PassesLabelFilter(labelNames))
                 {
@@ -275,11 +254,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
                 await this._notificationStateTracker.UpdateStateAsync(
                     notification: BuildScanNotification(repo),
-                    details: BuildScannedIssueDetails(
-                        issue: issue,
-                        repo: repo,
-                        labelNames: labelNames
-                    ),
+                    details: BuildScannedIssueDetails(issue: issue, repo: repo, labelNames: labelNames),
                     priority: priority,
                     isOnHold: isOnHold,
                     cancellationToken: cancellationToken
@@ -381,15 +356,12 @@ public sealed class WorkItemScanner : IWorkItemScanner
             LastNotification: new LastNotification(
                 Id: $"scan:{repo}:pr:{pr.Number}",
                 Timestamp: DateTimeOffset.MinValue
-            )
+            ),
+            Author: pr.User?.Login
         );
     }
 
-    private static IssueDetails BuildScannedIssueDetails(
-        ApiIssue issue,
-        string repo,
-        IReadOnlyList<string> labelNames
-    )
+    private static IssueDetails BuildScannedIssueDetails(ApiIssue issue, string repo, IReadOnlyList<string> labelNames)
     {
         string owner = GetOwner(repo);
         string name = GetRepoName(repo);
@@ -429,11 +401,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
                     continue;
                 }
 
-                if (
-                    sections[1]
-                        .Trim()
-                        .Equals(value: "rel=\"next\"", comparisonType: StringComparison.Ordinal)
-                )
+                if (sections[1].Trim().Equals(value: "rel=\"next\"", comparisonType: StringComparison.Ordinal))
                 {
                     return sections[0].Trim().Trim('<', '>');
                 }

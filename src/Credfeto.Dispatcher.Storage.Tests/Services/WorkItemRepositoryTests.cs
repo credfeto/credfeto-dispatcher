@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Threading;
@@ -9,6 +9,7 @@ using Credfeto.Dispatcher.Storage.Entities;
 using FunFair.Test.Common;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Time.Testing;
 using Xunit;
 
 namespace Credfeto.Dispatcher.Storage.Tests.Services;
@@ -27,6 +28,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
 
     private readonly SqliteConnection _connection;
     private readonly DispatcherDbContext _seedContext;
+    private readonly FakeTimeProvider _timeProvider;
     private readonly IWorkItemRepository _repository;
 
     public WorkItemRepositoryTests()
@@ -34,8 +36,9 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         this._connection = new SqliteConnection("DataSource=:memory:");
         this._connection.Open();
 
-        DbContextOptions<DispatcherDbContext> options =
-            new DbContextOptionsBuilder<DispatcherDbContext>().UseSqlite(this._connection).Options;
+        DbContextOptions<DispatcherDbContext> options = new DbContextOptionsBuilder<DispatcherDbContext>()
+            .UseSqlite(this._connection)
+            .Options;
 
         using (DispatcherDbContext ctx = new(options))
         {
@@ -44,7 +47,8 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
 
         TestDbContextFactory factory = new(options);
         this._seedContext = new DispatcherDbContext(options);
-        this._repository = new WorkItemRepository(factory);
+        this._timeProvider = new FakeTimeProvider(BaseTime);
+        this._repository = new WorkItemRepository(factory, this._timeProvider);
     }
 
     public ValueTask InitializeAsync()
@@ -79,10 +83,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         this._seedContext.PullRequests.Add(CreatePr("zz-owner/repo", id: 2));
         await this._seedContext.SaveChangesAsync(this.CancellationToken());
 
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(
-            owners: ["zz-owner", "aa-owner"],
-            repos: []
-        );
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: ["zz-owner", "aa-owner"], repos: []);
 
         Assert.Equal(expected: 2, actual: result.Count);
         Assert.Equal(expected: "zz-owner/repo", actual: result[0].Repository);
@@ -124,9 +125,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
     public async Task PullRequestsAppearBeforeIssuesForSameOwnerAndRepoAsync()
     {
         this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 10));
-        this._seedContext.PullRequests.Add(
-            CreatePr("owner/repo", id: 20, firstSeen: BaseTime.AddSeconds(1))
-        );
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 20, firstSeen: BaseTime.AddSeconds(1)));
         await this._seedContext.SaveChangesAsync(this.CancellationToken());
 
         IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
@@ -168,9 +167,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
     [Fact]
     public async Task UntaggedIssuesAppearAfterLowPriorityIssuesAsync()
     {
-        this._seedContext.Issues.Add(
-            CreateIssue("owner/repo", id: 1, priority: WorkPriority.Unknown)
-        );
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 1, priority: WorkPriority.Unknown));
         this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 2, priority: WorkPriority.Low));
         await this._seedContext.SaveChangesAsync(this.CancellationToken());
 
@@ -184,9 +181,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
     [Fact]
     public async Task WithEqualPriority_OlderItemsAppearFirstAsync()
     {
-        this._seedContext.Issues.Add(
-            CreateIssue("owner/repo", id: 1, firstSeen: BaseTime.AddDays(1))
-        );
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 1, firstSeen: BaseTime.AddDays(1)));
         this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 2, firstSeen: BaseTime));
         await this._seedContext.SaveChangesAsync(this.CancellationToken());
 
@@ -270,10 +265,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
 
         WorkItem single = Assert.Single(result);
-        Assert.False(
-            single.IsOnHold,
-            userMessage: "IsOnHold should be false for non-on-hold pull requests"
-        );
+        Assert.False(single.IsOnHold, userMessage: "IsOnHold should be false for non-on-hold pull requests");
     }
 
     [Fact]
@@ -321,10 +313,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
 
         WorkItem single = Assert.Single(result);
-        Assert.False(
-            single.IsOnHold,
-            userMessage: "IsOnHold should be false for non-on-hold issues"
-        );
+        Assert.False(single.IsOnHold, userMessage: "IsOnHold should be false for non-on-hold issues");
     }
 
     [Fact]
@@ -354,9 +343,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
     [Fact]
     public async Task PullRequest_ReviewDecisionIsReturnedWhenSetAsync()
     {
-        this._seedContext.PullRequests.Add(
-            CreatePr("owner/repo", id: 1, reviewDecision: "ChangesRequested")
-        );
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 1, reviewDecision: "ChangesRequested"));
         await this._seedContext.SaveChangesAsync(this.CancellationToken());
 
         IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
@@ -443,6 +430,98 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         Assert.Empty(single.FailedCheckNames);
     }
 
+    [Fact]
+    public async Task StuckDependabotPullRequestAtThresholdIsRaisedToSecurityPriorityAsync()
+    {
+        this._seedContext.PullRequests.Add(
+            CreatePr("owner/repo", id: 1, firstSeen: BaseTime, priority: WorkPriority.Low, author: "dependabot[bot]")
+        );
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        this._timeProvider.SetUtcNow(BaseTime.AddHours(3));
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(
+            owners: [],
+            repos: [],
+            stuckDependabotTimeout: TimeSpan.FromHours(3)
+        );
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: WorkPriority.Security, actual: single.Priority);
+    }
+
+    [Fact]
+    public async Task StuckDependabotPullRequestBelowThresholdKeepsOriginalPriorityAsync()
+    {
+        this._seedContext.PullRequests.Add(
+            CreatePr("owner/repo", id: 1, firstSeen: BaseTime, priority: WorkPriority.Low, author: "dependabot[bot]")
+        );
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        this._timeProvider.SetUtcNow(BaseTime.AddHours(2).AddMinutes(59));
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(
+            owners: [],
+            repos: [],
+            stuckDependabotTimeout: TimeSpan.FromHours(3)
+        );
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: WorkPriority.Low, actual: single.Priority);
+    }
+
+    [Fact]
+    public async Task StuckPullRequestFromNonDependabotAuthorKeepsOriginalPriorityAsync()
+    {
+        this._seedContext.PullRequests.Add(
+            CreatePr("owner/repo", id: 1, firstSeen: BaseTime, priority: WorkPriority.Low, author: "someone-else")
+        );
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        this._timeProvider.SetUtcNow(BaseTime.AddDays(7));
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(
+            owners: [],
+            repos: [],
+            stuckDependabotTimeout: TimeSpan.FromHours(3)
+        );
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: WorkPriority.Low, actual: single.Priority);
+    }
+
+    [Fact]
+    public async Task StuckDependabotRuleIsDisabledWhenTimeoutIsZeroAsync()
+    {
+        this._seedContext.PullRequests.Add(
+            CreatePr("owner/repo", id: 1, firstSeen: BaseTime, priority: WorkPriority.Low, author: "dependabot[bot]")
+        );
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        this._timeProvider.SetUtcNow(BaseTime.AddDays(7));
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(
+            owners: [],
+            repos: [],
+            stuckDependabotTimeout: TimeSpan.Zero
+        );
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: WorkPriority.Low, actual: single.Priority);
+    }
+
+    [Fact]
+    public async Task PullRequestAuthorIsReturnedAsync()
+    {
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 1, author: "dependabot[bot]"));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: "dependabot[bot]", actual: single.Author);
+    }
+
     private async Task SeedIssuePrioritiesAsync()
     {
         await this._seedContext.Issues.AddRangeAsync(
@@ -457,12 +536,14 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
 
     private Task<IReadOnlyList<WorkItem>> GetItemsAsync(
         IReadOnlyList<string> owners,
-        IReadOnlyList<string> repos
+        IReadOnlyList<string> repos,
+        in TimeSpan stuckDependabotTimeout = default
     )
     {
         return this._repository.GetPrioritisedWorkItemsAsync(
             owners: owners,
             repos: repos,
+            stuckDependabotTimeout: stuckDependabotTimeout,
             cancellationToken: this.CancellationToken()
         );
     }
@@ -476,7 +557,9 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         int commentCount = 0,
         string? reviewDecision = null,
         int failedCheckCount = 0,
-        string? failedCheckNames = null
+        string? failedCheckNames = null,
+        WorkPriority priority = WorkPriority.Unknown,
+        string? author = null
     )
     {
         return new PullRequestEntity
@@ -491,6 +574,8 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
             ReviewDecision = reviewDecision,
             FailedCheckCount = failedCheckCount,
             FailedCheckNames = failedCheckNames,
+            Priority = priority,
+            Author = author,
         };
     }
 
@@ -530,9 +615,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
             return new DispatcherDbContext(this._options);
         }
 
-        public Task<DispatcherDbContext> CreateDbContextAsync(
-            CancellationToken cancellationToken = default
-        )
+        public Task<DispatcherDbContext> CreateDbContextAsync(CancellationToken cancellationToken = default)
         {
             return Task.FromResult(new DispatcherDbContext(this._options));
         }

@@ -235,7 +235,7 @@ public sealed class GitHubPollingWorkerTests : TestBase
 
         return new GitHubPollingWorker(
             poller: poller,
-            modifiedIssueMentionPoller: Substitute.For<IModifiedIssueMentionPoller>(),
+            modifiedIssueMentionPoller: new FakeMentionPoller(),
             notificationFilter: this._filter,
             discordDispatcher: this._discord,
             pullRequestDetailFetcher: fetcher,
@@ -442,6 +442,14 @@ public sealed class GitHubPollingWorkerTests : TestBase
             condition: this._discord.Dispatched.IsCompleted,
             userMessage: "Expected no message to be dispatched for first-seen closed PR"
         );
+    }
+
+    private sealed class FakeMentionPoller : IModifiedIssueMentionPoller
+    {
+        public ValueTask<IReadOnlyList<GitHubNotification>> PollAsync(CancellationToken cancellationToken)
+        {
+            return ValueTask.FromResult<IReadOnlyList<GitHubNotification>>([]);
+        }
     }
 
     private sealed class FakePoller : INotificationPoller

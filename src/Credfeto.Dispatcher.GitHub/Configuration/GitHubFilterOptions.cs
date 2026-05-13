@@ -18,9 +18,9 @@ public sealed class GitHubFilterOptions
 
     public IReadOnlyList<string> ExcludedRepos { get; set; } = [];
 
-    public bool PollIssueEdits { get; set; }
+    public bool PollIssueEdits { get; set; } = true;
 
-    public bool PollEvents { get; set; }
+    public bool PollEvents { get; set; } = true;
 
     public string MentionedUser { get; set; } = string.Empty;
 }

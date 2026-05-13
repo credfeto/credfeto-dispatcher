@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text.Json.Serialization;
@@ -10,6 +11,8 @@ internal sealed record ApiIssue(
     [property: JsonPropertyName("title")] string Title,
     [property: JsonPropertyName("state")] string State,
     [property: JsonPropertyName("html_url")] string HtmlUrl,
+    [property: JsonPropertyName("body")] string? Body,
+    [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt,
     [property: JsonPropertyName("assignees")] IReadOnlyList<ApiUser>? Assignees,
     [property: JsonPropertyName("labels")] IReadOnlyList<ApiLabel>? Labels,
     [property: JsonPropertyName("pull_request")] ApiIssuePullRequest? PullRequest

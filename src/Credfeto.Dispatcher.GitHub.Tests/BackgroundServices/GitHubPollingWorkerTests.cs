@@ -235,6 +235,7 @@ public sealed class GitHubPollingWorkerTests : TestBase
 
         return new GitHubPollingWorker(
             poller: poller,
+            modifiedIssueMentionPoller: Substitute.For<IModifiedIssueMentionPoller>(),
             notificationFilter: this._filter,
             discordDispatcher: this._discord,
             pullRequestDetailFetcher: fetcher,

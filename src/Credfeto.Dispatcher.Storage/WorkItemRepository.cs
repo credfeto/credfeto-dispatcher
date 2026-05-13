@@ -27,7 +27,7 @@ public sealed class WorkItemRepository : IWorkItemRepository
         this._timeProvider = timeProvider;
     }
 
-    public async Task<IReadOnlyList<WorkItem>> GetPrioritisedWorkItemsAsync(
+    public async Task<PrioritiesResponse> GetPrioritisedWorkItemsAsync(
         IReadOnlyList<string> owners,
         IReadOnlyList<string> repos,
         TimeSpan stuckDependabotTimeout,
@@ -54,7 +54,7 @@ public sealed class WorkItemRepository : IWorkItemRepository
 
         List<WorkItem> combined = Deduplicate([.. pullRequests, .. issues]);
 
-        return
+        IReadOnlyList<WorkItem> ordered =
         [
             .. combined
                 .OrderBy(w => FindIndex(owners, GetOwner(w.Repository)))
@@ -65,6 +65,11 @@ public sealed class WorkItemRepository : IWorkItemRepository
                 .ThenByDescending(w => (int)w.Priority)
                 .ThenBy(w => w.FirstSeen),
         ];
+
+        DateTimeOffset asOf = combined.Count > 0 ? combined.Max(w => w.LastUpdated) : now;
+        long lagSeconds = Math.Max(0, (long)(now - asOf).TotalSeconds);
+
+        return new PrioritiesResponse(Priorities: ordered, AsOf: asOf, LagSeconds: lagSeconds);
     }
 
     private static List<WorkItem> Deduplicate(IReadOnlyList<WorkItem> items)

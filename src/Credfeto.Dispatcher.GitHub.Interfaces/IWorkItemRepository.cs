@@ -8,7 +8,7 @@ namespace Credfeto.Dispatcher.GitHub.Interfaces;
 
 public interface IWorkItemRepository
 {
-    Task<IReadOnlyList<WorkItem>> GetPrioritisedWorkItemsAsync(
+    Task<PrioritiesResponse> GetPrioritisedWorkItemsAsync(
         IReadOnlyList<string> owners,
         IReadOnlyList<string> repos,
         TimeSpan stuckDependabotTimeout,

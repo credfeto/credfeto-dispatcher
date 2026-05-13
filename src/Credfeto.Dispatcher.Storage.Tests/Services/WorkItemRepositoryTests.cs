@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.DataTypes;
@@ -522,6 +523,42 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         Assert.Equal(expected: "dependabot[bot]", actual: single.Author);
     }
 
+    [Fact]
+    public async Task AsOf_IsMaxLastUpdatedAcrossAllItemsAsync()
+    {
+        DateTimeOffset older = BaseTime;
+        DateTimeOffset newer = BaseTime.AddMinutes(5);
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 1, lastUpdated: older));
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 2, lastUpdated: newer));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        PrioritiesResponse response = await this.GetResponseAsync(owners: [], repos: []);
+
+        Assert.Equal(expected: newer, actual: response.AsOf);
+    }
+
+    [Fact]
+    public async Task LagSeconds_IsNowMinusAsOfInWholeSecondsAsync()
+    {
+        DateTimeOffset lastUpdated = BaseTime;
+        this._timeProvider.SetUtcNow(BaseTime.AddSeconds(47));
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 1, lastUpdated: lastUpdated));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        PrioritiesResponse response = await this.GetResponseAsync(owners: [], repos: []);
+
+        Assert.Equal(expected: 47L, actual: response.LagSeconds);
+    }
+
+    [Fact]
+    public async Task AsOf_IsNowWhenNoItemsExistAsync()
+    {
+        PrioritiesResponse response = await this.GetResponseAsync(owners: [], repos: []);
+
+        Assert.Equal(expected: BaseTime, actual: response.AsOf);
+        Assert.Equal(expected: 0L, actual: response.LagSeconds);
+    }
+
     private async Task SeedIssuePrioritiesAsync()
     {
         await this._seedContext.Issues.AddRangeAsync(
@@ -534,7 +571,22 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         await this._seedContext.SaveChangesAsync(this.CancellationToken());
     }
 
-    private Task<IReadOnlyList<WorkItem>> GetItemsAsync(
+    private async Task<IReadOnlyList<WorkItem>> GetItemsAsync(
+        IReadOnlyList<string> owners,
+        IReadOnlyList<string> repos,
+        TimeSpan stuckDependabotTimeout = default
+    )
+    {
+        PrioritiesResponse response = await this.GetResponseAsync(
+            owners: owners,
+            repos: repos,
+            stuckDependabotTimeout: stuckDependabotTimeout
+        );
+
+        return response.Priorities;
+    }
+
+    private Task<PrioritiesResponse> GetResponseAsync(
         IReadOnlyList<string> owners,
         IReadOnlyList<string> repos,
         in TimeSpan stuckDependabotTimeout = default
@@ -553,6 +605,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         int id,
         string status = "Open",
         DateTimeOffset? firstSeen = null,
+        DateTimeOffset? lastUpdated = null,
         DateTimeOffset? whenClosed = null,
         int commentCount = 0,
         string? reviewDecision = null,
@@ -568,7 +621,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
             Id = id,
             Status = status,
             FirstSeen = firstSeen ?? BaseTime,
-            LastUpdated = BaseTime,
+            LastUpdated = lastUpdated ?? BaseTime,
             WhenClosed = whenClosed,
             CommentCount = commentCount,
             ReviewDecision = reviewDecision,
@@ -585,7 +638,8 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         WorkPriority priority = WorkPriority.Unknown,
         bool isOnHold = false,
         int? linkedPrNumber = null,
-        DateTimeOffset? firstSeen = null
+        DateTimeOffset? firstSeen = null,
+        DateTimeOffset? lastUpdated = null
     )
     {
         return new IssueEntity
@@ -597,7 +651,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
             IsOnHold = isOnHold,
             LinkedPrNumber = linkedPrNumber,
             FirstSeen = firstSeen ?? BaseTime,
-            LastUpdated = BaseTime,
+            LastUpdated = lastUpdated ?? BaseTime,
         };
     }
 

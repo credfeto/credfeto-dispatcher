@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.DataTypes;
@@ -26,13 +25,13 @@ internal static partial class Endpoints
     )
     {
         PrioritiesOptions config = options.Value;
-        IReadOnlyList<WorkItem> items = await workItemRepository.GetPrioritisedWorkItemsAsync(
+        PrioritiesResponse response = await workItemRepository.GetPrioritisedWorkItemsAsync(
             owners: config.Owners,
             repos: config.Repos,
             stuckDependabotTimeout: TimeSpan.FromHours(config.StuckDependabotTimeoutHours),
             cancellationToken: cancellationToken
         );
 
-        return Results.Ok(items);
+        return Results.Ok(response);
     }
 }

@@ -25,6 +25,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Persist and return comment count, review decision, and failed CI check details for pull requests
 - Include stuck dependabot PRs in /priorities endpoint at Security priority after configurable timeout (default 3 hours)
 - Polling for modified issues that contain mentions of the configured user
+- Freshness metadata (as_of, lag_seconds) on /priorities response so consumers can detect stale snapshots
 ### Fixed
 - EF Core change-tracking comparers trimmed away at publish time causing MissingMethodException at startup; preserve EF Core and Ben.Demystifier assemblies as trimmer roots
 - preserve EF Core migration types as trimmer roots to prevent missing-table errors at runtime on trimmed binaries

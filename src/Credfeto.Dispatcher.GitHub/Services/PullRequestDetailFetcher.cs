@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -21,9 +21,7 @@ public sealed partial class PullRequestDetailFetcher : IPullRequestDetailFetcher
 
     [GeneratedRegex(
         pattern: @"(?:closes|fixes|resolves)\s+#(?<number>\d+)",
-        options: RegexOptions.IgnoreCase
-            | RegexOptions.ExplicitCapture
-            | RegexOptions.NonBacktracking
+        options: RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture | RegexOptions.NonBacktracking
     )]
     private static partial Regex LinkedItemPattern();
 
@@ -38,6 +36,9 @@ public sealed partial class PullRequestDetailFetcher : IPullRequestDetailFetcher
               url
               body
               headRefOid
+              author {
+                login
+              }
               baseRef {
                 name
               }
@@ -120,12 +121,7 @@ public sealed partial class PullRequestDetailFetcher : IPullRequestDetailFetcher
             cancellationToken: cancellationToken
         );
 
-        return BuildPullRequestDetails(
-            notification: notification,
-            pr: pr,
-            repoFullName: repoFullName,
-            runs: runs
-        );
+        return BuildPullRequestDetails(notification: notification, pr: pr, repoFullName: repoFullName, runs: runs);
     }
 
     private static PullRequestDetails BuildPullRequestDetails(
@@ -136,15 +132,8 @@ public sealed partial class PullRequestDetailFetcher : IPullRequestDetailFetcher
     )
     {
         string[] repoParts = repoFullName.Split('/');
-        ItemRepository repository = new(
-            Owner: repoParts[0],
-            Name: repoParts[1],
-            Url: notification.Repository.Url
-        );
-        LastNotification lastNotification = new(
-            Id: notification.Id,
-            Timestamp: notification.UpdatedAt
-        );
+        ItemRepository repository = new(Owner: repoParts[0], Name: repoParts[1], Url: notification.Repository.Url);
+        LastNotification lastNotification = new(Id: notification.Id, Timestamp: notification.UpdatedAt);
 
         return new PullRequestDetails(
             Number: pr.Number,
@@ -159,7 +148,8 @@ public sealed partial class PullRequestDetailFetcher : IPullRequestDetailFetcher
             Runs: runs,
             LinkedItems: ExtractLinkedItems(pr.Body),
             Repository: repository,
-            LastNotification: lastNotification
+            LastNotification: lastNotification,
+            Author: pr.Author?.Login
         );
     }
 
@@ -333,13 +323,7 @@ public sealed partial class PullRequestDetailFetcher : IPullRequestDetailFetcher
 
     private static string DetermineStatus(GraphQlPullRequestData pr)
     {
-        if (
-            string.Equals(
-                a: pr.State,
-                b: "CLOSED",
-                comparisonType: StringComparison.OrdinalIgnoreCase
-            )
-        )
+        if (string.Equals(a: pr.State, b: "CLOSED", comparisonType: StringComparison.OrdinalIgnoreCase))
         {
             return "Closed";
         }

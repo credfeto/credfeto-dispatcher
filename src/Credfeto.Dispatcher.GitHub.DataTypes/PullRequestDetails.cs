@@ -18,5 +18,6 @@ public sealed record PullRequestDetails(
     IReadOnlyList<PullRequestRun> Runs,
     IReadOnlyList<LinkedItem> LinkedItems,
     ItemRepository Repository,
-    LastNotification LastNotification
+    LastNotification LastNotification,
+    string? Author
 );

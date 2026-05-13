@@ -20,5 +20,6 @@ public sealed record WorkItem(
     ReviewDecisionState ReviewDecision,
     int FailedCheckCount,
     ImmutableArray<string> FailedCheckNames,
-    string? FailedCheckSha
+    string? FailedCheckSha,
+    string? Author
 );

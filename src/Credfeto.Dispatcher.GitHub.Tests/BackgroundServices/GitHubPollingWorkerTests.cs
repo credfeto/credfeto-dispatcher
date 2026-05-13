@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -104,11 +104,7 @@ public sealed class GitHubPollingWorkerTests : TestBase
 
     private static ItemRepository BuildTestRepository()
     {
-        return new ItemRepository(
-            Owner: "owner",
-            Name: "repo",
-            Url: new Uri("https://github.com/owner/repo")
-        );
+        return new ItemRepository(Owner: "owner", Name: "repo", Url: new Uri("https://github.com/owner/repo"));
     }
 
     private static LastNotification BuildTestLastNotification()
@@ -142,7 +138,8 @@ public sealed class GitHubPollingWorkerTests : TestBase
             Runs: [],
             LinkedItems: [],
             Repository: BuildTestRepository(),
-            LastNotification: BuildTestLastNotification()
+            LastNotification: BuildTestLastNotification(),
+            Author: null
         );
     }
 
@@ -161,7 +158,8 @@ public sealed class GitHubPollingWorkerTests : TestBase
             Runs: [],
             LinkedItems: [],
             Repository: BuildTestRepository(),
-            LastNotification: BuildTestLastNotification()
+            LastNotification: BuildTestLastNotification(),
+            Author: null
         );
     }
 
@@ -245,9 +243,7 @@ public sealed class GitHubPollingWorkerTests : TestBase
             pendingNotificationStore: new FakePendingNotificationStore(),
             timeProvider: timeProvider,
             options: Options.Create(new GitHubOptions { PollIntervalSeconds = 30 }),
-            notificationQueueOptions: Options.Create(
-                new NotificationQueueOptions { DelaySeconds = 0 }
-            ),
+            notificationQueueOptions: Options.Create(new NotificationQueueOptions { DelaySeconds = 0 }),
             logger: this.GetTypedLogger<GitHubPollingWorker>()
         );
     }
@@ -456,9 +452,7 @@ public sealed class GitHubPollingWorkerTests : TestBase
             this._notifications = notifications;
         }
 
-        public ValueTask<IReadOnlyList<GitHubNotification>> PollAsync(
-            CancellationToken cancellationToken
-        )
+        public ValueTask<IReadOnlyList<GitHubNotification>> PollAsync(CancellationToken cancellationToken)
         {
             return ValueTask.FromResult(this._notifications);
         }
@@ -491,10 +485,7 @@ public sealed class GitHubPollingWorkerTests : TestBase
             this._result = result;
         }
 
-        public ValueTask<IssueDetails?> FetchAsync(
-            GitHubNotification notification,
-            CancellationToken cancellationToken
-        )
+        public ValueTask<IssueDetails?> FetchAsync(GitHubNotification notification, CancellationToken cancellationToken)
         {
             return ValueTask.FromResult(this._result);
         }
@@ -516,10 +507,7 @@ public sealed class GitHubPollingWorkerTests : TestBase
             return Task.CompletedTask;
         }
 
-        public Task RemoveIfPresentAsync(
-            GitHubNotification notification,
-            CancellationToken cancellationToken
-        )
+        public Task RemoveIfPresentAsync(GitHubNotification notification, CancellationToken cancellationToken)
         {
             this._pending.RemoveAll(n => n.Subject.Url == notification.Subject.Url);
 
@@ -534,15 +522,9 @@ public sealed class GitHubPollingWorkerTests : TestBase
             return Task.FromResult<IReadOnlyList<GitHubNotification>>([.. this._pending]);
         }
 
-        public Task RemoveAsync(
-            GitHubNotification notification,
-            CancellationToken cancellationToken
-        )
+        public Task RemoveAsync(GitHubNotification notification, CancellationToken cancellationToken)
         {
-            return this.RemoveIfPresentAsync(
-                notification: notification,
-                cancellationToken: cancellationToken
-            );
+            return this.RemoveIfPresentAsync(notification: notification, cancellationToken: cancellationToken);
         }
     }
 

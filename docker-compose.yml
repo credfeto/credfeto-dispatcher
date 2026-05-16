@@ -1,3 +1,4 @@
+---
 services:
   dispatcher-bot:
     container_name: dispatcher-bot

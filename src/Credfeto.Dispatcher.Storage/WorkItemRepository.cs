@@ -37,11 +37,25 @@ public sealed class WorkItemRepository : IWorkItemRepository
         await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         List<PullRequestEntity> prEntities = await context
-            .PullRequests.Where(e => e.Status != ClosedStatus && !e.IsOnHold)
+            .PullRequests.Where(e =>
+                e.Status != ClosedStatus
+                && !e.IsOnHold
+                && !context.Repos.Any(r => r.Repository == e.Repository && !r.IsActive)
+            )
             .ToListAsync(cancellationToken);
 
         List<IssueEntity> issueEntities = await context
-            .Issues.Where(e => e.Status != ClosedStatus && !e.IsOnHold && e.LinkedPrNumber == null)
+            .Issues.Where(e =>
+                e.Status != ClosedStatus
+                && !e.IsOnHold
+                && !context.Repos.Any(r => r.Repository == e.Repository && !r.IsActive)
+                && (
+                    e.LinkedPrNumber == null
+                    || !context.PullRequests.Any(pr =>
+                        pr.Repository == e.Repository && pr.Id == e.LinkedPrNumber && pr.Status != ClosedStatus
+                    )
+                )
+            )
             .ToListAsync(cancellationToken);
 
         DateTimeOffset now = this._timeProvider.GetUtcNow();

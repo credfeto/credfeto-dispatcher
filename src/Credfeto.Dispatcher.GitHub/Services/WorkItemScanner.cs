@@ -15,6 +15,7 @@ namespace Credfeto.Dispatcher.GitHub.Services;
 
 public sealed class WorkItemScanner : IWorkItemScanner
 {
+    private readonly IActiveRepoTracker _activeRepoTracker;
     private readonly GitHubRepoHelper _helper;
     private readonly ILogger<WorkItemScanner> _logger;
     private readonly INotificationStateTracker _notificationStateTracker;
@@ -22,12 +23,14 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
     public WorkItemScanner(
         GitHubRepoHelper helper,
+        IActiveRepoTracker activeRepoTracker,
         INotificationStateTracker notificationStateTracker,
         IOptions<GitHubOptions> options,
         ILogger<WorkItemScanner> logger
     )
     {
         this._helper = helper;
+        this._activeRepoTracker = activeRepoTracker;
         this._notificationStateTracker = notificationStateTracker;
         this._options = options.Value;
         this._logger = logger;
@@ -39,6 +42,8 @@ public sealed class WorkItemScanner : IWorkItemScanner
             shouldInclude: this.ShouldIncludeRepo,
             cancellationToken: cancellationToken
         );
+
+        await this._activeRepoTracker.UpdateActiveReposAsync(activeRepos: repos, cancellationToken: cancellationToken);
 
         if (repos.Count == 0)
         {

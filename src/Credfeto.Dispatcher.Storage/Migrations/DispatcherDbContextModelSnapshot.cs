@@ -21,11 +21,6 @@ namespace Credfeto.Dispatcher.Storage.Migrations;
 )]
 internal sealed class DispatcherDbContextModelSnapshot : ModelSnapshot
 {
-    [UnconditionalSuppressMessage(
-        category: "Trimming",
-        checkId: "IL2026",
-        Justification = "EF Core HasKey expression trees use Expression.New(ConstructorInfo,...) for composite keys; all entity types and properties are preserved via TrimmerRootAssembly for Credfeto.Dispatcher.Storage"
-    )]
     protected override void BuildModel(ModelBuilder modelBuilder)
     {
         modelBuilder.HasAnnotation("ProductVersion", "10.0.7");
@@ -38,6 +33,28 @@ internal sealed class DispatcherDbContextModelSnapshot : ModelSnapshot
             b.ToTable("PollingStates");
         });
 
+        ConfigurePullRequestEntity(modelBuilder);
+        ConfigureIssueEntity(modelBuilder);
+
+        modelBuilder.Entity<RepoEntity>(b =>
+        {
+            b.HasKey(e => e.Repository);
+            b.ToTable("Repos");
+            b.Property(e => e.Repository).HasColumnType("TEXT");
+            b.Property(e => e.IsActive).HasColumnType("INTEGER");
+            b.Property(e => e.LastUpdated).HasColumnType("TEXT");
+        });
+
+        ConfigureNotificationQueueEntity(modelBuilder);
+    }
+
+    [UnconditionalSuppressMessage(
+        category: "Trimming",
+        checkId: "IL2026",
+        Justification = "EF Core HasKey expression trees use Expression.New(ConstructorInfo,...) for composite keys; all entity types and properties are preserved via TrimmerRootAssembly for Credfeto.Dispatcher.Storage"
+    )]
+    private static void ConfigurePullRequestEntity(ModelBuilder modelBuilder)
+    {
         modelBuilder.Entity<PullRequestEntity>(b =>
         {
             b.HasKey(e => new { e.Repository, e.Id });
@@ -59,7 +76,15 @@ internal sealed class DispatcherDbContextModelSnapshot : ModelSnapshot
             b.Property(e => e.FailedCheckSha).HasColumnType("TEXT");
             b.Property(e => e.Author).HasColumnType("TEXT");
         });
+    }
 
+    [UnconditionalSuppressMessage(
+        category: "Trimming",
+        checkId: "IL2026",
+        Justification = "EF Core HasKey expression trees use Expression.New(ConstructorInfo,...) for composite keys; all entity types and properties are preserved via TrimmerRootAssembly for Credfeto.Dispatcher.Storage"
+    )]
+    private static void ConfigureIssueEntity(ModelBuilder modelBuilder)
+    {
         modelBuilder.Entity<IssueEntity>(b =>
         {
             b.HasKey(e => new { e.Repository, e.Id });
@@ -76,8 +101,6 @@ internal sealed class DispatcherDbContextModelSnapshot : ModelSnapshot
             b.Property(e => e.IsOnHold).HasColumnType("INTEGER");
             b.Property(e => e.LinkedPrNumber).HasColumnType("INTEGER");
         });
-
-        ConfigureNotificationQueueEntity(modelBuilder);
     }
 
     private static void ConfigureNotificationQueueEntity(ModelBuilder modelBuilder)

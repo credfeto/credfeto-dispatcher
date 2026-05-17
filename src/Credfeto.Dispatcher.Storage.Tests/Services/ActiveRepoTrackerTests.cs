@@ -5,25 +5,15 @@ using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.Interfaces;
 using Credfeto.Dispatcher.Storage.Entities;
 using FunFair.Test.Common;
+using FunFair.Test.Common.Mocks;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Time.Testing;
 using Xunit;
 
 namespace Credfeto.Dispatcher.Storage.Tests.Services;
 
 public sealed class ActiveRepoTrackerTests : TestBase, IAsyncLifetime
 {
-    private static readonly DateTimeOffset BaseTime = new(
-        year: 2025,
-        month: 1,
-        day: 1,
-        hour: 0,
-        minute: 0,
-        second: 0,
-        offset: TimeSpan.Zero
-    );
-
     private readonly SqliteConnection _connection;
     private readonly DispatcherDbContext _readContext;
     private readonly IActiveRepoTracker _tracker;
@@ -44,7 +34,7 @@ public sealed class ActiveRepoTrackerTests : TestBase, IAsyncLifetime
 
         TestDbContextFactory factory = new(options);
         this._readContext = new DispatcherDbContext(options);
-        FakeTimeProvider timeProvider = new(BaseTime);
+        TimeProvider timeProvider = MockDateTimeSources.Past;
         this._tracker = new ActiveRepoTracker(factory, timeProvider);
     }
 

@@ -33,6 +33,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - preserve EF Core migration types as trimmer roots to prevent missing-table errors at runtime on trimmed binaries
 - suppress IL2026 trim analysis errors in EF Core migration Up methods and model snapshot that use composite key expression trees (Expression.New via HasKey/PrimaryKey lambdas)
 - Debug logging added for repo exclusion reasons in WorkItemScanner discovery to aid production diagnosis
+- Use EphemeralKeySet when loading HTTPS certificate to fix Docker container startup failure
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934

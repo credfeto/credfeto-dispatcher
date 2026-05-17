@@ -1,8 +1,9 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Net;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using Credfeto.Date;
 using Credfeto.Dispatcher.Discord;
@@ -40,9 +41,7 @@ internal static class ServerStartup
 
         if (minWorker < minThreads && minIoc < minThreads)
         {
-            Console.WriteLine(
-                $"Setting min worker threads {minThreads}, Min IOC threads {minThreads}"
-            );
+            Console.WriteLine($"Setting min worker threads {minThreads}, Min IOC threads {minThreads}");
             ThreadPool.SetMinThreads(workerThreads: minThreads, completionPortThreads: minThreads);
         }
         else if (minWorker < minThreads)
@@ -52,9 +51,7 @@ internal static class ServerStartup
         }
         else if (minIoc < minThreads)
         {
-            Console.WriteLine(
-                $"Setting min worker threads {minWorker}, Min IOC threads {minThreads}"
-            );
+            Console.WriteLine($"Setting min worker threads {minWorker}, Min IOC threads {minThreads}");
             ThreadPool.SetMinThreads(workerThreads: minWorker, completionPortThreads: minThreads);
         }
 
@@ -90,9 +87,7 @@ internal static class ServerStartup
     {
         IConfigurationSection gitHubSection = builder.Configuration.GetSection("GitHub");
         IConfigurationSection discordSection = builder.Configuration.GetSection("Discord");
-        IConfigurationSection notificationQueueSection = builder.Configuration.GetSection(
-            "NotificationQueue"
-        );
+        IConfigurationSection notificationQueueSection = builder.Configuration.GetSection("NotificationQueue");
         IConfigurationSection prioritiesSection = builder.Configuration.GetSection("Priorities");
 
         builder
@@ -107,19 +102,13 @@ internal static class ServerStartup
             .AddGitHub()
             .AddDiscord()
             .ConfigureHttpJsonOptions(options =>
-                options.SerializerOptions.TypeInfoResolverChain.Insert(
-                    index: 0,
-                    item: AppJsonContexts.Default
-                )
+                options.SerializerOptions.TypeInfoResolverChain.Insert(index: 0, item: AppJsonContexts.Default)
             );
 
         return builder;
     }
 
-    private static WebApplicationBuilder ConfigureSettings(
-        this WebApplicationBuilder builder,
-        string configPath
-    )
+    private static WebApplicationBuilder ConfigureSettings(this WebApplicationBuilder builder, string configPath)
     {
         builder.Configuration.Sources.Clear();
         builder
@@ -131,10 +120,7 @@ internal static class ServerStartup
         return builder;
     }
 
-    private static WebApplicationBuilder ConfigureWebHost(
-        this WebApplicationBuilder builder,
-        string configPath
-    )
+    private static WebApplicationBuilder ConfigureWebHost(this WebApplicationBuilder builder, string configPath)
     {
         builder
             .WebHost.UseKestrel(options: options =>
@@ -181,9 +167,7 @@ internal static class ServerStartup
             .CreateLogger();
     }
 
-    private static LoggerConfiguration WriteToDebuggerAwareOutput(
-        this LoggerConfiguration configuration
-    )
+    private static LoggerConfiguration WriteToDebuggerAwareOutput(this LoggerConfiguration configuration)
     {
         LoggerSinkConfiguration writeTo = configuration.WriteTo;
 
@@ -200,10 +184,25 @@ internal static class ServerStartup
         listenOptions.Protocols = HttpProtocols.Http2;
     }
 
+    [SuppressMessage(
+        category: "Microsoft.Reliability",
+        checkId: "CA2000:DisposeObjectsBeforeLosingScope",
+        Justification = "Lives for program lifetime"
+    )]
+    [SuppressMessage(
+        category: "SmartAnalyzers.CSharpExtensions.Annotations",
+        checkId: "CSE007:DisposeObjectsBeforeLosingScope",
+        Justification = "Lives for program lifetime"
+    )]
     private static void SetHttpsListenOptions(ListenOptions listenOptions, string certFile)
     {
         listenOptions.Protocols = HttpProtocols.Http1AndHttp2AndHttp3;
-        listenOptions.UseHttps(fileName: certFile);
+        X509Certificate2 cert = X509CertificateLoader.LoadPkcs12FromFile(
+            certFile,
+            password: null,
+            keyStorageFlags: X509KeyStorageFlags.EphemeralKeySet
+        );
+        listenOptions.UseHttps(cert);
     }
 
     private static void SetKestrelOptions(

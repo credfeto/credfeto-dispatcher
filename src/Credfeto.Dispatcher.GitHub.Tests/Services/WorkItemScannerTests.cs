@@ -246,12 +246,14 @@ public sealed class WorkItemScannerTests : TestBase
 
     private const string EmptyJson = "[]";
 
+    private readonly IActiveRepoTracker _activeRepoTracker;
     private readonly System.Net.Http.IHttpClientFactory _httpClientFactory;
     private readonly INotificationStateTracker _notificationStateTracker;
 
     public WorkItemScannerTests()
     {
         this._httpClientFactory = GetSubstitute<System.Net.Http.IHttpClientFactory>();
+        this._activeRepoTracker = GetSubstitute<IActiveRepoTracker>();
         this._notificationStateTracker = GetSubstitute<INotificationStateTracker>();
     }
 
@@ -264,6 +266,7 @@ public sealed class WorkItemScannerTests : TestBase
 
         return new WorkItemScanner(
             helper: helper,
+            activeRepoTracker: this._activeRepoTracker,
             notificationStateTracker: this._notificationStateTracker,
             options: Options.Create(options ?? new GitHubOptions()),
             logger: this.GetTypedLogger<WorkItemScanner>()
@@ -861,6 +864,64 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 1),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WithDiscoveredRepos_CallsUpdateActiveReposWithRepoListAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, EmptyJson);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EmptyJson);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        WorkItemScanner scanner = this.CreateScanner();
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._activeRepoTracker.Received(1)
+            .UpdateActiveReposAsync(
+                activeRepos: Arg.Is<System.Collections.Generic.IReadOnlyList<string>>(r =>
+                    r.Count == 1 && r[0] == Repo
+                ),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WhenNoReposDiscovered_CallsUpdateActiveReposWithEmptyListAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, EmptyJson);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient);
+
+        WorkItemScanner scanner = this.CreateScanner();
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._activeRepoTracker.Received(1)
+            .UpdateActiveReposAsync(
+                activeRepos: Arg.Is<System.Collections.Generic.IReadOnlyList<string>>(r => r.Count == 0),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WhenRepoIsArchived_CallsUpdateActiveReposWithEmptyListAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, ArchivedRepoJson);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient);
+
+        WorkItemScanner scanner = this.CreateScanner();
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._activeRepoTracker.Received(1)
+            .UpdateActiveReposAsync(
+                activeRepos: Arg.Is<System.Collections.Generic.IReadOnlyList<string>>(r => r.Count == 0),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }

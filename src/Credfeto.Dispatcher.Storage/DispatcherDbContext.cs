@@ -27,6 +27,8 @@ public sealed class DispatcherDbContext : DbContext
 
     public DbSet<IssueEntity> Issues => this.Set<IssueEntity>();
 
+    public DbSet<RepoEntity> Repos => this.Set<RepoEntity>();
+
     public DbSet<NotificationQueueEntity> NotificationQueue => this.Set<NotificationQueueEntity>();
 
     [UnconditionalSuppressMessage(
@@ -65,6 +67,11 @@ public sealed class DispatcherDbContext : DbContext
         modelBuilder.Entity<IssueEntity>().Property(e => e.IsOnHold).HasColumnType("INTEGER");
 
         modelBuilder.Entity<IssueEntity>().Property(e => e.LinkedPrNumber).HasColumnType("INTEGER");
+
+        modelBuilder.Entity<RepoEntity>().HasKey(e => e.Repository);
+        modelBuilder.Entity<RepoEntity>().Property(e => e.Repository).HasColumnType("TEXT");
+        modelBuilder.Entity<RepoEntity>().Property(e => e.IsActive).HasColumnType("INTEGER");
+        modelBuilder.Entity<RepoEntity>().Property(e => e.LastUpdated).HasColumnType("TEXT");
 
         ConfigureNotificationQueue(modelBuilder);
     }

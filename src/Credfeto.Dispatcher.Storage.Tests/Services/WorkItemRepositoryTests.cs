@@ -220,16 +220,44 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
     }
 
     [Fact]
-    public async Task IssuesWithLinkedPrsAreExcludedAsync()
+    public async Task IssueWithOpenLinkedPrIsExcludedAsync()
     {
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 42, status: "Open"));
         this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 1, linkedPrNumber: 42));
         this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 2));
         await this._seedContext.SaveChangesAsync(this.CancellationToken());
 
         IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
 
+        // PR 42 (Open) + Issue 2 included; Issue 1 excluded because PR 42 is open
+        Assert.Equal(expected: 2, actual: result.Count);
+        Assert.DoesNotContain(result, w => w.Id == 1);
+    }
+
+    [Fact]
+    public async Task IssueWithClosedLinkedPrIsIncludedAsync()
+    {
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 42, status: "Closed"));
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 1, linkedPrNumber: 42));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        // PR 42 is Closed (excluded from PR results); Issue 1 is included because linked PR is not open
         WorkItem single = Assert.Single(result);
-        Assert.Equal(expected: 2, actual: single.Id);
+        Assert.Equal(expected: 1, actual: single.Id);
+    }
+
+    [Fact]
+    public async Task IssueWithLinkedPrNotInDbIsIncludedAsync()
+    {
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 1, linkedPrNumber: 99));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: 1, actual: single.Id);
     }
 
     [Fact]
@@ -559,6 +587,76 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         Assert.Equal(expected: 0L, actual: response.LagSeconds);
     }
 
+    [Fact]
+    public async Task PullRequestFromInactiveRepoIsExcludedAsync()
+    {
+        this._seedContext.Repos.Add(CreateRepo("owner/repo", isActive: false));
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 1));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task PullRequestFromActiveRepoIsIncludedAsync()
+    {
+        this._seedContext.Repos.Add(CreateRepo("owner/repo", isActive: true));
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 1));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        Assert.Single(result);
+    }
+
+    [Fact]
+    public async Task IssueFromInactiveRepoIsExcludedAsync()
+    {
+        this._seedContext.Repos.Add(CreateRepo("owner/repo", isActive: false));
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 1));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task IssueFromActiveRepoIsIncludedAsync()
+    {
+        this._seedContext.Repos.Add(CreateRepo("owner/repo", isActive: true));
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 1));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        Assert.Single(result);
+    }
+
+    [Fact]
+    public async Task PullRequestFromUntrackedRepoIsIncludedAsync()
+    {
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 1));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        Assert.Single(result);
+    }
+
+    [Fact]
+    public async Task IssueFromUntrackedRepoIsIncludedAsync()
+    {
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 1));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        Assert.Single(result);
+    }
+
     private async Task SeedIssuePrioritiesAsync()
     {
         await this._seedContext.Issues.AddRangeAsync(
@@ -652,6 +750,16 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
             LinkedPrNumber = linkedPrNumber,
             FirstSeen = firstSeen ?? BaseTime,
             LastUpdated = lastUpdated ?? BaseTime,
+        };
+    }
+
+    private static RepoEntity CreateRepo(string repository, bool isActive)
+    {
+        return new RepoEntity
+        {
+            Repository = repository,
+            IsActive = isActive,
+            LastUpdated = BaseTime,
         };
     }
 

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using Credfeto.Dispatcher.GitHub.Interfaces;
 using Credfeto.Dispatcher.Storage.Services;
@@ -15,10 +15,7 @@ public static class StorageSetup
     private const string DataFolder = "data";
     private const string DatabaseFileName = "dispatcher.db";
 
-    public static IServiceCollection AddStorage(
-        this IServiceCollection services,
-        IHostEnvironment environment
-    )
+    public static IServiceCollection AddStorage(this IServiceCollection services, IHostEnvironment environment)
     {
         string dataPath = Path.Combine(environment.ContentRootPath, DataFolder);
         Directory.CreateDirectory(dataPath);
@@ -28,10 +25,9 @@ public static class StorageSetup
         services.TryAddSingleton(TimeProvider.System);
 
         return services
-            .AddDbContextFactory<DispatcherDbContext>(options =>
-                options.UseSqlite($"Data Source={dbPath}")
-            )
+            .AddDbContextFactory<DispatcherDbContext>(options => options.UseSqlite($"Data Source={dbPath}"))
             .AddRunOnStartupTask<DatabaseMigrationService>()
+            .AddSingleton<IActiveRepoTracker, ActiveRepoTracker>()
             .AddSingleton<IETagStore, ETagStore>()
             .AddSingleton<INotificationStateTracker, NotificationStateTracker>()
             .AddSingleton<IPendingNotificationStore, PendingNotificationStore>()

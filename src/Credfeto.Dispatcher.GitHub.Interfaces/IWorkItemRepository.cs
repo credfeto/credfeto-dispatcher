@@ -12,6 +12,7 @@ public interface IWorkItemRepository
         IReadOnlyList<string> owners,
         IReadOnlyList<string> repos,
         TimeSpan stuckDependabotTimeout,
+        int maxIssues,
         CancellationToken cancellationToken
     );
 }

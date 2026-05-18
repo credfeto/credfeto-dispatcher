@@ -806,6 +806,106 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         Assert.DoesNotContain(result, w => w.Id == 1);
     }
 
+    [Fact]
+    public async Task UrgentIssue_InRepoWithOpenPr_IsNotSuppressedAsync()
+    {
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 20));
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 10, priority: WorkPriority.Urgent));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        Assert.Equal(expected: 2, actual: result.Count);
+        Assert.Contains(result, w => string.Equals(w.ItemType, "Issue", StringComparison.Ordinal) && w.Id == 10);
+        Assert.Contains(result, w => string.Equals(w.ItemType, "PullRequest", StringComparison.Ordinal) && w.Id == 20);
+    }
+
+    [Fact]
+    public async Task SecurityIssue_InRepoWithOpenPr_IsNotSuppressedAsync()
+    {
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 20));
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 10, priority: WorkPriority.Security));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        Assert.Equal(expected: 2, actual: result.Count);
+        Assert.Contains(result, w => string.Equals(w.ItemType, "Issue", StringComparison.Ordinal) && w.Id == 10);
+        Assert.Contains(result, w => string.Equals(w.ItemType, "PullRequest", StringComparison.Ordinal) && w.Id == 20);
+    }
+
+    [Fact]
+    public async Task AiWorkIssue_InRepoWithOpenPr_IsNotSuppressedAsync()
+    {
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 20));
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 10, isAiWork: true));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        Assert.Equal(expected: 2, actual: result.Count);
+        Assert.Contains(result, w => string.Equals(w.ItemType, "Issue", StringComparison.Ordinal) && w.Id == 10);
+        Assert.Contains(result, w => string.Equals(w.ItemType, "PullRequest", StringComparison.Ordinal) && w.Id == 20);
+    }
+
+    [Fact]
+    public async Task AssignedIssue_InRepoWithOpenPr_IsNotSuppressedAsync()
+    {
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 20));
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 10, hasAssignee: true));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        Assert.Equal(expected: 2, actual: result.Count);
+        Assert.Contains(result, w => string.Equals(w.ItemType, "Issue", StringComparison.Ordinal) && w.Id == 10);
+        Assert.Contains(result, w => string.Equals(w.ItemType, "PullRequest", StringComparison.Ordinal) && w.Id == 20);
+    }
+
+    [Fact]
+    public async Task LowPriorityUnassignedNonAiWorkIssue_InRepoWithOpenPr_IsStillSuppressedAsync()
+    {
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 20));
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 10, priority: WorkPriority.Low));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: "PullRequest", actual: single.ItemType);
+        Assert.Equal(expected: 20, actual: single.Id);
+    }
+
+    [Fact]
+    public async Task UrgentAssignedIssue_InRepoWithStaleMergedPrs_IsNotSuppressedAsync()
+    {
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo-a", id: 70, status: "Open"));
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo-a", id: 76, status: "Open"));
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo-a", id: 84, status: "Open"));
+        this._seedContext.Issues.Add(
+            CreateIssue("owner/repo-a", id: 104, priority: WorkPriority.Urgent, hasAssignee: true, isAiWork: true)
+        );
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        Assert.Contains(result, w => string.Equals(w.ItemType, "Issue", StringComparison.Ordinal) && w.Id == 104);
+    }
+
+    [Fact]
+    public async Task AiWorkAssignedIssue_InRepoWithStaleMergedPrs_IsNotSuppressedAsync()
+    {
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo-b", id: 70, status: "Open"));
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo-b", id: 76, status: "Open"));
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo-b", id: 84, status: "Open"));
+        this._seedContext.Issues.Add(CreateIssue("owner/repo-b", id: 61, hasAssignee: true, isAiWork: true));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        Assert.Contains(result, w => string.Equals(w.ItemType, "Issue", StringComparison.Ordinal) && w.Id == 61);
+    }
+
     private async Task<IReadOnlyList<WorkItem>> GetItemsAsync(
         IReadOnlyList<string> owners,
         IReadOnlyList<string> repos,
@@ -876,6 +976,8 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         int id,
         WorkPriority priority = WorkPriority.Unknown,
         bool isOnHold = false,
+        bool hasAssignee = false,
+        bool isAiWork = false,
         int? linkedPrNumber = null,
         DateTimeOffset? firstSeen = null,
         DateTimeOffset? lastUpdated = null
@@ -888,6 +990,8 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
             Status = "Open",
             Priority = priority,
             IsOnHold = isOnHold,
+            HasAssignee = hasAssignee,
+            IsAiWork = isAiWork,
             LinkedPrNumber = linkedPrNumber,
             FirstSeen = firstSeen ?? BaseTime,
             LastUpdated = lastUpdated ?? BaseTime,

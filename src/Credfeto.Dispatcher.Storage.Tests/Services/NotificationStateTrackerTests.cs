@@ -189,6 +189,8 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
             details: BuildIssueDetails(OpenStatus),
             priority: WorkPriority.Unknown,
             isOnHold: false,
+            hasAssignee: false,
+            isAiWork: false,
             cancellationToken: this.CancellationToken()
         );
     }
@@ -203,6 +205,8 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
             details: BuildIssueDetails(OpenStatus),
             priority: WorkPriority.Unknown,
             isOnHold: false,
+            hasAssignee: false,
+            isAiWork: false,
             cancellationToken: this.CancellationToken()
         );
 
@@ -211,6 +215,8 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
             details: BuildIssueDetails(ClosedStatus),
             priority: WorkPriority.Unknown,
             isOnHold: false,
+            hasAssignee: false,
+            isAiWork: false,
             cancellationToken: this.CancellationToken()
         );
     }

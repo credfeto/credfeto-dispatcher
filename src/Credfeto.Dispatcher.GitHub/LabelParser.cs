@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Credfeto.Dispatcher.GitHub.DataTypes;
@@ -11,12 +11,7 @@ internal static class LabelParser
     {
         foreach (string label in labels)
         {
-            if (
-                label.Contains(
-                    value: "security",
-                    comparisonType: StringComparison.OrdinalIgnoreCase
-                )
-            )
+            if (label.Contains(value: "security", comparisonType: StringComparison.OrdinalIgnoreCase))
             {
                 return WorkPriority.Security;
             }
@@ -50,32 +45,21 @@ internal static class LabelParser
         return labels.Any(label => noWorkFilter.Any(filter => FuzzyEquals(label, filter)));
     }
 
+    public static bool IsAiWork(IReadOnlyList<string> labels)
+    {
+        return labels.Any(label => FuzzyEquals(label, "AI-Work"));
+    }
+
     internal static bool FuzzyEquals(string a, string b)
     {
-        return string.Equals(
-            a: Normalize(a),
-            b: Normalize(b),
-            comparisonType: StringComparison.OrdinalIgnoreCase
-        );
+        return string.Equals(a: Normalize(a), b: Normalize(b), comparisonType: StringComparison.OrdinalIgnoreCase);
     }
 
     private static string Normalize(string value)
     {
         return value
-            .Replace(
-                oldValue: "-",
-                newValue: string.Empty,
-                comparisonType: StringComparison.Ordinal
-            )
-            .Replace(
-                oldValue: " ",
-                newValue: string.Empty,
-                comparisonType: StringComparison.Ordinal
-            )
-            .Replace(
-                oldValue: "_",
-                newValue: string.Empty,
-                comparisonType: StringComparison.Ordinal
-            );
+            .Replace(oldValue: "-", newValue: string.Empty, comparisonType: StringComparison.Ordinal)
+            .Replace(oldValue: " ", newValue: string.Empty, comparisonType: StringComparison.Ordinal)
+            .Replace(oldValue: "_", newValue: string.Empty, comparisonType: StringComparison.Ordinal);
     }
 }

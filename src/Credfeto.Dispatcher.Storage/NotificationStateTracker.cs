@@ -130,6 +130,8 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         IssueDetails details,
         WorkPriority priority,
         bool isOnHold,
+        bool hasAssignee,
+        bool isAiWork,
         CancellationToken cancellationToken
     )
     {
@@ -154,6 +156,8 @@ public sealed class NotificationStateTracker : INotificationStateTracker
                     status: status,
                     priority: priority,
                     isOnHold: isOnHold,
+                    hasAssignee: hasAssignee,
+                    isAiWork: isAiWork,
                     linkedPrNumber: linkedPrNumber,
                     now: now
                 )
@@ -166,6 +170,8 @@ public sealed class NotificationStateTracker : INotificationStateTracker
                 status: status,
                 priority: priority,
                 isOnHold: isOnHold,
+                hasAssignee: hasAssignee,
+                isAiWork: isAiWork,
                 linkedPrNumber: linkedPrNumber,
                 now: now
             );
@@ -238,6 +244,8 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         string status,
         WorkPriority priority,
         bool isOnHold,
+        bool hasAssignee,
+        bool isAiWork,
         int? linkedPrNumber,
         in DateTimeOffset now
     )
@@ -249,6 +257,8 @@ public sealed class NotificationStateTracker : INotificationStateTracker
             Status = status,
             Priority = priority,
             IsOnHold = isOnHold,
+            HasAssignee = hasAssignee,
+            IsAiWork = isAiWork,
             LinkedPrNumber = linkedPrNumber,
             FirstSeen = now,
             LastUpdated = now,
@@ -339,6 +349,8 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         string status,
         WorkPriority priority,
         bool isOnHold,
+        bool hasAssignee,
+        bool isAiWork,
         int? linkedPrNumber,
         in DateTimeOffset now
     )
@@ -346,6 +358,8 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         entity.Status = status;
         entity.Priority = priority;
         entity.IsOnHold = isOnHold;
+        entity.HasAssignee = hasAssignee;
+        entity.IsAiWork = isAiWork;
         entity.LinkedPrNumber = linkedPrNumber;
         entity.LastUpdated = now;
 

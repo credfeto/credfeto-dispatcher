@@ -229,12 +229,16 @@ public sealed class WorkItemScanner : IWorkItemScanner
                     labels: labelNames,
                     noWorkFilter: this._options.Filter.NoWorkFilter
                 );
+                bool hasAssignee = issue.Assignees is not null && issue.Assignees.Count > 0;
+                bool isAiWork = LabelParser.IsAiWork(labelNames);
 
                 await this._notificationStateTracker.UpdateStateAsync(
                     notification: BuildScanNotification(repo),
                     details: BuildScannedIssueDetails(issue: issue, repo: repo, labelNames: labelNames),
                     priority: priority,
                     isOnHold: isOnHold,
+                    hasAssignee: hasAssignee,
+                    isAiWork: isAiWork,
                     cancellationToken: cancellationToken
                 );
 
@@ -321,7 +325,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
             Title: issue.Title,
             Status: "Open",
             HtmlUrl: new Uri(issue.HtmlUrl),
-            Assignees: [],
+            Assignees: issue.Assignees is null ? [] : [.. issue.Assignees.Select(a => a.Login)],
             Labels: labelNames,
             LinkedPullRequestUrl: null,
             Repository: new ItemRepository(Owner: owner, Name: name, Url: repoUri),

@@ -99,6 +99,8 @@ internal sealed class DispatcherDbContextModelSnapshot : ModelSnapshot
                 .HasColumnType("INTEGER")
                 .HasConversion(new ValueConverter<WorkPriority, int>(v => (int)v, v => (WorkPriority)v));
             b.Property(e => e.IsOnHold).HasColumnType("INTEGER");
+            b.Property(e => e.HasAssignee).HasColumnType("INTEGER");
+            b.Property(e => e.IsAiWork).HasColumnType("INTEGER");
             b.Property(e => e.LinkedPrNumber).HasColumnType("INTEGER");
         });
     }

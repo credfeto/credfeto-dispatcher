@@ -23,5 +23,9 @@ public sealed class IssueEntity : INotificationEntity
 
     public bool IsOnHold { get; set; }
 
+    public bool HasAssignee { get; set; }
+
+    public bool IsAiWork { get; set; }
+
     public int? LinkedPrNumber { get; set; }
 }

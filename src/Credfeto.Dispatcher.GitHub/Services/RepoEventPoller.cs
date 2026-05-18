@@ -284,12 +284,16 @@ public sealed class RepoEventPoller : IRepoEventPoller
 
         WorkPriority priority = LabelParser.ParsePriority(details.Labels);
         bool isOnHold = LabelParser.IsOnHold(labels: details.Labels, noWorkFilter: this._options.Filter.NoWorkFilter);
+        bool hasAssignee = details.Assignees.Count > 0;
+        bool isAiWork = LabelParser.IsAiWork(details.Labels);
 
         await this._notificationStateTracker.UpdateStateAsync(
             notification: notification,
             details: details,
             priority: priority,
             isOnHold: isOnHold,
+            hasAssignee: hasAssignee,
+            isAiWork: isAiWork,
             cancellationToken: cancellationToken
         );
 

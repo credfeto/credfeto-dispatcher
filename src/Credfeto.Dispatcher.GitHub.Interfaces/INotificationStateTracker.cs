@@ -31,6 +31,8 @@ public interface INotificationStateTracker
         IssueDetails details,
         WorkPriority priority,
         bool isOnHold,
+        bool hasAssignee,
+        bool isAiWork,
         CancellationToken cancellationToken
     );
 }

@@ -66,6 +66,10 @@ public sealed class DispatcherDbContext : DbContext
 
         modelBuilder.Entity<IssueEntity>().Property(e => e.IsOnHold).HasColumnType("INTEGER");
 
+        modelBuilder.Entity<IssueEntity>().Property(e => e.HasAssignee).HasColumnType("INTEGER");
+
+        modelBuilder.Entity<IssueEntity>().Property(e => e.IsAiWork).HasColumnType("INTEGER");
+
         modelBuilder.Entity<IssueEntity>().Property(e => e.LinkedPrNumber).HasColumnType("INTEGER");
 
         modelBuilder.Entity<RepoEntity>().HasKey(e => e.Repository);

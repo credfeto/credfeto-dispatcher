@@ -36,6 +36,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Use EphemeralKeySet when loading HTTPS certificate to fix Docker container startup failure
 - Priorities endpoint: exclude PRs and issues from repos that are deleted, archived, or no longer accessible to the token
 - Priorities endpoint: only exclude issues where the linked PR is currently open (not when the linked PR is closed)
+- fix: /priorities - suppress rule no longer erases Urgent/AI-Work/assigned issues when repo has open PR (#106)
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934

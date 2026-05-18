@@ -323,12 +323,16 @@ public sealed class GitHubPollingWorker : BackgroundService
             labels: details.Labels,
             noWorkFilter: this._options.Filter.NoWorkFilter
         );
+        bool issueHasAssignee = details.Assignees.Count > 0;
+        bool issueIsAiWork = LabelParser.IsAiWork(details.Labels);
 
         await this._notificationStateTracker.UpdateStateAsync(
             notification: notification,
             details: details,
             priority: issuePriority,
             isOnHold: issueIsOnHold,
+            hasAssignee: issueHasAssignee,
+            isAiWork: issueIsAiWork,
             cancellationToken: cancellationToken
         );
 

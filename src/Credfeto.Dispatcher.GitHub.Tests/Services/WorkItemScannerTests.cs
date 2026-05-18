@@ -320,6 +320,8 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Any<IssueDetails>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                hasAssignee: Arg.Any<bool>(),
+                isAiWork: Arg.Any<bool>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -719,6 +721,8 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Is<IssueDetails>(d => d.Number == 20 && d.Status == "Open"),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                hasAssignee: Arg.Any<bool>(),
+                isAiWork: Arg.Any<bool>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -742,6 +746,8 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Any<IssueDetails>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                hasAssignee: Arg.Any<bool>(),
+                isAiWork: Arg.Any<bool>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -765,6 +771,8 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Any<IssueDetails>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                hasAssignee: Arg.Any<bool>(),
+                isAiWork: Arg.Any<bool>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -829,6 +837,8 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Is<IssueDetails>(d => d.Number == 20),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                hasAssignee: Arg.Any<bool>(),
+                isAiWork: Arg.Any<bool>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
 
@@ -839,6 +849,8 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Any<IssueDetails>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                hasAssignee: Arg.Any<bool>(),
+                isAiWork: Arg.Any<bool>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }

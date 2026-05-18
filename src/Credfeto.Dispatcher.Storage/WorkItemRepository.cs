@@ -31,6 +31,7 @@ public sealed class WorkItemRepository : IWorkItemRepository
         IReadOnlyList<string> owners,
         IReadOnlyList<string> repos,
         TimeSpan stuckDependabotTimeout,
+        int maxIssues,
         CancellationToken cancellationToken
     )
     {
@@ -44,19 +45,13 @@ public sealed class WorkItemRepository : IWorkItemRepository
             )
             .ToListAsync(cancellationToken);
 
-        List<IssueEntity> issueEntities = await context
-            .Issues.Where(e =>
-                e.Status != ClosedStatus
-                && !e.IsOnHold
-                && !context.Repos.Any(r => r.Repository == e.Repository && !r.IsActive)
-                && (
-                    e.LinkedPrNumber == null
-                    || !context.PullRequests.Any(pr =>
-                        pr.Repository == e.Repository && pr.Id == e.LinkedPrNumber && pr.Status != ClosedStatus
-                    )
-                )
-            )
-            .ToListAsync(cancellationToken);
+        List<WorkItem> issues = await BuildIssuesAsync(
+            context: context,
+            owners: owners,
+            repos: repos,
+            maxIssues: maxIssues,
+            cancellationToken: cancellationToken
+        );
 
         DateTimeOffset now = this._timeProvider.GetUtcNow();
 
@@ -64,7 +59,6 @@ public sealed class WorkItemRepository : IWorkItemRepository
         [
             .. prEntities.Select(e => MapPullRequest(entity: e, now: now, stuckDependabotTimeout)),
         ];
-        List<WorkItem> issues = [.. issueEntities.Select(MapIssue)];
 
         List<WorkItem> combined = Deduplicate([.. pullRequests, .. issues]);
 
@@ -84,6 +78,44 @@ public sealed class WorkItemRepository : IWorkItemRepository
         long lagSeconds = Math.Max(0, (long)(now - asOf).TotalSeconds);
 
         return new PrioritiesResponse(Priorities: ordered, AsOf: asOf, LagSeconds: lagSeconds);
+    }
+
+    private static async Task<List<WorkItem>> BuildIssuesAsync(
+        DispatcherDbContext context,
+        IReadOnlyList<string> owners,
+        IReadOnlyList<string> repos,
+        int maxIssues,
+        CancellationToken cancellationToken
+    )
+    {
+        List<IssueEntity> issueEntities = await context
+            .Issues.Where(e =>
+                e.Status != ClosedStatus
+                && !e.IsOnHold
+                && !context.Repos.Any(r => r.Repository == e.Repository && !r.IsActive)
+                && !context.PullRequests.Any(pr => pr.Repository == e.Repository && pr.Status != ClosedStatus)
+            )
+            .ToListAsync(cancellationToken);
+
+        IEnumerable<WorkItem> topIssuePerRepo = issueEntities
+            .GroupBy(e => e.Repository, comparer: StringComparer.Ordinal)
+            .Select(g => MapIssue(g.OrderByDescending(e => (int)e.Priority).ThenBy(e => e.FirstSeen).First()));
+
+        return ApplyMaxIssuesCap(
+            topIssuePerRepo
+                .OrderBy(w => FindIndex(owners, GetOwner(w.Repository)))
+                .ThenBy(w => GetOwner(w.Repository), comparer: StringComparer.OrdinalIgnoreCase)
+                .ThenBy(w => FindIndex(repos, w.Repository))
+                .ThenBy(w => w.Repository, comparer: StringComparer.OrdinalIgnoreCase)
+                .ThenByDescending(w => (int)w.Priority)
+                .ThenBy(w => w.FirstSeen),
+            maxIssues
+        );
+    }
+
+    private static List<WorkItem> ApplyMaxIssuesCap(IOrderedEnumerable<WorkItem> ordered, int maxIssues)
+    {
+        return maxIssues > 0 ? [.. ordered.Take(maxIssues)] : [.. ordered];
     }
 
     private static List<WorkItem> Deduplicate(IReadOnlyList<WorkItem> items)

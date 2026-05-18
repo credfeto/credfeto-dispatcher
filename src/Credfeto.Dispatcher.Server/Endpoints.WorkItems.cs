@@ -29,6 +29,7 @@ internal static partial class Endpoints
             owners: config.Owners,
             repos: config.Repos,
             stuckDependabotTimeout: TimeSpan.FromHours(config.StuckDependabotTimeoutHours),
+            maxIssues: config.MaxIssues,
             cancellationToken: cancellationToken
         );
 

@@ -1,31 +1,30 @@
 ﻿using System;
-using System.IO;
 using Credfeto.Dispatcher.GitHub.Interfaces;
+using Credfeto.Dispatcher.Storage.Configuration;
 using Credfeto.Dispatcher.Storage.Services;
 using Credfeto.Services.Startup.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 
 namespace Credfeto.Dispatcher.Storage;
 
 public static class StorageSetup
 {
-    private const string DataFolder = "data";
-    private const string DatabaseFileName = "dispatcher.db";
-
-    public static IServiceCollection AddStorage(this IServiceCollection services, IHostEnvironment environment)
+    public static IServiceCollection AddStorage(this IServiceCollection services)
     {
-        string dataPath = Path.Combine(environment.ContentRootPath, DataFolder);
-        Directory.CreateDirectory(dataPath);
-
-        string dbPath = Path.Combine(dataPath, DatabaseFileName);
-
         services.TryAddSingleton(TimeProvider.System);
+        services.AddSingleton<IValidateOptions<DatabaseConfiguration>, DatabaseConfigurationValidator>();
 
         return services
-            .AddDbContextFactory<DispatcherDbContext>(options => options.UseSqlite($"Data Source={dbPath}"))
+            .AddDbContextFactory<DispatcherDbContext>(
+                (sp, options) =>
+                {
+                    DatabaseConfiguration cfg = sp.GetRequiredService<IOptions<DatabaseConfiguration>>().Value;
+                    options.UseSqlServer(cfg.ConnectionString);
+                }
+            )
             .AddRunOnStartupTask<DatabaseMigrationService>()
             .AddSingleton<IActiveRepoTracker, ActiveRepoTracker>()
             .AddSingleton<IETagStore, ETagStore>()

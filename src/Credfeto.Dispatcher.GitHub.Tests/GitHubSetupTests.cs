@@ -21,7 +21,8 @@ public sealed class GitHubSetupTests : DependencyInjectionTestsBase
             .AddMockedService<IOptions<GitHubOptions>>(static o => o.Value.Returns(new GitHubOptions()))
             .AddMockedService<IActiveRepoTracker>()
             .AddMockedService<IETagStore>()
-            .AddMockedService<INotificationStateTracker>();
+            .AddMockedService<INotificationStateTracker>()
+            .AddMockedService<IWorkItemRepository>();
     }
 
     [Fact]

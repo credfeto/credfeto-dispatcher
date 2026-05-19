@@ -72,4 +72,11 @@ internal static partial class WorkItemScannerLoggingExtensions
         Message = "Repo {Repo} skipped during discovery: present in ExcludedRepos list"
     )]
     public static partial void LogRepoSkippedExcludedRepoFilter(this ILogger logger, string repo);
+
+    [LoggerMessage(
+        EventId = 12,
+        Level = LogLevel.Information,
+        Message = "Removing stored work items for {Count} inactive (archived/disabled) repos"
+    )]
+    public static partial void LogRemovingItemsForInactiveRepos(this ILogger logger, int count);
 }

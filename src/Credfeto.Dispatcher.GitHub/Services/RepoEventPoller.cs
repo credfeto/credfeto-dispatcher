@@ -184,9 +184,14 @@ public sealed class RepoEventPoller : IRepoEventPoller
     {
         if (string.Equals(a: ev.Type, b: PullRequestEventType, comparisonType: StringComparison.Ordinal))
         {
-            if (ev.Payload.PullRequest is { } pr)
+            if (ev.Payload.PullRequest is { HtmlUrl: { } prHtmlUrl } pr)
             {
-                await this.ProcessPullRequestEventAsync(ev: ev, pr: pr, cancellationToken: cancellationToken);
+                await this.ProcessPullRequestEventAsync(
+                    ev: ev,
+                    pr: pr,
+                    htmlUrl: new Uri(prHtmlUrl),
+                    cancellationToken: cancellationToken
+                );
             }
 
             return;
@@ -194,9 +199,14 @@ public sealed class RepoEventPoller : IRepoEventPoller
 
         if (string.Equals(a: ev.Type, b: IssuesEventType, comparisonType: StringComparison.Ordinal))
         {
-            if (ev.Payload.Issue is { } issue && issue.PullRequest is null)
+            if (ev.Payload.Issue is { HtmlUrl: { } issueHtmlUrl } issue && issue.PullRequest is null)
             {
-                await this.ProcessIssueEventAsync(ev: ev, issue: issue, cancellationToken: cancellationToken);
+                await this.ProcessIssueEventAsync(
+                    ev: ev,
+                    issue: issue,
+                    htmlUrl: new Uri(issueHtmlUrl),
+                    cancellationToken: cancellationToken
+                );
             }
         }
     }
@@ -204,6 +214,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
     private async ValueTask ProcessPullRequestEventAsync(
         ApiEvent ev,
         ApiPullRequest pr,
+        Uri htmlUrl,
         CancellationToken cancellationToken
     )
     {
@@ -216,7 +227,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
             ev: ev,
             repo: repo,
             itemType: "PullRequest",
-            itemUrl: pr.HtmlUrl,
+            itemUrl: htmlUrl.OriginalString,
             itemTitle: pr.Title
         );
 
@@ -224,7 +235,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
             Number: pr.Number,
             Title: pr.Title,
             Status: MapPrStatus(pr: pr),
-            HtmlUrl: new Uri(pr.HtmlUrl),
+            HtmlUrl: htmlUrl,
             Assignees: [.. pr.Assignees.Select(a => a.Login)],
             Labels: [.. pr.Labels.Select(l => l.Name)],
             Body: null,
@@ -255,7 +266,12 @@ public sealed class RepoEventPoller : IRepoEventPoller
         );
     }
 
-    private async ValueTask ProcessIssueEventAsync(ApiEvent ev, ApiIssue issue, CancellationToken cancellationToken)
+    private async ValueTask ProcessIssueEventAsync(
+        ApiEvent ev,
+        ApiIssue issue,
+        Uri htmlUrl,
+        CancellationToken cancellationToken
+    )
     {
         string repo = ev.Repo.Name;
         string owner = GetOwner(repo);
@@ -266,7 +282,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
             ev: ev,
             repo: repo,
             itemType: "Issue",
-            itemUrl: issue.HtmlUrl,
+            itemUrl: htmlUrl.OriginalString,
             itemTitle: issue.Title
         );
 
@@ -274,7 +290,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
             Number: issue.Number,
             Title: issue.Title,
             Status: MapIssueStatus(issue),
-            HtmlUrl: new Uri(issue.HtmlUrl),
+            HtmlUrl: htmlUrl,
             Assignees: issue.Assignees is null ? [] : [.. issue.Assignees.Select(a => a.Login)],
             Labels: issue.Labels is null ? [] : [.. issue.Labels.Select(l => l.Name)],
             LinkedPullRequestUrl: null,

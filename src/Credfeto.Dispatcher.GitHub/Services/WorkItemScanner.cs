@@ -193,31 +193,12 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
             foreach (ApiPullRequest pr in items)
             {
-                activePrNumbers.Add(pr.Number);
-
-                IReadOnlyList<string> labelNames = [.. pr.Labels.Select(l => l.Name)];
-
-                if (!this.PassesLabelFilter(labelNames))
-                {
-                    continue;
-                }
-
-                WorkPriority priority = LabelParser.ParsePriority(labelNames);
-                bool isOnHold = LabelParser.IsOnHold(
-                    labels: labelNames,
-                    noWorkFilter: this._options.Filter.NoWorkFilter
-                );
-                string status = pr.Draft ? "Draft" : "Open";
-
-                await this._notificationStateTracker.UpdateStateAsync(
-                    notification: BuildScanNotification(repo),
-                    details: BuildScannedPullRequestDetails(pr: pr, repo: repo, labelNames: labelNames, status: status),
-                    priority: priority,
-                    isOnHold: isOnHold,
+                await this.ProcessScannedPullRequestAsync(
+                    pr: pr,
+                    repo: repo,
+                    activePrNumbers: activePrNumbers,
                     cancellationToken: cancellationToken
                 );
-
-                this._logger.LogScannedPullRequest(repo: repo, number: pr.Number, status: status);
             }
 
             url = nextUrl;
@@ -253,34 +234,88 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
                 activeIssueNumbers.Add(issue.Number);
 
-                IReadOnlyList<string> labelNames = issue.Labels is null ? [] : [.. issue.Labels.Select(l => l.Name)];
-
-                if (!this.PassesLabelFilter(labelNames))
-                {
-                    continue;
-                }
-
-                WorkPriority priority = LabelParser.ParsePriority(labelNames);
-                bool isOnHold = LabelParser.IsOnHold(
-                    labels: labelNames,
-                    noWorkFilter: this._options.Filter.NoWorkFilter
-                );
-
-                await this._notificationStateTracker.UpdateStateAsync(
-                    notification: BuildScanNotification(repo),
-                    details: BuildScannedIssueDetails(issue: issue, repo: repo, labelNames: labelNames),
-                    priority: priority,
-                    isOnHold: isOnHold,
-                    cancellationToken: cancellationToken
-                );
-
-                this._logger.LogScannedIssue(repo: repo, number: issue.Number);
+                await this.ProcessFilteredIssueAsync(issue: issue, repo: repo, cancellationToken: cancellationToken);
             }
 
             url = nextUrl;
         }
 
         return activeIssueNumbers;
+    }
+
+    private async Task ProcessScannedPullRequestAsync(
+        ApiPullRequest pr,
+        string repo,
+        List<int> activePrNumbers,
+        CancellationToken cancellationToken
+    )
+    {
+        activePrNumbers.Add(pr.Number);
+
+        IReadOnlyList<string> labelNames = [.. pr.Labels.Select(l => l.Name)];
+
+        if (!this.PassesLabelFilter(labelNames))
+        {
+            return;
+        }
+
+        if (pr.HtmlUrl is not { } prHtmlUrl)
+        {
+            return;
+        }
+
+        WorkPriority priority = LabelParser.ParsePriority(labelNames);
+        bool isOnHold = LabelParser.IsOnHold(labels: labelNames, noWorkFilter: this._options.Filter.NoWorkFilter);
+        string status = pr.Draft ? "Draft" : "Open";
+
+        await this._notificationStateTracker.UpdateStateAsync(
+            notification: BuildScanNotification(repo),
+            details: BuildScannedPullRequestDetails(
+                pr: pr,
+                repo: repo,
+                labelNames: labelNames,
+                status: status,
+                htmlUrl: new Uri(prHtmlUrl)
+            ),
+            priority: priority,
+            isOnHold: isOnHold,
+            cancellationToken: cancellationToken
+        );
+
+        this._logger.LogScannedPullRequest(repo: repo, number: pr.Number, status: status);
+    }
+
+    private async Task ProcessFilteredIssueAsync(ApiIssue issue, string repo, CancellationToken cancellationToken)
+    {
+        IReadOnlyList<string> labelNames = issue.Labels is null ? [] : [.. issue.Labels.Select(l => l.Name)];
+
+        if (!this.PassesLabelFilter(labelNames))
+        {
+            return;
+        }
+
+        if (issue.HtmlUrl is not { } issueHtmlUrl)
+        {
+            return;
+        }
+
+        WorkPriority priority = LabelParser.ParsePriority(labelNames);
+        bool isOnHold = LabelParser.IsOnHold(labels: labelNames, noWorkFilter: this._options.Filter.NoWorkFilter);
+
+        await this._notificationStateTracker.UpdateStateAsync(
+            notification: BuildScanNotification(repo),
+            details: BuildScannedIssueDetails(
+                issue: issue,
+                repo: repo,
+                labelNames: labelNames,
+                htmlUrl: new Uri(issueHtmlUrl)
+            ),
+            priority: priority,
+            isOnHold: isOnHold,
+            cancellationToken: cancellationToken
+        );
+
+        this._logger.LogScannedIssue(repo: repo, number: issue.Number);
     }
 
     private bool PassesLabelFilter(IReadOnlyList<string> labelNames)
@@ -320,7 +355,8 @@ public sealed class WorkItemScanner : IWorkItemScanner
         ApiPullRequest pr,
         string repo,
         IReadOnlyList<string> labelNames,
-        string status
+        string status,
+        Uri htmlUrl
     )
     {
         string owner = GetOwner(repo);
@@ -331,7 +367,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
             Number: pr.Number,
             Title: pr.Title,
             Status: status,
-            HtmlUrl: new Uri(pr.HtmlUrl),
+            HtmlUrl: htmlUrl,
             Assignees: [.. pr.Assignees.Select(a => a.Login)],
             Labels: labelNames,
             Body: null,
@@ -348,7 +384,12 @@ public sealed class WorkItemScanner : IWorkItemScanner
         );
     }
 
-    private static IssueDetails BuildScannedIssueDetails(ApiIssue issue, string repo, IReadOnlyList<string> labelNames)
+    private static IssueDetails BuildScannedIssueDetails(
+        ApiIssue issue,
+        string repo,
+        IReadOnlyList<string> labelNames,
+        Uri htmlUrl
+    )
     {
         string owner = GetOwner(repo);
         string name = GetRepoName(repo);
@@ -358,7 +399,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
             Number: issue.Number,
             Title: issue.Title,
             Status: "Open",
-            HtmlUrl: new Uri(issue.HtmlUrl),
+            HtmlUrl: htmlUrl,
             Assignees: [],
             Labels: labelNames,
             LinkedPullRequestUrl: null,

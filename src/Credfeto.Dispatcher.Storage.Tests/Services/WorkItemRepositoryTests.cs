@@ -876,6 +876,165 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         Assert.DoesNotContain(result, w => w.Id == 1);
     }
 
+    [Fact]
+    public async Task CloseStaleItemsForRepoAsync_ClosesOpenPrNotInActiveListAsync()
+    {
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 1));
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 2));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        await this._repository.CloseStaleItemsForRepoAsync(
+            repository: "owner/repo",
+            activePullRequestNumbers: [2],
+            activeIssueNumbers: [],
+            cancellationToken: this.CancellationToken()
+        );
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: 2, actual: single.Id);
+    }
+
+    [Fact]
+    public async Task CloseStaleItemsForRepoAsync_DoesNotClosePrInActiveListAsync()
+    {
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 1));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        await this._repository.CloseStaleItemsForRepoAsync(
+            repository: "owner/repo",
+            activePullRequestNumbers: [1],
+            activeIssueNumbers: [],
+            cancellationToken: this.CancellationToken()
+        );
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: 1, actual: single.Id);
+    }
+
+    [Fact]
+    public async Task CloseStaleItemsForRepoAsync_ClosesOpenIssueNotInActiveListAsync()
+    {
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 10));
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 20));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        await this._repository.CloseStaleItemsForRepoAsync(
+            repository: "owner/repo",
+            activePullRequestNumbers: [],
+            activeIssueNumbers: [20],
+            cancellationToken: this.CancellationToken()
+        );
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: 20, actual: single.Id);
+    }
+
+    [Fact]
+    public async Task CloseStaleItemsForRepoAsync_DoesNotCloseAlreadyClosedPrAsync()
+    {
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 1, status: "Closed"));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        await this._repository.CloseStaleItemsForRepoAsync(
+            repository: "owner/repo",
+            activePullRequestNumbers: [],
+            activeIssueNumbers: [],
+            cancellationToken: this.CancellationToken()
+        );
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task CloseStaleItemsForRepoAsync_DoesNotAffectOtherReposAsync()
+    {
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 1));
+        this._seedContext.PullRequests.Add(CreatePr("owner/other-repo", id: 2));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        await this._repository.CloseStaleItemsForRepoAsync(
+            repository: "owner/repo",
+            activePullRequestNumbers: [],
+            activeIssueNumbers: [],
+            cancellationToken: this.CancellationToken()
+        );
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: "owner/other-repo", actual: single.Repository);
+        Assert.Equal(expected: 2, actual: single.Id);
+    }
+
+    [Fact]
+    public async Task CloseStaleItemsForRepoAsync_SetsWhenClosedTimestampOnStalePrAsync()
+    {
+        DateTimeOffset closeTime = BaseTime.AddHours(1);
+        this._timeProvider.SetUtcNow(closeTime);
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 1));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        await this._repository.CloseStaleItemsForRepoAsync(
+            repository: "owner/repo",
+            activePullRequestNumbers: [],
+            activeIssueNumbers: [],
+            cancellationToken: this.CancellationToken()
+        );
+
+        PullRequestEntity? entity = await this
+            ._seedContext.PullRequests.AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Repository == "owner/repo" && e.Id == 1, this.CancellationToken());
+        Assert.NotNull(entity);
+
+        Assert.Equal(expected: closeTime, actual: entity.WhenClosed);
+    }
+
+    [Fact]
+    public async Task CloseStaleItemsForRepoAsync_SetsWhenClosedTimestampOnStaleIssueAsync()
+    {
+        DateTimeOffset closeTime = BaseTime.AddHours(1);
+        this._timeProvider.SetUtcNow(closeTime);
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 10));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        await this._repository.CloseStaleItemsForRepoAsync(
+            repository: "owner/repo",
+            activePullRequestNumbers: [],
+            activeIssueNumbers: [],
+            cancellationToken: this.CancellationToken()
+        );
+
+        IssueEntity? entity = await this
+            ._seedContext.Issues.AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Repository == "owner/repo" && e.Id == 10, this.CancellationToken());
+        Assert.NotNull(entity);
+
+        Assert.Equal(expected: closeTime, actual: entity.WhenClosed);
+    }
+
+    [Fact]
+    public async Task CloseStaleItemsForRepoAsync_WithEmptyActiveListsAndNoItems_DoesNothingAsync()
+    {
+        await this._repository.CloseStaleItemsForRepoAsync(
+            repository: "owner/repo",
+            activePullRequestNumbers: [],
+            activeIssueNumbers: [],
+            cancellationToken: this.CancellationToken()
+        );
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        Assert.Empty(result);
+    }
+
     private async Task<IReadOnlyList<WorkItem>> GetItemsAsync(
         IReadOnlyList<string> owners,
         IReadOnlyList<string> repos,

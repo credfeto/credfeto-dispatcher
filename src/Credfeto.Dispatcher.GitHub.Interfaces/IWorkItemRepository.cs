@@ -17,4 +17,11 @@ public interface IWorkItemRepository
     );
 
     ValueTask RemoveItemsForRepositoriesAsync(IReadOnlyList<string> repositories, CancellationToken cancellationToken);
+
+    ValueTask CloseStaleItemsForRepoAsync(
+        string repository,
+        IReadOnlyList<int> activePullRequestNumbers,
+        IReadOnlyList<int> activeIssueNumbers,
+        CancellationToken cancellationToken
+    );
 }

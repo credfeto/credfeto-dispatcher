@@ -153,13 +153,30 @@ public sealed class WorkItemScanner : IWorkItemScanner
     {
         this._logger.LogScanningRepo(repo: repo);
 
-        await this.ScanPullRequestsAsync(repo: repo, cancellationToken: cancellationToken);
-        await this.ScanIssuesAsync(repo: repo, cancellationToken: cancellationToken);
+        IReadOnlyList<int>? activePrNumbers = await this.ScanPullRequestsAsync(
+            repo: repo,
+            cancellationToken: cancellationToken
+        );
+        IReadOnlyList<int>? activeIssueNumbers = await this.ScanIssuesAsync(
+            repo: repo,
+            cancellationToken: cancellationToken
+        );
+
+        if (activePrNumbers is not null && activeIssueNumbers is not null)
+        {
+            await this._workItemRepository.CloseStaleItemsForRepoAsync(
+                repository: repo,
+                activePullRequestNumbers: activePrNumbers,
+                activeIssueNumbers: activeIssueNumbers,
+                cancellationToken: cancellationToken
+            );
+        }
     }
 
-    private async Task ScanPullRequestsAsync(string repo, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<int>?> ScanPullRequestsAsync(string repo, CancellationToken cancellationToken)
     {
         string? url = $"repos/{repo}/pulls?state=open&per_page=100";
+        List<int> activePrNumbers = [];
 
         while (url is not null)
         {
@@ -171,11 +188,13 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
             if (items is null)
             {
-                break;
+                return null;
             }
 
             foreach (ApiPullRequest pr in items)
             {
+                activePrNumbers.Add(pr.Number);
+
                 IReadOnlyList<string> labelNames = [.. pr.Labels.Select(l => l.Name)];
 
                 if (!this.PassesLabelFilter(labelNames))
@@ -203,11 +222,14 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
             url = nextUrl;
         }
+
+        return activePrNumbers;
     }
 
-    private async Task ScanIssuesAsync(string repo, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<int>?> ScanIssuesAsync(string repo, CancellationToken cancellationToken)
     {
         string? url = $"repos/{repo}/issues?state=open&per_page=100";
+        List<int> activeIssueNumbers = [];
 
         while (url is not null)
         {
@@ -219,7 +241,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
             if (items is null)
             {
-                break;
+                return null;
             }
 
             foreach (ApiIssue issue in items)
@@ -228,6 +250,8 @@ public sealed class WorkItemScanner : IWorkItemScanner
                 {
                     continue;
                 }
+
+                activeIssueNumbers.Add(issue.Number);
 
                 IReadOnlyList<string> labelNames = issue.Labels is null ? [] : [.. issue.Labels.Select(l => l.Name)];
 
@@ -255,6 +279,8 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
             url = nextUrl;
         }
+
+        return activeIssueNumbers;
     }
 
     private bool PassesLabelFilter(IReadOnlyList<string> labelNames)

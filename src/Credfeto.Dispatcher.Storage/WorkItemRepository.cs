@@ -274,6 +274,41 @@ public sealed class WorkItemRepository : IWorkItemRepository
         await context.Issues.Where(e => repositories.Contains(e.Repository)).ExecuteDeleteAsync(cancellationToken);
     }
 
+    public async ValueTask CloseStaleItemsForRepoAsync(
+        string repository,
+        IReadOnlyList<int> activePullRequestNumbers,
+        IReadOnlyList<int> activeIssueNumbers,
+        CancellationToken cancellationToken
+    )
+    {
+        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(cancellationToken);
+        DateTimeOffset now = this._timeProvider.GetUtcNow();
+
+        await context
+            .PullRequests.Where(e =>
+                e.Repository == repository && e.Status != ClosedStatus && !activePullRequestNumbers.Contains(e.Id)
+            )
+            .ExecuteUpdateAsync(
+                s =>
+                    s.SetProperty(e => e.Status, ClosedStatus)
+                        .SetProperty(e => e.WhenClosed, now)
+                        .SetProperty(e => e.LastUpdated, now),
+                cancellationToken
+            );
+
+        await context
+            .Issues.Where(e =>
+                e.Repository == repository && e.Status != ClosedStatus && !activeIssueNumbers.Contains(e.Id)
+            )
+            .ExecuteUpdateAsync(
+                s =>
+                    s.SetProperty(e => e.Status, ClosedStatus)
+                        .SetProperty(e => e.WhenClosed, now)
+                        .SetProperty(e => e.LastUpdated, now),
+                cancellationToken
+            );
+    }
+
     private static string GetOwner(string repository)
     {
         int slash = repository.IndexOf(value: '/', comparisonType: StringComparison.Ordinal);

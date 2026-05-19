@@ -947,4 +947,116 @@ public sealed class WorkItemScannerTests : TestBase
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
+
+    [Fact]
+    public async Task ScanAsync_WithSuccessfulScan_CallsCloseStaleItemsAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, OpenIssueJson);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        WorkItemScanner scanner = this.CreateScanner();
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._workItemRepository.Received(1)
+            .CloseStaleItemsForRepoAsync(
+                repository: Repo,
+                activePullRequestNumbers: Arg.Is<IReadOnlyList<int>>(l => l.Count == 1 && l[0] == 1),
+                activeIssueNumbers: Arg.Is<IReadOnlyList<int>>(l => l.Count == 1 && l[0] == 20),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WhenPrScanFails_DoesNotCallCloseStaleItemsAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
+        using HttpClient prClient = CreateClient(HttpStatusCode.InternalServerError);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, OpenIssueJson);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        WorkItemScanner scanner = this.CreateScanner();
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._workItemRepository.DidNotReceive()
+            .CloseStaleItemsForRepoAsync(
+                repository: Arg.Any<string>(),
+                activePullRequestNumbers: Arg.Any<IReadOnlyList<int>>(),
+                activeIssueNumbers: Arg.Any<IReadOnlyList<int>>(),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WhenIssueScanFails_DoesNotCallCloseStaleItemsAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, EmptyJson);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.InternalServerError);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        WorkItemScanner scanner = this.CreateScanner();
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._workItemRepository.DidNotReceive()
+            .CloseStaleItemsForRepoAsync(
+                repository: Arg.Any<string>(),
+                activePullRequestNumbers: Arg.Any<IReadOnlyList<int>>(),
+                activeIssueNumbers: Arg.Any<IReadOnlyList<int>>(),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WithEmptyRepo_CallsCloseStaleItemsWithEmptyListsAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, EmptyJson);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EmptyJson);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        WorkItemScanner scanner = this.CreateScanner();
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._workItemRepository.Received(1)
+            .CloseStaleItemsForRepoAsync(
+                repository: Repo,
+                activePullRequestNumbers: Arg.Is<IReadOnlyList<int>>(l => l.Count == 0),
+                activeIssueNumbers: Arg.Is<IReadOnlyList<int>>(l => l.Count == 0),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WithFilteredOutPr_StillIncludesItInActiveListForReconciliationAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, PrWithUnrelatedLabelJson);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EmptyJson);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        GitHubOptions options = new() { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } };
+
+        WorkItemScanner scanner = this.CreateScanner(options);
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._workItemRepository.Received(1)
+            .CloseStaleItemsForRepoAsync(
+                repository: Repo,
+                activePullRequestNumbers: Arg.Is<IReadOnlyList<int>>(l => l.Count == 1 && l[0] == 6),
+                activeIssueNumbers: Arg.Is<IReadOnlyList<int>>(l => l.Count == 0),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
 }

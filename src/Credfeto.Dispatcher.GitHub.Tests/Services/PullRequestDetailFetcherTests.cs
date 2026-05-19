@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -70,6 +70,29 @@ public sealed class PullRequestDetailFetcherTests : TestBase
                 "number": 42,
                 "title": "Test PR",
                 "state": "CLOSED",
+                "isDraft": false,
+                "url": "https://github.com/owner/repo/pull/42",
+                "body": null,
+                "headRefOid": "abc123",
+                "baseRef": {"name": "main"},
+                "assignees": {"nodes": []},
+                "labels": {"nodes": []},
+                "comments": {"nodes": []},
+                "reviews": {"nodes": []}
+              }
+            }
+          }
+        }
+        """;
+
+    private const string MergedPrJson = """
+        {
+          "data": {
+            "repository": {
+              "pullRequest": {
+                "number": 42,
+                "title": "Test PR",
+                "state": "MERGED",
                 "isDraft": false,
                 "url": "https://github.com/owner/repo/pull/42",
                 "body": null,
@@ -381,6 +404,24 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     }
 
     [Fact]
+    public async Task ReturnsPullRequestDetailsForMergedPrAsync()
+    {
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, MergedPrJson);
+        using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
+        this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
+
+        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
+
+        PullRequestDetails? result = await this._fetcher.FetchAsync(
+            notification: notification,
+            cancellationToken: this.CancellationToken()
+        );
+
+        Assert.NotNull(result);
+        Assert.Equal(expected: "Closed", actual: result.Status);
+    }
+
+    [Fact]
     public async Task MapsTitleFromPullRequestAsync()
     {
         using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
@@ -431,10 +472,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         );
 
         Assert.NotNull(result);
-        Assert.Equal(
-            expected: new Uri("https://github.com/owner/repo/pull/42"),
-            actual: result.HtmlUrl
-        );
+        Assert.Equal(expected: new Uri("https://github.com/owner/repo/pull/42"), actual: result.HtmlUrl);
     }
 
     [Fact]
@@ -522,10 +560,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task ReturnsAllReviewsRegardlessOfNotificationReasonAsync()
     {
-        using HttpClient graphQlClient = CreateClient(
-            HttpStatusCode.OK,
-            OpenPrWithChangesRequestedReviewJson
-        );
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OpenPrWithChangesRequestedReviewJson);
         using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
         this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
 
@@ -546,10 +581,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task ReturnsApprovedReviewInReviewsListAsync()
     {
-        using HttpClient graphQlClient = CreateClient(
-            HttpStatusCode.OK,
-            OpenPrWithApprovedReviewJson
-        );
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OpenPrWithApprovedReviewJson);
         using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
         this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
 
@@ -583,10 +615,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         Assert.Single(result.Runs);
         Assert.Equal(expected: "CI", actual: result.Runs[0].Name);
         Assert.Equal(expected: "failure", actual: result.Runs[0].Conclusion);
-        Assert.Equal(
-            expected: new Uri("https://github.com/owner/repo/actions/runs/123"),
-            actual: result.Runs[0].Url
-        );
+        Assert.Equal(expected: new Uri("https://github.com/owner/repo/actions/runs/123"), actual: result.Runs[0].Url);
     }
 
     [Fact]
@@ -687,9 +716,6 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         Assert.NotNull(result);
         Assert.Single(result.Comments);
         Assert.Equal(expected: 301, actual: result.Comments[0].Body.Length);
-        Assert.True(
-            result.Comments[0].Body.EndsWith('…'),
-            userMessage: "Expected body to end with ellipsis"
-        );
+        Assert.True(result.Comments[0].Body.EndsWith('…'), userMessage: "Expected body to end with ellipsis");
     }
 }

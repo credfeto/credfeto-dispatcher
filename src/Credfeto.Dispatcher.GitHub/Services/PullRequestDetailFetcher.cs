@@ -323,7 +323,10 @@ public sealed partial class PullRequestDetailFetcher : IPullRequestDetailFetcher
 
     private static string DetermineStatus(GraphQlPullRequestData pr)
     {
-        if (string.Equals(a: pr.State, b: "CLOSED", comparisonType: StringComparison.OrdinalIgnoreCase))
+        if (
+            string.Equals(a: pr.State, b: "CLOSED", comparisonType: StringComparison.OrdinalIgnoreCase)
+            || string.Equals(a: pr.State, b: "MERGED", comparisonType: StringComparison.OrdinalIgnoreCase)
+        )
         {
             return "Closed";
         }

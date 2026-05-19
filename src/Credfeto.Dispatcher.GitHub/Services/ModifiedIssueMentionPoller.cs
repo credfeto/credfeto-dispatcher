@@ -106,10 +106,17 @@ public sealed class ModifiedIssueMentionPoller : IModifiedIssueMentionPoller
                     continue;
                 }
 
+                if (issue.HtmlUrl is not { } issueHtmlUrl)
+                {
+                    continue;
+                }
+
                 if (ContainsMention(text: issue.Body, mention: mentionTarget))
                 {
                     this._logger.LogFoundMentionInIssue(repo: repo, number: issue.Number);
-                    notifications.Add(BuildMentionNotification(repo: repo, issue: issue));
+                    notifications.Add(
+                        BuildMentionNotification(repo: repo, issue: issue, issueUri: new Uri(issueHtmlUrl))
+                    );
                 }
             }
 
@@ -200,10 +207,9 @@ public sealed class ModifiedIssueMentionPoller : IModifiedIssueMentionPoller
         return text is not null && text.Contains(value: mention, comparisonType: StringComparison.OrdinalIgnoreCase);
     }
 
-    private static GitHubNotification BuildMentionNotification(string repo, ApiIssue issue)
+    private static GitHubNotification BuildMentionNotification(string repo, ApiIssue issue, Uri issueUri)
     {
         Uri repoUri = new($"https://github.com/{repo}");
-        Uri issueUri = new(issue.HtmlUrl);
 
         return new GitHubNotification(
             Id: $"modified-mention:{repo}:issue:{issue.Number}:{issue.UpdatedAt.ToUnixTimeSeconds()}",

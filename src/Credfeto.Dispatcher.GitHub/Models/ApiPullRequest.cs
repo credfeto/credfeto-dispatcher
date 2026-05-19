@@ -10,7 +10,7 @@ internal sealed record ApiPullRequest(
     [property: JsonPropertyName("title")] string Title,
     [property: JsonPropertyName("state")] string State,
     [property: JsonPropertyName("draft")] bool Draft,
-    [property: JsonPropertyName("html_url")] string HtmlUrl,
+    [property: JsonPropertyName("html_url")] string? HtmlUrl,
     [property: JsonPropertyName("assignees")] IReadOnlyList<ApiUser> Assignees,
     [property: JsonPropertyName("labels")] IReadOnlyList<ApiLabel> Labels,
     [property: JsonPropertyName("head")] ApiPullRequestHead Head,

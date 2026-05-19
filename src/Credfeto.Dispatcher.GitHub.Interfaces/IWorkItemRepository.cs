@@ -15,4 +15,6 @@ public interface IWorkItemRepository
         int maxIssues,
         CancellationToken cancellationToken
     );
+
+    Task RemoveItemsForRepositoriesAsync(IReadOnlyList<string> repositories, CancellationToken cancellationToken);
 }

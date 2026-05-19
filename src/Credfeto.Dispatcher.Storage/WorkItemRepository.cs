@@ -253,6 +253,24 @@ public sealed class WorkItemRepository : IWorkItemRepository
         return int.MaxValue;
     }
 
+    public async Task RemoveItemsForRepositoriesAsync(
+        IReadOnlyList<string> repositories,
+        CancellationToken cancellationToken
+    )
+    {
+        if (repositories.Count == 0)
+        {
+            return;
+        }
+
+        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        await context
+            .PullRequests.Where(e => repositories.Contains(e.Repository))
+            .ExecuteDeleteAsync(cancellationToken);
+        await context.Issues.Where(e => repositories.Contains(e.Repository)).ExecuteDeleteAsync(cancellationToken);
+    }
+
     private static string GetOwner(string repository)
     {
         int slash = repository.IndexOf(value: '/', comparisonType: StringComparison.Ordinal);

@@ -44,7 +44,7 @@ public sealed class ModifiedIssueMentionPoller : IModifiedIssueMentionPoller
             return [];
         }
 
-        IReadOnlyList<string> repos = await this._helper.DiscoverReposAsync(
+        (IReadOnlyList<string> repos, _) = await this._helper.DiscoverReposAsync(
             shouldInclude: this.ShouldIncludeRepo,
             cancellationToken: cancellationToken
         );

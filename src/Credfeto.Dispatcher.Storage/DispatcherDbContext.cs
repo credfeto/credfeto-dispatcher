@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics.CodeAnalysis;
 using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.Storage.Entities;
@@ -47,33 +47,18 @@ public sealed class DispatcherDbContext : DbContext
         modelBuilder.Entity<PollingStateEntity>().Property(e => e.ETag).HasMaxLength(1024);
 
         modelBuilder.Entity<PullRequestEntity>().HasKey(e => new { e.Repository, e.Id });
-
         modelBuilder
             .Entity<PullRequestEntity>()
             .Property(e => e.Priority)
-            .HasConversion(v => (int)v, v => (WorkPriority)v)
-            .HasColumnType("INTEGER");
-
-        modelBuilder.Entity<PullRequestEntity>().Property(e => e.IsOnHold).HasColumnType("INTEGER");
+            .HasConversion(v => (int)v, v => (WorkPriority)v);
 
         modelBuilder.Entity<IssueEntity>().HasKey(e => new { e.Repository, e.Id });
-
-        modelBuilder
-            .Entity<IssueEntity>()
-            .Property(e => e.Priority)
-            .HasConversion(v => (int)v, v => (WorkPriority)v)
-            .HasColumnType("INTEGER");
-
-        modelBuilder.Entity<IssueEntity>().Property(e => e.IsOnHold).HasColumnType("INTEGER");
-
-        modelBuilder.Entity<IssueEntity>().Property(e => e.LinkedPrNumber).HasColumnType("INTEGER");
+        modelBuilder.Entity<IssueEntity>().Property(e => e.Priority).HasConversion(v => (int)v, v => (WorkPriority)v);
 
         modelBuilder.Entity<RepoEntity>().HasKey(e => e.Repository);
-        modelBuilder.Entity<RepoEntity>().Property(e => e.Repository).HasColumnType("TEXT");
-        modelBuilder.Entity<RepoEntity>().Property(e => e.IsActive).HasColumnType("INTEGER");
-        modelBuilder.Entity<RepoEntity>().Property(e => e.LastUpdated).HasColumnType("TEXT");
 
         ConfigureNotificationQueue(modelBuilder);
+        this.ConfigureSqliteOverrides(modelBuilder);
     }
 
     private static void ConfigureNotificationQueue(ModelBuilder modelBuilder)
@@ -90,6 +75,33 @@ public sealed class DispatcherDbContext : DbContext
             .Property(e => e.RepositoryUrl)
             .HasConversion(v => v.AbsoluteUri, v => new Uri(v, UriKind.Absolute));
 
+        modelBuilder.Entity<NotificationQueueEntity>().HasIndex(e => e.DispatchAfter);
+    }
+
+    private void ConfigureSqliteOverrides(ModelBuilder modelBuilder)
+    {
+        if (
+            !string.Equals(
+                this.Database.ProviderName,
+                b: "Microsoft.EntityFrameworkCore.Sqlite",
+                StringComparison.Ordinal
+            )
+        )
+        {
+            return;
+        }
+
+        modelBuilder.Entity<IssueEntity>().Property(e => e.IsOnHold).HasColumnType("INTEGER");
+
+        modelBuilder.Entity<IssueEntity>().Property(e => e.LinkedPrNumber).HasColumnType("INTEGER");
+
+        modelBuilder.Entity<PullRequestEntity>().Property(e => e.IsOnHold).HasColumnType("INTEGER");
+
+        ConfigureSqliteDateTimeOffsets(modelBuilder);
+    }
+
+    private static void ConfigureSqliteDateTimeOffsets(ModelBuilder modelBuilder)
+    {
         modelBuilder
             .Entity<NotificationQueueEntity>()
             .Property(e => e.DispatchAfter)
@@ -107,7 +119,5 @@ public sealed class DispatcherDbContext : DbContext
             .Property(e => e.UpdatedAt)
             .HasConversion(v => v.UtcTicks, v => new DateTimeOffset(v, TimeSpan.Zero))
             .HasColumnType("INTEGER");
-
-        modelBuilder.Entity<NotificationQueueEntity>().HasIndex(e => e.DispatchAfter);
     }
 }

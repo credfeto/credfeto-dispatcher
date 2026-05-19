@@ -31,7 +31,7 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
 
         using (DispatcherDbContext ctx = new(options))
         {
-            ctx.Database.Migrate();
+            ctx.Database.EnsureCreated();
         }
 
         this._tracker = new NotificationStateTracker(new TestDbContextFactory(options), MockDateTimeSources.Past);

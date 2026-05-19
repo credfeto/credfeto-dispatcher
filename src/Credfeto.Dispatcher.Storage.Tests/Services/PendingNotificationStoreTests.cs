@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
@@ -64,23 +64,19 @@ public sealed class PendingNotificationStoreTests : LoggingFolderCleanupTestBase
         : base(output)
     {
         string dbPath = Path.Combine(this.TempFolder, "test.db");
-        DbContextOptions<DispatcherDbContext> options =
-            new DbContextOptionsBuilder<DispatcherDbContext>()
-                .UseSqlite($"DataSource={dbPath}")
-                .Options;
+        DbContextOptions<DispatcherDbContext> options = new DbContextOptionsBuilder<DispatcherDbContext>()
+            .UseSqlite($"DataSource={dbPath}")
+            .Options;
 
         using (DispatcherDbContext ctx = new(options))
         {
-            ctx.Database.Migrate();
+            ctx.Database.EnsureCreated();
         }
 
         this._currentTimeSource = GetSubstitute<ICurrentTimeSource>();
         this._currentTimeSource.UtcNow().Returns(TestNow);
 
-        this._store = new PendingNotificationStore(
-            new TestDbContextFactory(options),
-            this._currentTimeSource
-        );
+        this._store = new PendingNotificationStore(new TestDbContextFactory(options), this._currentTimeSource);
     }
 
     [Fact]
@@ -122,10 +118,7 @@ public sealed class PendingNotificationStoreTests : LoggingFolderCleanupTestBase
     [Fact]
     public async Task EnqueueAsyncUpdatesExistingNotificationForSameSubjectUrlAsync()
     {
-        GitHubNotification updatedNotification = TestNotification with
-        {
-            Id = "notification-updated",
-        };
+        GitHubNotification updatedNotification = TestNotification with { Id = "notification-updated" };
 
         await this._store.EnqueueAsync(
             notification: TestNotification,
@@ -211,10 +204,7 @@ public sealed class PendingNotificationStoreTests : LoggingFolderCleanupTestBase
             dispatchAfter: TestNow.AddMinutes(-1),
             cancellationToken: this.CancellationToken()
         );
-        await this._store.RemoveAsync(
-            notification: TestNotification,
-            cancellationToken: this.CancellationToken()
-        );
+        await this._store.RemoveAsync(notification: TestNotification, cancellationToken: this.CancellationToken());
 
         IReadOnlyList<GitHubNotification> items = await this._store.GetReadyItemsAsync(
             now: TestNow,
@@ -249,9 +239,7 @@ public sealed class PendingNotificationStoreTests : LoggingFolderCleanupTestBase
             return new DispatcherDbContext(this._options);
         }
 
-        public Task<DispatcherDbContext> CreateDbContextAsync(
-            CancellationToken cancellationToken = default
-        )
+        public Task<DispatcherDbContext> CreateDbContextAsync(CancellationToken cancellationToken = default)
         {
             return Task.FromResult(new DispatcherDbContext(this._options));
         }

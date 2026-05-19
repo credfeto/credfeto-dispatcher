@@ -58,7 +58,7 @@
          assemblies to prevent MissingMethodException at startup after trimming. -->
     <TrimmerRootAssembly Include="Microsoft.EntityFrameworkCore" />
     <TrimmerRootAssembly Include="Microsoft.EntityFrameworkCore.Relational" />
-    <TrimmerRootAssembly Include="Microsoft.EntityFrameworkCore.Sqlite" />
+    <TrimmerRootAssembly Include="Microsoft.EntityFrameworkCore.SqlServer" />
     <!-- EF Core discovers migrations via Assembly.GetTypes() at runtime; without this root
          the trimmer removes all IMigration implementations and the database is never initialised. -->
     <TrimmerRootAssembly Include="Credfeto.Dispatcher.Storage" />
@@ -67,8 +67,8 @@
     <TrimmerRootAssembly Include="Ben.Demystifier" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Credfeto.Dispatcher.GitHub\Credfeto.Dispatcher.GitHub.csproj" />
     <ProjectReference Include="..\Credfeto.Dispatcher.Discord\Credfeto.Dispatcher.Discord.csproj" />
+    <ProjectReference Include="..\Credfeto.Dispatcher.GitHub\Credfeto.Dispatcher.GitHub.csproj" />
     <ProjectReference Include="..\Credfeto.Dispatcher.Shared\Credfeto.Dispatcher.Shared.csproj" />
     <ProjectReference Include="..\Credfeto.Dispatcher.Storage\Credfeto.Dispatcher.Storage.csproj" />
   </ItemGroup>
@@ -88,113 +88,23 @@
     <PackageReference Include="Serilog.Sinks.Debug" Version="3.0.0" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference
-      Include="AsyncFixer"
-      Version="2.1.0"
-      PrivateAssets="All"
-      ExcludeAssets="runtime"
-    />
-    <PackageReference
-      Include="codecracker.CSharp"
-      Version="1.1.0"
-      PrivateAssets="All"
-      ExcludeAssets="runtime"
-    />
-    <PackageReference
-      Include="Credfeto.Enumeration.Source.Generation"
-      Version="1.2.141.1822"
-      PrivateAssets="All"
-      ExcludeAssets="runtime"
-    />
-    <PackageReference
-      Include="Credfeto.Version.Information.Generator"
-      Version="1.0.124.1183"
-      PrivateAssets="All"
-      ExcludeAssets="runtime"
-    />
-    <PackageReference
-      Include="Figgle.Generator"
-      Version="0.6.6"
-      PrivateAssets="all"
-      ExcludeAssets="runtime"
-    />
-    <PackageReference
-      Include="FunFair.CodeAnalysis"
-      Version="7.1.41.1934"
-      PrivateAssets="All"
-      ExcludeAssets="runtime"
-    />
-    <PackageReference
-      Include="Meziantou.Analyzer"
-      Version="3.0.58"
-      PrivateAssets="All"
-      ExcludeAssets="runtime"
-    />
-    <PackageReference
-      Include="Microsoft.VisualStudio.Threading.Analyzers"
-      Version="17.14.15"
-      PrivateAssets="All"
-      ExcludeAssets="runtime"
-    />
-    <PackageReference
-      Include="NSubstitute.Analyzers.CSharp"
-      Version="1.0.17"
-      PrivateAssets="All"
-      ExcludeAssets="runtime"
-    />
-    <PackageReference
-      Include="Nullable.Extended.Analyzer"
-      Version="1.15.6581"
-      PrivateAssets="All"
-      ExcludeAssets="runtime"
-    />
-    <PackageReference
-      Include="Philips.CodeAnalysis.DuplicateCodeAnalyzer"
-      Version="2.0.0"
-      PrivateAssets="All"
-      ExcludeAssets="runtime"
-    />
-    <PackageReference
-      Include="Philips.CodeAnalysis.MaintainabilityAnalyzers"
-      Version="2.0.0"
-      PrivateAssets="All"
-      ExcludeAssets="runtime"
-    />
-    <PackageReference
-      Include="Roslynator.Analyzers"
-      Version="4.15.0"
-      PrivateAssets="All"
-      ExcludeAssets="runtime"
-    />
-    <PackageReference
-      Include="SecurityCodeScan.VS2019"
-      Version="5.6.7"
-      PrivateAssets="All"
-      ExcludeAssets="runtime"
-    />
-    <PackageReference
-      Include="SmartAnalyzers.CSharpExtensions.Annotations"
-      Version="4.2.11"
-      PrivateAssets="All"
-      ExcludeAssets="runtime"
-    />
-    <PackageReference
-      Include="SonarAnalyzer.CSharp"
-      Version="10.25.0.139117"
-      PrivateAssets="All"
-      ExcludeAssets="runtime"
-    />
-    <PackageReference
-      Include="SourceLink.Create.CommandLine"
-      Version="2.8.3"
-      PrivateAssets="All"
-      ExcludeAssets="runtime"
-    />
-    <PackageReference
-      Include="ToStringWithoutOverrideAnalyzer"
-      Version="0.6.0"
-      PrivateAssets="All"
-      ExcludeAssets="runtime"
-    />
+    <PackageReference Include="AsyncFixer" Version="2.1.0" PrivateAssets="All" ExcludeAssets="runtime" />
+    <PackageReference Include="codecracker.CSharp" Version="1.1.0" PrivateAssets="All" ExcludeAssets="runtime" />
+    <PackageReference Include="Credfeto.Enumeration.Source.Generation" Version="1.2.141.1822" PrivateAssets="All" ExcludeAssets="runtime" />
+    <PackageReference Include="Credfeto.Version.Information.Generator" Version="1.0.124.1183" PrivateAssets="All" ExcludeAssets="runtime" />
+    <PackageReference Include="Figgle.Generator" Version="0.6.6" PrivateAssets="all" ExcludeAssets="runtime" />
+    <PackageReference Include="FunFair.CodeAnalysis" Version="7.1.41.1934" PrivateAssets="All" ExcludeAssets="runtime" />
+    <PackageReference Include="Meziantou.Analyzer" Version="3.0.58" PrivateAssets="All" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" Version="17.14.15" PrivateAssets="All" ExcludeAssets="runtime" />
+    <PackageReference Include="NSubstitute.Analyzers.CSharp" Version="1.0.17" PrivateAssets="All" ExcludeAssets="runtime" />
+    <PackageReference Include="Nullable.Extended.Analyzer" Version="1.15.6581" PrivateAssets="All" ExcludeAssets="runtime" />
+    <PackageReference Include="Philips.CodeAnalysis.DuplicateCodeAnalyzer" Version="2.0.0" PrivateAssets="All" ExcludeAssets="runtime" />
+    <PackageReference Include="Philips.CodeAnalysis.MaintainabilityAnalyzers" Version="2.0.0" PrivateAssets="All" ExcludeAssets="runtime" />
+    <PackageReference Include="Roslynator.Analyzers" Version="4.15.0" PrivateAssets="All" ExcludeAssets="runtime" />
+    <PackageReference Include="SecurityCodeScan.VS2019" Version="5.6.7" PrivateAssets="All" ExcludeAssets="runtime" />
+    <PackageReference Include="SmartAnalyzers.CSharpExtensions.Annotations" Version="4.2.11" PrivateAssets="All" ExcludeAssets="runtime" />
+    <PackageReference Include="SonarAnalyzer.CSharp" Version="10.25.0.139117" PrivateAssets="All" ExcludeAssets="runtime" />
+    <PackageReference Include="SourceLink.Create.CommandLine" Version="2.8.3" PrivateAssets="All" ExcludeAssets="runtime" />
+    <PackageReference Include="ToStringWithoutOverrideAnalyzer" Version="0.6.0" PrivateAssets="All" ExcludeAssets="runtime" />
   </ItemGroup>
 </Project>

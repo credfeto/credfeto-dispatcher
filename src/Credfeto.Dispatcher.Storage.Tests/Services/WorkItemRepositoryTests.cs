@@ -43,7 +43,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
 
         using (DispatcherDbContext ctx = new(options))
         {
-            ctx.Database.Migrate();
+            ctx.Database.EnsureCreated();
         }
 
         TestDbContextFactory factory = new(options);

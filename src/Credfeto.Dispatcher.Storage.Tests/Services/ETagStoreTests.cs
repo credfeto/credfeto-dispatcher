@@ -1,4 +1,4 @@
-using System.Threading;
+﻿using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.Interfaces;
 using Credfeto.Dispatcher.Storage.Services;
@@ -23,12 +23,13 @@ public sealed class ETagStoreTests : TestBase, IAsyncLifetime
         this._connection = new SqliteConnection("DataSource=:memory:");
         this._connection.Open();
 
-        DbContextOptions<DispatcherDbContext> options =
-            new DbContextOptionsBuilder<DispatcherDbContext>().UseSqlite(this._connection).Options;
+        DbContextOptions<DispatcherDbContext> options = new DbContextOptionsBuilder<DispatcherDbContext>()
+            .UseSqlite(this._connection)
+            .Options;
 
         using (DispatcherDbContext ctx = new(options))
         {
-            ctx.Database.Migrate();
+            ctx.Database.EnsureCreated();
         }
 
         this._store = new ETagStore(new TestDbContextFactory(options));
@@ -47,10 +48,7 @@ public sealed class ETagStoreTests : TestBase, IAsyncLifetime
     [Fact]
     public async Task GetETagAsyncReturnsNullWhenNoRecordExistsAsync()
     {
-        string? result = await this._store.GetETagAsync(
-            key: TestKey,
-            cancellationToken: this.CancellationToken()
-        );
+        string? result = await this._store.GetETagAsync(key: TestKey, cancellationToken: this.CancellationToken());
 
         Assert.Null(result);
     }
@@ -58,16 +56,9 @@ public sealed class ETagStoreTests : TestBase, IAsyncLifetime
     [Fact]
     public async Task GetETagAsyncReturnsStoredValueAfterSaveAsync()
     {
-        await this._store.SaveETagAsync(
-            key: TestKey,
-            eTag: TestETag,
-            cancellationToken: this.CancellationToken()
-        );
+        await this._store.SaveETagAsync(key: TestKey, eTag: TestETag, cancellationToken: this.CancellationToken());
 
-        string? result = await this._store.GetETagAsync(
-            key: TestKey,
-            cancellationToken: this.CancellationToken()
-        );
+        string? result = await this._store.GetETagAsync(key: TestKey, cancellationToken: this.CancellationToken());
 
         Assert.Equal(expected: TestETag, actual: result);
     }
@@ -75,16 +66,9 @@ public sealed class ETagStoreTests : TestBase, IAsyncLifetime
     [Fact]
     public async Task SaveETagAsyncCreatesNewRecordWhenNoneExistsAsync()
     {
-        await this._store.SaveETagAsync(
-            key: TestKey,
-            eTag: TestETag,
-            cancellationToken: this.CancellationToken()
-        );
+        await this._store.SaveETagAsync(key: TestKey, eTag: TestETag, cancellationToken: this.CancellationToken());
 
-        string? result = await this._store.GetETagAsync(
-            key: TestKey,
-            cancellationToken: this.CancellationToken()
-        );
+        string? result = await this._store.GetETagAsync(key: TestKey, cancellationToken: this.CancellationToken());
 
         Assert.NotNull(result);
     }
@@ -92,21 +76,10 @@ public sealed class ETagStoreTests : TestBase, IAsyncLifetime
     [Fact]
     public async Task SaveETagAsyncUpdatesExistingRecordAsync()
     {
-        await this._store.SaveETagAsync(
-            key: TestKey,
-            eTag: TestETag,
-            cancellationToken: this.CancellationToken()
-        );
-        await this._store.SaveETagAsync(
-            key: TestKey,
-            eTag: UpdatedETag,
-            cancellationToken: this.CancellationToken()
-        );
+        await this._store.SaveETagAsync(key: TestKey, eTag: TestETag, cancellationToken: this.CancellationToken());
+        await this._store.SaveETagAsync(key: TestKey, eTag: UpdatedETag, cancellationToken: this.CancellationToken());
 
-        string? result = await this._store.GetETagAsync(
-            key: TestKey,
-            cancellationToken: this.CancellationToken()
-        );
+        string? result = await this._store.GetETagAsync(key: TestKey, cancellationToken: this.CancellationToken());
 
         Assert.Equal(expected: UpdatedETag, actual: result);
     }
@@ -116,16 +89,9 @@ public sealed class ETagStoreTests : TestBase, IAsyncLifetime
     {
         const string otherKey = "other.key";
 
-        await this._store.SaveETagAsync(
-            key: TestKey,
-            eTag: TestETag,
-            cancellationToken: this.CancellationToken()
-        );
+        await this._store.SaveETagAsync(key: TestKey, eTag: TestETag, cancellationToken: this.CancellationToken());
 
-        string? result = await this._store.GetETagAsync(
-            key: otherKey,
-            cancellationToken: this.CancellationToken()
-        );
+        string? result = await this._store.GetETagAsync(key: otherKey, cancellationToken: this.CancellationToken());
 
         Assert.Null(result);
     }
@@ -144,9 +110,7 @@ public sealed class ETagStoreTests : TestBase, IAsyncLifetime
             return new DispatcherDbContext(this._options);
         }
 
-        public Task<DispatcherDbContext> CreateDbContextAsync(
-            CancellationToken cancellationToken = default
-        )
+        public Task<DispatcherDbContext> CreateDbContextAsync(CancellationToken cancellationToken = default)
         {
             return Task.FromResult(new DispatcherDbContext(this._options));
         }

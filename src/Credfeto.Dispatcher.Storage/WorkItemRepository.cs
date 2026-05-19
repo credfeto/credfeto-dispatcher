@@ -93,7 +93,10 @@ public sealed class WorkItemRepository : IWorkItemRepository
                 e.Status != ClosedStatus
                 && !e.IsOnHold
                 && !context.Repos.Any(r => r.Repository == e.Repository && !r.IsActive)
-                && !context.PullRequests.Any(pr => pr.Repository == e.Repository && pr.Status != ClosedStatus)
+                && (
+                    e.Priority >= WorkPriority.Urgent
+                    || !context.PullRequests.Any(pr => pr.Repository == e.Repository && pr.Status != ClosedStatus)
+                )
             )
             .ToListAsync(cancellationToken);
 

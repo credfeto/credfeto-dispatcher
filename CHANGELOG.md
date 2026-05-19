@@ -37,6 +37,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Priorities endpoint: exclude PRs and issues from repos that are deleted, archived, or no longer accessible to the token
 - Priorities endpoint: only exclude issues where the linked PR is currently open (not when the linked PR is closed)
 - Filter out PRs and issues from archived or disabled repositories from /priorities output
+- Urgent and Security priority issues are no longer suppressed when a repo has an open or draft PR
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
@@ -54,21 +54,17 @@ public sealed class IssueDetailFetcher : IIssueDetailFetcher
 
         IReadOnlyList<string> labels = issue.Labels?.Select(l => l.Name).ToList() ?? [];
 
-        Uri? linkedPullRequestUrl = issue.PullRequest is not null
-            ? new Uri(issue.PullRequest.HtmlUrl)
-            : null;
+        if (issue.HtmlUrl is null)
+        {
+            return null;
+        }
+
+        Uri? linkedPullRequestUrl = issue.PullRequest is not null ? new Uri(issue.PullRequest.HtmlUrl) : null;
 
         string repoFullName = notification.Repository.FullName;
         string[] repoParts = repoFullName.Split('/');
-        ItemRepository repository = new(
-            Owner: repoParts[0],
-            Name: repoParts[1],
-            Url: notification.Repository.Url
-        );
-        LastNotification lastNotification = new(
-            Id: notification.Id,
-            Timestamp: notification.UpdatedAt
-        );
+        ItemRepository repository = new(Owner: repoParts[0], Name: repoParts[1], Url: notification.Repository.Url);
+        LastNotification lastNotification = new(Id: notification.Id, Timestamp: notification.UpdatedAt);
 
         return new IssueDetails(
             Number: issue.Number,
@@ -85,11 +81,7 @@ public sealed class IssueDetailFetcher : IIssueDetailFetcher
 
     private static string DetermineStatus(ApiIssue issue)
     {
-        return string.Equals(
-            a: issue.State,
-            b: "closed",
-            comparisonType: StringComparison.OrdinalIgnoreCase
-        )
+        return string.Equals(a: issue.State, b: "closed", comparisonType: StringComparison.OrdinalIgnoreCase)
             ? "Closed"
             : "Open";
     }

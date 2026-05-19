@@ -41,6 +41,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Closed issues and merged PRs no longer appear as open in /priorities (closes #105)
 - Replaced SQLite-specific EF Core migrations with a SQL Server InitialCreate migration; removed dead Provider property from DatabaseConfiguration
 - Stop crashing with ArgumentNullException when the GitHub Events API returns a pull request or issue event with a null html_url
+- Create SQL Server database catalog on startup if it does not already exist before running migrations
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934

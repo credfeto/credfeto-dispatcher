@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
@@ -26,12 +25,13 @@ public sealed class GitHubRepoHelper
         this._logger = logger;
     }
 
-    internal async Task<IReadOnlyList<string>> DiscoverReposAsync(
+    internal async Task<(IReadOnlyList<string> Active, IReadOnlyList<string> Inactive)> DiscoverReposAsync(
         Func<ApiUserRepo, bool> shouldInclude,
         CancellationToken cancellationToken
     )
     {
-        List<string> repos = [];
+        List<string> active = [];
+        List<string> inactive = [];
         string? url = UserReposUrl;
 
         while (url is not null)
@@ -47,12 +47,22 @@ public sealed class GitHubRepoHelper
                 break;
             }
 
-            repos.AddRange(items.Where(shouldInclude).Select(r => r.FullName));
+            foreach (ApiUserRepo repo in items)
+            {
+                if (shouldInclude(repo))
+                {
+                    active.Add(repo.FullName);
+                }
+                else if (repo.Archived || repo.Disabled)
+                {
+                    inactive.Add(repo.FullName);
+                }
+            }
 
             url = nextUrl;
         }
 
-        return repos;
+        return (active, inactive);
     }
 
     internal async ValueTask<(T[]? items, string? nextUrl)> GetPagedAsync<T>(

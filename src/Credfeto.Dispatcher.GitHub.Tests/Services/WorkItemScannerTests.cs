@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
@@ -248,11 +249,13 @@ public sealed class WorkItemScannerTests : TestBase
 
     private readonly System.Net.Http.IHttpClientFactory _httpClientFactory;
     private readonly INotificationStateTracker _notificationStateTracker;
+    private readonly IWorkItemRepository _workItemRepository;
 
     public WorkItemScannerTests()
     {
         this._httpClientFactory = GetSubstitute<System.Net.Http.IHttpClientFactory>();
         this._notificationStateTracker = GetSubstitute<INotificationStateTracker>();
+        this._workItemRepository = GetSubstitute<IWorkItemRepository>();
     }
 
     private WorkItemScanner CreateScanner(GitHubOptions? options = null)
@@ -265,6 +268,7 @@ public sealed class WorkItemScannerTests : TestBase
         return new WorkItemScanner(
             helper: helper,
             notificationStateTracker: this._notificationStateTracker,
+            workItemRepository: this._workItemRepository,
             options: Options.Create(options ?? new GitHubOptions()),
             logger: this.GetTypedLogger<WorkItemScanner>()
         );
@@ -359,6 +363,24 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Any<PullRequestDetails>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WhenRepoIsArchived_RemovesStoredItemsAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, ArchivedRepoJson);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient);
+
+        WorkItemScanner scanner = this.CreateScanner();
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._workItemRepository.Received(1)
+            .RemoveItemsForRepositoriesAsync(
+                repositories: Arg.Any<IReadOnlyList<string>>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }

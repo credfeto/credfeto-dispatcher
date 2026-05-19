@@ -14,4 +14,6 @@ public interface IWorkItemRepository
         TimeSpan stuckDependabotTimeout,
         CancellationToken cancellationToken
     );
+
+    Task RemoveItemsForRepositoriesAsync(IReadOnlyList<string> repositories, CancellationToken cancellationToken);
 }

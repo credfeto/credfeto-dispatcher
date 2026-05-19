@@ -19,26 +19,38 @@ public sealed class WorkItemScanner : IWorkItemScanner
     private readonly ILogger<WorkItemScanner> _logger;
     private readonly INotificationStateTracker _notificationStateTracker;
     private readonly GitHubOptions _options;
+    private readonly IWorkItemRepository _workItemRepository;
 
     public WorkItemScanner(
         GitHubRepoHelper helper,
         INotificationStateTracker notificationStateTracker,
+        IWorkItemRepository workItemRepository,
         IOptions<GitHubOptions> options,
         ILogger<WorkItemScanner> logger
     )
     {
         this._helper = helper;
         this._notificationStateTracker = notificationStateTracker;
+        this._workItemRepository = workItemRepository;
         this._options = options.Value;
         this._logger = logger;
     }
 
     public async Task ScanAsync(CancellationToken cancellationToken)
     {
-        IReadOnlyList<string> repos = await this._helper.DiscoverReposAsync(
+        (IReadOnlyList<string> repos, IReadOnlyList<string> inactiveRepos) = await this._helper.DiscoverReposAsync(
             shouldInclude: this.ShouldIncludeRepo,
             cancellationToken: cancellationToken
         );
+
+        if (inactiveRepos.Count > 0)
+        {
+            this._logger.LogRemovingItemsForInactiveRepos(count: inactiveRepos.Count);
+            await this._workItemRepository.RemoveItemsForRepositoriesAsync(
+                repositories: inactiveRepos,
+                cancellationToken: cancellationToken
+            );
+        }
 
         if (repos.Count == 0)
         {

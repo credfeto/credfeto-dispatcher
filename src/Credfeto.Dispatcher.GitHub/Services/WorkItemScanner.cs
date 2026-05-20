@@ -171,6 +171,14 @@ public sealed class WorkItemScanner : IWorkItemScanner
                 cancellationToken: cancellationToken
             );
         }
+        else
+        {
+            this._logger.LogRepoScanFailed(repo: repo);
+            await this._workItemRepository.RemoveItemsForRepositoriesAsync(
+                repositories: [repo],
+                cancellationToken: cancellationToken
+            );
+        }
     }
 
     private async Task<IReadOnlyList<int>?> ScanPullRequestsAsync(string repo, CancellationToken cancellationToken)

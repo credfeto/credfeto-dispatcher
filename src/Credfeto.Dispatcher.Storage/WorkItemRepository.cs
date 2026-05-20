@@ -94,6 +94,12 @@ public sealed class WorkItemRepository : IWorkItemRepository
                 && !e.IsOnHold
                 && !context.Repos.Any(r => r.Repository == e.Repository && !r.IsActive)
                 && (
+                    e.LinkedPrNumber == null
+                    || !context.PullRequests.Any(pr =>
+                        pr.Repository == e.Repository && pr.Id == e.LinkedPrNumber.Value && pr.Status != CLOSED_STATUS
+                    )
+                )
+                && (
                     e.Priority >= WorkPriority.URGENT
                     || !context.PullRequests.Any(pr => pr.Repository == e.Repository && pr.Status != CLOSED_STATUS)
                 )

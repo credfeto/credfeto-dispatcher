@@ -371,6 +371,51 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
     }
 
     [Fact]
+    public async Task Issue_WithOpenLinkedPr_IsExcludedFromPrioritiesAsync()
+    {
+        this._seedContext.Issues.Add(
+            CreateIssue("owner/repo", id: 1, priority: WorkPriority.URGENT, linkedPrNumber: 42)
+        );
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 42, status: "Open"));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: "PullRequest", actual: single.ItemType);
+        Assert.Equal(expected: 42, actual: single.Id);
+    }
+
+    [Fact]
+    public async Task Issue_WithClosedLinkedPr_IsIncludedInPrioritiesAsync()
+    {
+        this._seedContext.Issues.Add(
+            CreateIssue("owner/repo", id: 1, priority: WorkPriority.URGENT, linkedPrNumber: 42)
+        );
+        this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 42, status: "Closed"));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: "Issue", actual: single.ItemType);
+        Assert.Equal(expected: 1, actual: single.Id);
+    }
+
+    [Fact]
+    public async Task Issue_WithNoLinkedPr_IsIncludedInPrioritiesAsync()
+    {
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 1));
+        await this._seedContext.SaveChangesAsync(this.CancellationToken());
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+
+        WorkItem single = Assert.Single(result);
+        Assert.Equal(expected: "Issue", actual: single.ItemType);
+        Assert.Equal(expected: 1, actual: single.Id);
+    }
+
+    [Fact]
     public async Task PullRequest_StatusIsReturnedAsync()
     {
         this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 1, status: "Open"));

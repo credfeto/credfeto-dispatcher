@@ -1,14 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Credfeto.Database;
 using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Interfaces;
-using Credfeto.Dispatcher.Storage.Entities;
-using Microsoft.EntityFrameworkCore;
+using Credfeto.Dispatcher.Storage.Database;
 
 namespace Credfeto.Dispatcher.Storage;
 
@@ -24,12 +23,12 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         "action_required"
     );
 
-    private readonly IDbContextFactory<DispatcherDbContext> _dbContextFactory;
+    private readonly IDatabase _database;
     private readonly TimeProvider _timeProvider;
 
-    public NotificationStateTracker(IDbContextFactory<DispatcherDbContext> dbContextFactory, TimeProvider timeProvider)
+    public NotificationStateTracker(IDatabase database, TimeProvider timeProvider)
     {
-        this._dbContextFactory = dbContextFactory;
+        this._database = database;
         this._timeProvider = timeProvider;
     }
 
@@ -42,12 +41,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         return ValueTask.FromResult(IsClosedStatus(details.Status));
     }
 
-    [SuppressMessage(
-        "Philips.CodeAnalysis.DuplicateCodeAnalyzer",
-        "PH2071:Duplicate shape found",
-        Justification = "Structurally identical but operating on different entity types (PullRequestEntity vs IssueEntity)."
-    )]
-    public async ValueTask UpdateStateAsync(
+    public ValueTask UpdateStateAsync(
         GitHubNotification notification,
         PullRequestDetails details,
         WorkPriority priority,
@@ -55,60 +49,28 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         CancellationToken cancellationToken
     )
     {
-        string repository = notification.Repository.FullName;
-        int pullRequestNumber = details.Number;
-        string status = details.Status;
-        int commentCount = details.Comments.Count;
-        string? reviewDecision = ComputeReviewDecision(details.Reviews);
-        int failedCheckCount = CountFailedChecks(details.Runs);
-        string? failedCheckNames = BuildFailedCheckNames(details.Runs);
-        string? failedCheckSha = BuildFailedCheckSha(details.Runs);
-        string? author = details.Author;
-
-        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(cancellationToken);
-        PullRequestEntity? existing = await context.PullRequests.FindAsync(
-            keyValues: [repository, pullRequestNumber],
-            cancellationToken: cancellationToken
-        );
         DateTimeOffset now = this._timeProvider.GetUtcNow();
 
-        if (existing is null)
-        {
-            context.PullRequests.Add(
-                CreatePullRequestEntity(
-                    repository: repository,
-                    id: pullRequestNumber,
-                    status: status,
-                    priority: priority,
+        return this._database.ExecuteAsync(
+            action: (c, ct) =>
+                DispatcherDatabase.PullRequests_UpsertAsync(
+                    connection: c,
+                    repository: notification.Repository.FullName,
+                    id: details.Number,
+                    status: details.Status,
+                    priority: (int)priority,
                     isOnHold: isOnHold,
-                    commentCount: commentCount,
-                    reviewDecision: reviewDecision,
-                    failedCheckCount: failedCheckCount,
-                    failedCheckNames: failedCheckNames,
-                    failedCheckSha: failedCheckSha,
-                    author: author,
-                    now: now
-                )
-            );
-        }
-        else
-        {
-            UpdatePullRequestEntity(
-                entity: existing,
-                status: status,
-                priority: priority,
-                isOnHold: isOnHold,
-                commentCount: commentCount,
-                reviewDecision: reviewDecision,
-                failedCheckCount: failedCheckCount,
-                failedCheckNames: failedCheckNames,
-                failedCheckSha: failedCheckSha,
-                author: author,
-                now: now
-            );
-        }
-
-        await context.SaveChangesAsync(cancellationToken);
+                    commentCount: details.Comments.Count,
+                    reviewDecision: ComputeReviewDecision(details.Reviews),
+                    failedCheckCount: CountFailedChecks(details.Runs),
+                    failedCheckNames: BuildFailedCheckNames(details.Runs),
+                    failedCheckSha: BuildFailedCheckSha(details.Runs),
+                    author: details.Author,
+                    now: now,
+                    cancellationToken: ct
+                ),
+            cancellationToken: cancellationToken
+        );
     }
 
     public ValueTask<bool> ShouldSkipAsync(
@@ -120,12 +82,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         return ValueTask.FromResult(IsClosedStatus(details.Status));
     }
 
-    [SuppressMessage(
-        "Philips.CodeAnalysis.DuplicateCodeAnalyzer",
-        "PH2071:Duplicate shape found",
-        Justification = "Structurally identical but operating on different entity types (PullRequestEntity vs IssueEntity)."
-    )]
-    public async ValueTask UpdateStateAsync(
+    public ValueTask UpdateStateAsync(
         GitHubNotification notification,
         IssueDetails details,
         WorkPriority priority,
@@ -133,45 +90,23 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         CancellationToken cancellationToken
     )
     {
-        string repository = notification.Repository.FullName;
-        int issueNumber = details.Number;
-        string status = details.Status;
-        int? linkedPrNumber = ExtractPrNumber(details.LinkedPullRequestUrl);
-
-        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(cancellationToken);
-        IssueEntity? existing = await context.Issues.FindAsync(
-            keyValues: [repository, issueNumber],
-            cancellationToken: cancellationToken
-        );
         DateTimeOffset now = this._timeProvider.GetUtcNow();
 
-        if (existing is null)
-        {
-            context.Issues.Add(
-                CreateIssueEntity(
-                    repository: repository,
-                    id: issueNumber,
-                    status: status,
-                    priority: priority,
+        return this._database.ExecuteAsync(
+            action: (c, ct) =>
+                DispatcherDatabase.Issues_UpsertAsync(
+                    connection: c,
+                    repository: notification.Repository.FullName,
+                    id: details.Number,
+                    status: details.Status,
+                    priority: (int)priority,
                     isOnHold: isOnHold,
-                    linkedPrNumber: linkedPrNumber,
-                    now: now
-                )
-            );
-        }
-        else
-        {
-            UpdateIssueEntity(
-                entity: existing,
-                status: status,
-                priority: priority,
-                isOnHold: isOnHold,
-                linkedPrNumber: linkedPrNumber,
-                now: now
-            );
-        }
-
-        await context.SaveChangesAsync(cancellationToken);
+                    linkedPrNumber: ExtractPrNumber(details.LinkedPullRequestUrl),
+                    now: now,
+                    cancellationToken: ct
+                ),
+            cancellationToken: cancellationToken
+        );
     }
 
     private static bool IsClosedStatus(string status)
@@ -196,99 +131,6 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         )
             ? number
             : null;
-    }
-
-    private static PullRequestEntity CreatePullRequestEntity(
-        string repository,
-        int id,
-        string status,
-        WorkPriority priority,
-        bool isOnHold,
-        int commentCount,
-        string? reviewDecision,
-        int failedCheckCount,
-        string? failedCheckNames,
-        string? failedCheckSha,
-        string? author,
-        in DateTimeOffset now
-    )
-    {
-        return new PullRequestEntity
-        {
-            Repository = repository,
-            Id = id,
-            Status = status,
-            Priority = priority,
-            IsOnHold = isOnHold,
-            CommentCount = commentCount,
-            ReviewDecision = reviewDecision,
-            FailedCheckCount = failedCheckCount,
-            FailedCheckNames = failedCheckNames,
-            FailedCheckSha = failedCheckSha,
-            Author = author,
-            FirstSeen = now,
-            LastUpdated = now,
-            WhenClosed = IsClosedStatus(status) ? now : null,
-        };
-    }
-
-    private static IssueEntity CreateIssueEntity(
-        string repository,
-        int id,
-        string status,
-        WorkPriority priority,
-        bool isOnHold,
-        int? linkedPrNumber,
-        in DateTimeOffset now
-    )
-    {
-        return new IssueEntity
-        {
-            Repository = repository,
-            Id = id,
-            Status = status,
-            Priority = priority,
-            IsOnHold = isOnHold,
-            LinkedPrNumber = linkedPrNumber,
-            FirstSeen = now,
-            LastUpdated = now,
-            WhenClosed = IsClosedStatus(status) ? now : null,
-        };
-    }
-
-    private static void UpdatePullRequestEntity(
-        PullRequestEntity entity,
-        string status,
-        WorkPriority priority,
-        bool isOnHold,
-        int commentCount,
-        string? reviewDecision,
-        int failedCheckCount,
-        string? failedCheckNames,
-        string? failedCheckSha,
-        string? author,
-        in DateTimeOffset now
-    )
-    {
-        entity.Status = status;
-        entity.Priority = priority;
-        entity.IsOnHold = isOnHold;
-        entity.CommentCount = commentCount;
-        entity.ReviewDecision = reviewDecision;
-        entity.FailedCheckCount = failedCheckCount;
-        entity.FailedCheckNames = failedCheckNames;
-        entity.FailedCheckSha = failedCheckSha;
-        entity.Author = author ?? entity.Author;
-        entity.LastUpdated = now;
-
-        if (IsClosedStatus(status))
-        {
-            entity.WhenClosed ??= now;
-        }
-        else
-        {
-            entity.WhenClosed = null;
-        }
     }
 
     private static string? ComputeReviewDecision(IReadOnlyList<PullRequestReview> reviews)
@@ -332,30 +174,5 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         ];
 
         return shas.Length > 0 ? shas[0] : null;
-    }
-
-    private static void UpdateIssueEntity(
-        IssueEntity entity,
-        string status,
-        WorkPriority priority,
-        bool isOnHold,
-        int? linkedPrNumber,
-        in DateTimeOffset now
-    )
-    {
-        entity.Status = status;
-        entity.Priority = priority;
-        entity.IsOnHold = isOnHold;
-        entity.LinkedPrNumber = linkedPrNumber;
-        entity.LastUpdated = now;
-
-        if (IsClosedStatus(status))
-        {
-            entity.WhenClosed ??= now;
-        }
-        else
-        {
-            entity.WhenClosed = null;
-        }
     }
 }

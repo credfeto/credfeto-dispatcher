@@ -1,60 +1,43 @@
-using System.Threading;
+﻿using System.Threading;
 using System.Threading.Tasks;
+using Credfeto.Database;
 using Credfeto.Dispatcher.GitHub.Interfaces;
-using Credfeto.Dispatcher.Storage.Entities;
-using Microsoft.EntityFrameworkCore;
+using Credfeto.Dispatcher.Storage.Database;
+using Credfeto.Dispatcher.Storage.Database.Rows;
 
 namespace Credfeto.Dispatcher.Storage.Services;
 
 public sealed class ETagStore : IETagStore
 {
-    private readonly IDbContextFactory<DispatcherDbContext> _dbContextFactory;
+    private readonly IDatabase _database;
 
-    public ETagStore(IDbContextFactory<DispatcherDbContext> dbContextFactory)
+    public ETagStore(IDatabase database)
     {
-        this._dbContextFactory = dbContextFactory;
+        this._database = database;
     }
 
     public async ValueTask<string?> GetETagAsync(string key, CancellationToken cancellationToken)
     {
-        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(
-            cancellationToken
-        );
-
-        PollingStateEntity? entity = await context.PollingStates.FindAsync(
-            keyValues: [key],
+        PollingStateRow? row = await this._database.ExecuteAsync(
+            action: (c, ct) =>
+                DispatcherDatabase.PollingStates_GetByKeyAsync(connection: c, key: key, cancellationToken: ct),
             cancellationToken: cancellationToken
         );
 
-        return entity?.ETag;
+        return row?.ETag;
     }
 
-    public async ValueTask SaveETagAsync(
-        string key,
-        string eTag,
-        CancellationToken cancellationToken
-    )
+    public ValueTask SaveETagAsync(string key, string eTag, CancellationToken cancellationToken)
     {
-        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(
-            cancellationToken
-        );
-
-        PollingStateEntity? existing = await context.PollingStates.FindAsync(
-            keyValues: [key],
+        return this._database.ExecuteAsync(
+            action: (c, ct) =>
+                DispatcherDatabase.PollingStates_UpsertAsync(
+                    connection: c,
+                    key: key,
+                    eTag: eTag,
+                    cancellationToken: ct
+                ),
             cancellationToken: cancellationToken
         );
-
-        if (existing is null)
-        {
-            context.PollingStates.Add(new PollingStateEntity { Key = key, ETag = eTag });
-        }
-        else
-        {
-            context
-                .PollingStates.Entry(existing)
-                .CurrentValues.SetValues(new PollingStateEntity { Key = key, ETag = eTag });
-        }
-
-        await context.SaveChangesAsync(cancellationToken);
     }
 }

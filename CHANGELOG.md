@@ -44,6 +44,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Create SQL Server database catalog on startup if it does not already exist before running migrations
 - Filter issues with open linked PRs from priorities endpoint
 - Remove work items for repos that become inaccessible during scan
+- Fixed SQLFLUFF RF04 lint violations - quoted [Target] and [Source] aliases in MERGE stored procedure SQL
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934

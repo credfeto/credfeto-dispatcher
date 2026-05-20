@@ -14,7 +14,7 @@ namespace Credfeto.Dispatcher.Storage;
 
 public sealed class NotificationStateTracker : INotificationStateTracker
 {
-    private const string ClosedStatus = "Closed";
+    private const string CLOSED_STATUS = "Closed";
 
     private static readonly ImmutableHashSet<string> FailedConclusions = ImmutableHashSet.Create(
         StringComparer.OrdinalIgnoreCase,
@@ -176,7 +176,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
 
     private static bool IsClosedStatus(string status)
     {
-        return string.Equals(a: status, b: ClosedStatus, comparisonType: StringComparison.OrdinalIgnoreCase);
+        return string.Equals(a: status, b: CLOSED_STATUS, comparisonType: StringComparison.OrdinalIgnoreCase);
     }
 
     private static int? ExtractPrNumber(Uri? linkedPullRequestUrl)

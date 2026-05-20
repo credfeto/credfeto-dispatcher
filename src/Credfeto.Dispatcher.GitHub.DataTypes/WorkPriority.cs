@@ -2,10 +2,10 @@ namespace Credfeto.Dispatcher.GitHub.DataTypes;
 
 public enum WorkPriority
 {
-    Unknown = 0,
-    Low = 1,
-    Medium = 2,
-    High = 3,
-    Urgent = 4,
-    Security = 5,
+    UNKNOWN = 0,
+    LOW = 1,
+    MEDIUM = 2,
+    HIGH = 3,
+    URGENT = 4,
+    SECURITY = 5,
 }

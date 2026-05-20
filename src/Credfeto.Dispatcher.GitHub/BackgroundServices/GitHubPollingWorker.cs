@@ -18,9 +18,9 @@ namespace Credfeto.Dispatcher.GitHub.BackgroundServices;
 
 public sealed class GitHubPollingWorker : BackgroundService
 {
-    private const string PullRequestType = "PullRequest";
-    private const string IssueType = "Issue";
-    private const int EmbedColour = 0x5865F2;
+    private const string PULL_REQUEST_TYPE = "PullRequest";
+    private const string ISSUE_TYPE = "Issue";
+    private const int EMBED_COLOUR = 0x5865F2;
 
     private readonly IDiscordDispatcher _discordDispatcher;
     private readonly IIssueDetailFetcher _issueDetailFetcher;
@@ -184,7 +184,7 @@ public sealed class GitHubPollingWorker : BackgroundService
         if (
             string.Equals(
                 a: notification.Subject.Type,
-                b: PullRequestType,
+                b: PULL_REQUEST_TYPE,
                 comparisonType: StringComparison.OrdinalIgnoreCase
             )
         )
@@ -202,7 +202,7 @@ public sealed class GitHubPollingWorker : BackgroundService
         else if (
             string.Equals(
                 a: notification.Subject.Type,
-                b: IssueType,
+                b: ISSUE_TYPE,
                 comparisonType: StringComparison.OrdinalIgnoreCase
             )
         )
@@ -259,7 +259,7 @@ public sealed class GitHubPollingWorker : BackgroundService
                 notificationId: notification.Id,
                 repository: notification.Repository.FullName,
                 itemId: details.Number,
-                itemType: PullRequestType
+                itemType: PULL_REQUEST_TYPE
             );
         }
 
@@ -314,7 +314,7 @@ public sealed class GitHubPollingWorker : BackgroundService
                 notificationId: notification.Id,
                 repository: notification.Repository.FullName,
                 itemId: details.Number,
-                itemType: IssueType
+                itemType: ISSUE_TYPE
             );
         }
 
@@ -341,7 +341,7 @@ public sealed class GitHubPollingWorker : BackgroundService
             Title: notification.Subject.Title,
             Description: $"Reason: {notification.Reason}",
             Url: notification.Subject.Url,
-            Color: EmbedColour
+            Color: EMBED_COLOUR
         );
 
         return new DiscordMessage(
@@ -395,7 +395,7 @@ public sealed class GitHubPollingWorker : BackgroundService
             Title: details.Title,
             Description: $"Issue #{details.Number} in {notification.Repository.FullName}",
             Url: details.HtmlUrl,
-            Color: EmbedColour,
+            Color: EMBED_COLOUR,
             Fields: fields
         );
 
@@ -418,7 +418,7 @@ public sealed class GitHubPollingWorker : BackgroundService
             Title: details.Title,
             Description: $"PR #{details.Number} in {notification.Repository.FullName}",
             Url: details.HtmlUrl,
-            Color: EmbedColour,
+            Color: EMBED_COLOUR,
             Fields: fields
         );
 

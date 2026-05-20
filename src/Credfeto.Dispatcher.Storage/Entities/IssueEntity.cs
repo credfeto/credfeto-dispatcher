@@ -19,7 +19,7 @@ public sealed class IssueEntity : INotificationEntity
 
     public DateTimeOffset? WhenClosed { get; set; }
 
-    public WorkPriority Priority { get; set; } = WorkPriority.Unknown;
+    public WorkPriority Priority { get; set; } = WorkPriority.UNKNOWN;
 
     public bool IsOnHold { get; set; }
 

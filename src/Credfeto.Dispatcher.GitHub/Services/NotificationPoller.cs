@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
@@ -16,11 +16,8 @@ namespace Credfeto.Dispatcher.GitHub.Services;
 
 public sealed class NotificationPoller : INotificationPoller
 {
-    private const string ETagKey = "github.notifications";
-    private static readonly Uri NotificationsRelativeUri = new(
-        uriString: "notifications",
-        uriKind: UriKind.Relative
-    );
+    private const string E_TAG_KEY = "github.notifications";
+    private static readonly Uri NotificationsRelativeUri = new(uriString: "notifications", uriKind: UriKind.Relative);
 
     private readonly IETagStore _eTagStore;
     private readonly IHttpClientFactory _httpClientFactory;
@@ -37,14 +34,9 @@ public sealed class NotificationPoller : INotificationPoller
         this._logger = logger;
     }
 
-    public async ValueTask<IReadOnlyList<GitHubNotification>> PollAsync(
-        CancellationToken cancellationToken
-    )
+    public async ValueTask<IReadOnlyList<GitHubNotification>> PollAsync(CancellationToken cancellationToken)
     {
-        string? eTag = await this._eTagStore.GetETagAsync(
-            key: ETagKey,
-            cancellationToken: cancellationToken
-        );
+        string? eTag = await this._eTagStore.GetETagAsync(key: E_TAG_KEY, cancellationToken: cancellationToken);
 
         if (eTag is null)
         {
@@ -63,18 +55,12 @@ public sealed class NotificationPoller : INotificationPoller
             cancellationToken: cancellationToken
         );
 
-        return await this.ProcessResponseAsync(
-            response: response,
-            cancellationToken: cancellationToken
-        );
+        return await this.ProcessResponseAsync(response: response, cancellationToken: cancellationToken);
     }
 
     private static HttpRequestMessage BuildRequest(string? eTag)
     {
-        HttpRequestMessage request = new(
-            method: HttpMethod.Get,
-            requestUri: NotificationsRelativeUri
-        );
+        HttpRequestMessage request = new(method: HttpMethod.Get, requestUri: NotificationsRelativeUri);
 
         if (eTag is not null)
         {
@@ -101,7 +87,7 @@ public sealed class NotificationPoller : INotificationPoller
         if (response.Headers.ETag is not null)
         {
             await this._eTagStore.SaveETagAsync(
-                key: ETagKey,
+                key: E_TAG_KEY,
                 eTag: response.Headers.ETag.Tag,
                 cancellationToken: cancellationToken
             );
@@ -149,10 +135,7 @@ public sealed class NotificationPoller : INotificationPoller
                 Url: new Uri(n.Subject.Url ?? "about:blank"),
                 Type: n.Subject.Type
             ),
-            Repository: new NotificationRepository(
-                FullName: n.Repository.FullName,
-                Url: new Uri(n.Repository.HtmlUrl)
-            ),
+            Repository: new NotificationRepository(FullName: n.Repository.FullName, Url: new Uri(n.Repository.HtmlUrl)),
             UpdatedAt: n.UpdatedAt,
             Unread: n.Unread
         );

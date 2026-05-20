@@ -13,7 +13,7 @@ namespace Credfeto.Dispatcher.GitHub.Services;
 
 public sealed class IssueDetailFetcher : IIssueDetailFetcher
 {
-    private const string IssueType = "Issue";
+    private const string ISSUE_TYPE = "Issue";
 
     private readonly IHttpClientFactory _httpClientFactory;
 
@@ -30,7 +30,7 @@ public sealed class IssueDetailFetcher : IIssueDetailFetcher
         if (
             !string.Equals(
                 a: notification.Subject.Type,
-                b: IssueType,
+                b: ISSUE_TYPE,
                 comparisonType: StringComparison.OrdinalIgnoreCase
             )
         )

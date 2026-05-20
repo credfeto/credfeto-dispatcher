@@ -167,11 +167,11 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
     [Fact]
     public async Task Issues_AcrossRepos_AreOrderedByPriorityDescendingAsync()
     {
-        this._seedContext.Issues.Add(CreateIssue("owner/aa-repo", id: 1, priority: WorkPriority.Urgent));
-        this._seedContext.Issues.Add(CreateIssue("owner/bb-repo", id: 2, priority: WorkPriority.High));
-        this._seedContext.Issues.Add(CreateIssue("owner/cc-repo", id: 3, priority: WorkPriority.Medium));
-        this._seedContext.Issues.Add(CreateIssue("owner/dd-repo", id: 4, priority: WorkPriority.Low));
-        this._seedContext.Issues.Add(CreateIssue("owner/ee-repo", id: 5, priority: WorkPriority.Unknown));
+        this._seedContext.Issues.Add(CreateIssue("owner/aa-repo", id: 1, priority: WorkPriority.URGENT));
+        this._seedContext.Issues.Add(CreateIssue("owner/bb-repo", id: 2, priority: WorkPriority.HIGH));
+        this._seedContext.Issues.Add(CreateIssue("owner/cc-repo", id: 3, priority: WorkPriority.MEDIUM));
+        this._seedContext.Issues.Add(CreateIssue("owner/dd-repo", id: 4, priority: WorkPriority.LOW));
+        this._seedContext.Issues.Add(CreateIssue("owner/ee-repo", id: 5, priority: WorkPriority.UNKNOWN));
         await this._seedContext.SaveChangesAsync(this.CancellationToken());
 
         IReadOnlyList<WorkItem> result = await this.GetItemsAsync(
@@ -180,25 +180,25 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         );
 
         Assert.Equal(expected: 5, actual: result.Count);
-        Assert.Equal(expected: WorkPriority.Urgent, actual: result[0].Priority);
-        Assert.Equal(expected: WorkPriority.High, actual: result[1].Priority);
-        Assert.Equal(expected: WorkPriority.Medium, actual: result[2].Priority);
-        Assert.Equal(expected: WorkPriority.Low, actual: result[3].Priority);
-        Assert.Equal(expected: WorkPriority.Unknown, actual: result[4].Priority);
+        Assert.Equal(expected: WorkPriority.URGENT, actual: result[0].Priority);
+        Assert.Equal(expected: WorkPriority.HIGH, actual: result[1].Priority);
+        Assert.Equal(expected: WorkPriority.MEDIUM, actual: result[2].Priority);
+        Assert.Equal(expected: WorkPriority.LOW, actual: result[3].Priority);
+        Assert.Equal(expected: WorkPriority.UNKNOWN, actual: result[4].Priority);
     }
 
     [Fact]
     public async Task Issues_PerRepo_OnlyHighestPriorityIsReturnedAsync()
     {
-        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 1, priority: WorkPriority.Unknown));
-        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 2, priority: WorkPriority.Low));
-        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 3, priority: WorkPriority.Urgent));
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 1, priority: WorkPriority.UNKNOWN));
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 2, priority: WorkPriority.LOW));
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 3, priority: WorkPriority.URGENT));
         await this._seedContext.SaveChangesAsync(this.CancellationToken());
 
         IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
 
         WorkItem single = Assert.Single(result);
-        Assert.Equal(expected: WorkPriority.Urgent, actual: single.Priority);
+        Assert.Equal(expected: WorkPriority.URGENT, actual: single.Priority);
         Assert.Equal(expected: 3, actual: single.Id);
     }
 
@@ -218,8 +218,8 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
     [Fact]
     public async Task Issues_AcrossRepos_UntaggedAppearAfterLowPriorityAsync()
     {
-        this._seedContext.Issues.Add(CreateIssue("owner/aa-repo", id: 1, priority: WorkPriority.Unknown));
-        this._seedContext.Issues.Add(CreateIssue("owner/bb-repo", id: 2, priority: WorkPriority.Low));
+        this._seedContext.Issues.Add(CreateIssue("owner/aa-repo", id: 1, priority: WorkPriority.UNKNOWN));
+        this._seedContext.Issues.Add(CreateIssue("owner/bb-repo", id: 2, priority: WorkPriority.LOW));
         await this._seedContext.SaveChangesAsync(this.CancellationToken());
 
         IReadOnlyList<WorkItem> result = await this.GetItemsAsync(
@@ -228,8 +228,8 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         );
 
         Assert.Equal(expected: 2, actual: result.Count);
-        Assert.Equal(expected: WorkPriority.Low, actual: result[0].Priority);
-        Assert.Equal(expected: WorkPriority.Unknown, actual: result[1].Priority);
+        Assert.Equal(expected: WorkPriority.LOW, actual: result[0].Priority);
+        Assert.Equal(expected: WorkPriority.UNKNOWN, actual: result[1].Priority);
     }
 
     [Fact]
@@ -277,7 +277,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
     [Fact]
     public async Task UrgentIssueInRepoWithOpenPr_IsIncludedAsync()
     {
-        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 10, priority: WorkPriority.Urgent));
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 10, priority: WorkPriority.URGENT));
         this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 20));
         await this._seedContext.SaveChangesAsync(this.CancellationToken());
 
@@ -291,7 +291,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
     [Fact]
     public async Task SecurityIssueInRepoWithOpenPr_IsIncludedAsync()
     {
-        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 10, priority: WorkPriority.Security));
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 10, priority: WorkPriority.SECURITY));
         this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 20));
         await this._seedContext.SaveChangesAsync(this.CancellationToken());
 
@@ -305,7 +305,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
     [Fact]
     public async Task HighPriorityIssueInRepoWithOpenPr_IsExcludedAsync()
     {
-        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 10, priority: WorkPriority.High));
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 10, priority: WorkPriority.HIGH));
         this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 20));
         await this._seedContext.SaveChangesAsync(this.CancellationToken());
 
@@ -319,7 +319,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
     [Fact]
     public async Task UrgentIssueInRepoWithDraftPr_IsIncludedAsync()
     {
-        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 10, priority: WorkPriority.Urgent));
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 10, priority: WorkPriority.URGENT));
         this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 20, status: "Draft"));
         await this._seedContext.SaveChangesAsync(this.CancellationToken());
 
@@ -333,7 +333,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
     [Fact]
     public async Task LowPriorityIssueInRepoWithDraftPr_IsExcludedAsync()
     {
-        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 10, priority: WorkPriority.Low));
+        this._seedContext.Issues.Add(CreateIssue("owner/repo", id: 10, priority: WorkPriority.LOW));
         this._seedContext.PullRequests.Add(CreatePr("owner/repo", id: 20, status: "Draft"));
         await this._seedContext.SaveChangesAsync(this.CancellationToken());
 
@@ -488,7 +488,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
 
         WorkItem single = Assert.Single(result);
-        Assert.Equal(expected: ReviewDecisionState.ChangesRequested, actual: single.ReviewDecision);
+        Assert.Equal(expected: ReviewDecisionState.CHANGES_REQUESTED, actual: single.ReviewDecision);
     }
 
     [Fact]
@@ -500,7 +500,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
 
         WorkItem single = Assert.Single(result);
-        Assert.Equal(expected: ReviewDecisionState.NotReviewed, actual: single.ReviewDecision);
+        Assert.Equal(expected: ReviewDecisionState.NOT_REVIEWED, actual: single.ReviewDecision);
     }
 
     [Fact]
@@ -553,7 +553,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
 
         WorkItem single = Assert.Single(result);
-        Assert.Equal(expected: ReviewDecisionState.NotApplicable, actual: single.ReviewDecision);
+        Assert.Equal(expected: ReviewDecisionState.NOT_APPLICABLE, actual: single.ReviewDecision);
     }
 
     [Fact]
@@ -573,7 +573,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
     public async Task StuckDependabotPullRequestAtThresholdIsRaisedToSecurityPriorityAsync()
     {
         this._seedContext.PullRequests.Add(
-            CreatePr("owner/repo", id: 1, firstSeen: BaseTime, priority: WorkPriority.Low, author: "dependabot[bot]")
+            CreatePr("owner/repo", id: 1, firstSeen: BaseTime, priority: WorkPriority.LOW, author: "dependabot[bot]")
         );
         await this._seedContext.SaveChangesAsync(this.CancellationToken());
 
@@ -586,14 +586,14 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         );
 
         WorkItem single = Assert.Single(result);
-        Assert.Equal(expected: WorkPriority.Security, actual: single.Priority);
+        Assert.Equal(expected: WorkPriority.SECURITY, actual: single.Priority);
     }
 
     [Fact]
     public async Task StuckDependabotPullRequestBelowThresholdKeepsOriginalPriorityAsync()
     {
         this._seedContext.PullRequests.Add(
-            CreatePr("owner/repo", id: 1, firstSeen: BaseTime, priority: WorkPriority.Low, author: "dependabot[bot]")
+            CreatePr("owner/repo", id: 1, firstSeen: BaseTime, priority: WorkPriority.LOW, author: "dependabot[bot]")
         );
         await this._seedContext.SaveChangesAsync(this.CancellationToken());
 
@@ -606,14 +606,14 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         );
 
         WorkItem single = Assert.Single(result);
-        Assert.Equal(expected: WorkPriority.Low, actual: single.Priority);
+        Assert.Equal(expected: WorkPriority.LOW, actual: single.Priority);
     }
 
     [Fact]
     public async Task StuckPullRequestFromNonDependabotAuthorKeepsOriginalPriorityAsync()
     {
         this._seedContext.PullRequests.Add(
-            CreatePr("owner/repo", id: 1, firstSeen: BaseTime, priority: WorkPriority.Low, author: "someone-else")
+            CreatePr("owner/repo", id: 1, firstSeen: BaseTime, priority: WorkPriority.LOW, author: "someone-else")
         );
         await this._seedContext.SaveChangesAsync(this.CancellationToken());
 
@@ -626,14 +626,14 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         );
 
         WorkItem single = Assert.Single(result);
-        Assert.Equal(expected: WorkPriority.Low, actual: single.Priority);
+        Assert.Equal(expected: WorkPriority.LOW, actual: single.Priority);
     }
 
     [Fact]
     public async Task StuckDependabotRuleIsDisabledWhenTimeoutIsZeroAsync()
     {
         this._seedContext.PullRequests.Add(
-            CreatePr("owner/repo", id: 1, firstSeen: BaseTime, priority: WorkPriority.Low, author: "dependabot[bot]")
+            CreatePr("owner/repo", id: 1, firstSeen: BaseTime, priority: WorkPriority.LOW, author: "dependabot[bot]")
         );
         await this._seedContext.SaveChangesAsync(this.CancellationToken());
 
@@ -646,7 +646,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         );
 
         WorkItem single = Assert.Single(result);
-        Assert.Equal(expected: WorkPriority.Low, actual: single.Priority);
+        Assert.Equal(expected: WorkPriority.LOW, actual: single.Priority);
     }
 
     [Fact]
@@ -795,10 +795,10 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
     [Fact]
     public async Task Issues_EachRepoContributesAtMostOneAsync()
     {
-        this._seedContext.Issues.Add(CreateIssue("owner/repo-a", id: 1, priority: WorkPriority.High));
-        this._seedContext.Issues.Add(CreateIssue("owner/repo-a", id: 2, priority: WorkPriority.Low));
-        this._seedContext.Issues.Add(CreateIssue("owner/repo-b", id: 3, priority: WorkPriority.Medium));
-        this._seedContext.Issues.Add(CreateIssue("owner/repo-b", id: 4, priority: WorkPriority.Low));
+        this._seedContext.Issues.Add(CreateIssue("owner/repo-a", id: 1, priority: WorkPriority.HIGH));
+        this._seedContext.Issues.Add(CreateIssue("owner/repo-a", id: 2, priority: WorkPriority.LOW));
+        this._seedContext.Issues.Add(CreateIssue("owner/repo-b", id: 3, priority: WorkPriority.MEDIUM));
+        this._seedContext.Issues.Add(CreateIssue("owner/repo-b", id: 4, priority: WorkPriority.LOW));
         await this._seedContext.SaveChangesAsync(this.CancellationToken());
 
         IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
@@ -859,9 +859,9 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
     [Fact]
     public async Task Issues_MaxIssuesCap_TakesFirstNAfterOrderingAsync()
     {
-        this._seedContext.Issues.Add(CreateIssue("owner/repo-a", id: 1, priority: WorkPriority.Low));
-        this._seedContext.Issues.Add(CreateIssue("owner/repo-b", id: 2, priority: WorkPriority.Urgent));
-        this._seedContext.Issues.Add(CreateIssue("owner/repo-c", id: 3, priority: WorkPriority.High));
+        this._seedContext.Issues.Add(CreateIssue("owner/repo-a", id: 1, priority: WorkPriority.LOW));
+        this._seedContext.Issues.Add(CreateIssue("owner/repo-b", id: 2, priority: WorkPriority.URGENT));
+        this._seedContext.Issues.Add(CreateIssue("owner/repo-c", id: 3, priority: WorkPriority.HIGH));
         await this._seedContext.SaveChangesAsync(this.CancellationToken());
 
         IReadOnlyList<WorkItem> result = await this.GetItemsAsync(
@@ -1079,7 +1079,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
         string? reviewDecision = null,
         int failedCheckCount = 0,
         string? failedCheckNames = null,
-        WorkPriority priority = WorkPriority.Unknown,
+        WorkPriority priority = WorkPriority.UNKNOWN,
         string? author = null
     )
     {
@@ -1103,7 +1103,7 @@ public sealed class WorkItemRepositoryTests : TestBase, IAsyncLifetime
     private static IssueEntity CreateIssue(
         string repository,
         int id,
-        WorkPriority priority = WorkPriority.Unknown,
+        WorkPriority priority = WorkPriority.UNKNOWN,
         bool isOnHold = false,
         int? linkedPrNumber = null,
         DateTimeOffset? firstSeen = null,

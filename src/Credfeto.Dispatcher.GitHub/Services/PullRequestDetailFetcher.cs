@@ -16,8 +16,8 @@ namespace Credfeto.Dispatcher.GitHub.Services;
 
 public sealed partial class PullRequestDetailFetcher : IPullRequestDetailFetcher
 {
-    private const string PullRequestType = "PullRequest";
-    private const int MaxBodyLength = 300;
+    private const string PULL_REQUEST_TYPE = "PullRequest";
+    private const int MAX_BODY_LENGTH = 300;
 
     [GeneratedRegex(
         pattern: @"(?:closes|fixes|resolves)\s+#(?<number>\d+)",
@@ -25,7 +25,7 @@ public sealed partial class PullRequestDetailFetcher : IPullRequestDetailFetcher
     )]
     private static partial Regex LinkedItemPattern();
 
-    private const string PullRequestQuery = """
+    private const string PULL_REQUEST_QUERY = """
         query PullRequestDetails($owner: String!, $repo: String!, $number: Int!) {
           repository(owner: $owner, name: $repo) {
             pullRequest(number: $number) {
@@ -93,7 +93,7 @@ public sealed partial class PullRequestDetailFetcher : IPullRequestDetailFetcher
         if (
             !string.Equals(
                 a: notification.Subject.Type,
-                b: PullRequestType,
+                b: PULL_REQUEST_TYPE,
                 comparisonType: StringComparison.OrdinalIgnoreCase
             )
         )
@@ -161,7 +161,7 @@ public sealed partial class PullRequestDetailFetcher : IPullRequestDetailFetcher
         (string owner, string repo, int number) = ParsePullRequestUrl(subjectUrl);
 
         GraphQlRequest request = new(
-            Query: PullRequestQuery,
+            Query: PULL_REQUEST_QUERY,
             Variables: new GraphQlVariables(Owner: owner, Repo: repo, Number: number)
         );
 
@@ -343,7 +343,7 @@ public sealed partial class PullRequestDetailFetcher : IPullRequestDetailFetcher
 
     private static string TruncateBody(string body)
     {
-        return body.Length <= MaxBodyLength ? body : body[..MaxBodyLength] + "…";
+        return body.Length <= MAX_BODY_LENGTH ? body : body[..MAX_BODY_LENGTH] + "…";
     }
 
     private async ValueTask<T?> GetAsync<T>(

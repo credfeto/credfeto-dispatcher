@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -14,9 +14,9 @@ namespace Credfeto.Dispatcher.GitHub.Tests.Services;
 
 public sealed class IssueDetailFetcherTests : TestBase
 {
-    private const string IssueApiUrl = "https://api.github.com/repos/owner/repo/issues/10";
+    private const string ISSUE_API_URL = "https://api.github.com/repos/owner/repo/issues/10";
 
-    private const string OpenIssueJson = """
+    private const string OPEN_ISSUE_JSON = """
         {
           "number": 10,
           "title": "Test Issue",
@@ -25,7 +25,7 @@ public sealed class IssueDetailFetcherTests : TestBase
         }
         """;
 
-    private const string ClosedIssueJson = """
+    private const string CLOSED_ISSUE_JSON = """
         {
           "number": 10,
           "title": "Test Issue",
@@ -68,11 +68,7 @@ public sealed class IssueDetailFetcherTests : TestBase
         return new GitHubNotification(
             Id: "1",
             Reason: "mention",
-            Subject: new NotificationSubject(
-                Title: "Test Issue",
-                Url: new Uri(IssueApiUrl),
-                Type: type
-            ),
+            Subject: new NotificationSubject(Title: "Test Issue", Url: new Uri(ISSUE_API_URL), Type: type),
             Repository: new NotificationRepository(
                 FullName: "owner/repo",
                 Url: new Uri("https://github.com/owner/repo")
@@ -122,7 +118,7 @@ public sealed class IssueDetailFetcherTests : TestBase
     [Fact]
     public async Task ReturnsIssueDetailsForOpenIssueAsync()
     {
-        using HttpClient client = CreateClient(HttpStatusCode.OK, OpenIssueJson);
+        using HttpClient client = CreateClient(HttpStatusCode.OK, OPEN_ISSUE_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(client);
 
         GitHubNotification notification = BuildNotification("Issue");
@@ -139,7 +135,7 @@ public sealed class IssueDetailFetcherTests : TestBase
     [Fact]
     public async Task ReturnsIssueDetailsForClosedIssueAsync()
     {
-        using HttpClient client = CreateClient(HttpStatusCode.OK, ClosedIssueJson);
+        using HttpClient client = CreateClient(HttpStatusCode.OK, CLOSED_ISSUE_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(client);
 
         GitHubNotification notification = BuildNotification("Issue");
@@ -156,7 +152,7 @@ public sealed class IssueDetailFetcherTests : TestBase
     [Fact]
     public async Task MapsNumberFromIssueAsync()
     {
-        using HttpClient client = CreateClient(HttpStatusCode.OK, OpenIssueJson);
+        using HttpClient client = CreateClient(HttpStatusCode.OK, OPEN_ISSUE_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(client);
 
         GitHubNotification notification = BuildNotification("Issue");
@@ -173,7 +169,7 @@ public sealed class IssueDetailFetcherTests : TestBase
     [Fact]
     public async Task MapsTitleFromIssueAsync()
     {
-        using HttpClient client = CreateClient(HttpStatusCode.OK, OpenIssueJson);
+        using HttpClient client = CreateClient(HttpStatusCode.OK, OPEN_ISSUE_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(client);
 
         GitHubNotification notification = BuildNotification("Issue");
@@ -190,7 +186,7 @@ public sealed class IssueDetailFetcherTests : TestBase
     [Fact]
     public async Task MapsHtmlUrlFromIssueAsync()
     {
-        using HttpClient client = CreateClient(HttpStatusCode.OK, OpenIssueJson);
+        using HttpClient client = CreateClient(HttpStatusCode.OK, OPEN_ISSUE_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(client);
 
         GitHubNotification notification = BuildNotification("Issue");
@@ -201,9 +197,6 @@ public sealed class IssueDetailFetcherTests : TestBase
         );
 
         Assert.NotNull(result);
-        Assert.Equal(
-            expected: new Uri("https://github.com/owner/repo/issues/10"),
-            actual: result.HtmlUrl
-        );
+        Assert.Equal(expected: new Uri("https://github.com/owner/repo/issues/10"), actual: result.HtmlUrl);
     }
 }

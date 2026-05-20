@@ -17,8 +17,8 @@ namespace Credfeto.Dispatcher.GitHub.Services;
 
 public sealed class RepoEventPoller : IRepoEventPoller
 {
-    private const string PullRequestEventType = "PullRequestEvent";
-    private const string IssuesEventType = "IssuesEvent";
+    private const string PULL_REQUEST_EVENT_TYPE = "PullRequestEvent";
+    private const string ISSUES_EVENT_TYPE = "IssuesEvent";
 
     private readonly IETagStore _eTagStore;
     private readonly GitHubRepoHelper _helper;
@@ -182,7 +182,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
 
     private async ValueTask ProcessEventAsync(ApiEvent ev, CancellationToken cancellationToken)
     {
-        if (string.Equals(a: ev.Type, b: PullRequestEventType, comparisonType: StringComparison.Ordinal))
+        if (string.Equals(a: ev.Type, b: PULL_REQUEST_EVENT_TYPE, comparisonType: StringComparison.Ordinal))
         {
             if (ev.Payload.PullRequest is { HtmlUrl: { } prHtmlUrl } pr)
             {
@@ -197,7 +197,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
             return;
         }
 
-        if (string.Equals(a: ev.Type, b: IssuesEventType, comparisonType: StringComparison.Ordinal))
+        if (string.Equals(a: ev.Type, b: ISSUES_EVENT_TYPE, comparisonType: StringComparison.Ordinal))
         {
             if (ev.Payload.Issue is { HtmlUrl: { } issueHtmlUrl } issue && issue.PullRequest is null)
             {

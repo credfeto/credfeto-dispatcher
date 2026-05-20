@@ -2,8 +2,8 @@ namespace Credfeto.Dispatcher.GitHub.DataTypes;
 
 public enum ReviewDecisionState
 {
-    NotApplicable,
-    NotReviewed,
-    Approved,
-    ChangesRequested,
+    NOT_APPLICABLE,
+    NOT_REVIEWED,
+    APPROVED,
+    CHANGES_REQUESTED,
 }

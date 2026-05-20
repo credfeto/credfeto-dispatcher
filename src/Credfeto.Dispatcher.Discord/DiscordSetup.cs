@@ -11,7 +11,7 @@ namespace Credfeto.Dispatcher.Discord;
 
 public static class DiscordSetup
 {
-    private const string UserAgent = "credfeto-dispatcher";
+    private const string USER_AGENT = "credfeto-dispatcher";
 
     public static IServiceCollection AddDiscord(this IServiceCollection services)
     {
@@ -25,7 +25,7 @@ public static class DiscordSetup
     private static void ConfigureDiscordHttpClient(HttpClient client)
     {
         client.DefaultRequestHeaders.UserAgent.Add(
-            new ProductInfoHeaderValue(productName: UserAgent, productVersion: null)
+            new ProductInfoHeaderValue(productName: USER_AGENT, productVersion: null)
         );
     }
 }

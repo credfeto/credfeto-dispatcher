@@ -13,10 +13,10 @@ namespace Credfeto.Dispatcher.Storage;
 
 public sealed class WorkItemRepository : IWorkItemRepository
 {
-    private const string PullRequestType = "PullRequest";
-    private const string IssueType = "Issue";
-    private const string ClosedStatus = "Closed";
-    private const string DependabotLogin = "dependabot[bot]";
+    private const string PULL_REQUEST_TYPE = "PullRequest";
+    private const string ISSUE_TYPE = "Issue";
+    private const string CLOSED_STATUS = "Closed";
+    private const string DEPENDABOT_LOGIN = "dependabot[bot]";
 
     private readonly IDbContextFactory<DispatcherDbContext> _dbContextFactory;
     private readonly TimeProvider _timeProvider;
@@ -39,7 +39,7 @@ public sealed class WorkItemRepository : IWorkItemRepository
 
         List<PullRequestEntity> prEntities = await context
             .PullRequests.Where(e =>
-                e.Status != ClosedStatus
+                e.Status != CLOSED_STATUS
                 && !e.IsOnHold
                 && !context.Repos.Any(r => r.Repository == e.Repository && !r.IsActive)
             )
@@ -90,12 +90,12 @@ public sealed class WorkItemRepository : IWorkItemRepository
     {
         List<IssueEntity> issueEntities = await context
             .Issues.Where(e =>
-                e.Status != ClosedStatus
+                e.Status != CLOSED_STATUS
                 && !e.IsOnHold
                 && !context.Repos.Any(r => r.Repository == e.Repository && !r.IsActive)
                 && (
-                    e.Priority >= WorkPriority.Urgent
-                    || !context.PullRequests.Any(pr => pr.Repository == e.Repository && pr.Status != ClosedStatus)
+                    e.Priority >= WorkPriority.URGENT
+                    || !context.PullRequests.Any(pr => pr.Repository == e.Repository && pr.Status != CLOSED_STATUS)
                 )
             )
             .ToListAsync(cancellationToken);
@@ -139,13 +139,13 @@ public sealed class WorkItemRepository : IWorkItemRepository
             now: now,
             stuckDependabotTimeout: stuckDependabotTimeout
         )
-            ? WorkPriority.Security
+            ? WorkPriority.SECURITY
             : entity.Priority;
 
         return new WorkItem(
             Repository: entity.Repository,
             Id: entity.Id,
-            ItemType: PullRequestType,
+            ItemType: PULL_REQUEST_TYPE,
             Priority: priority,
             FirstSeen: entity.FirstSeen,
             LastUpdated: entity.LastUpdated,
@@ -173,7 +173,7 @@ public sealed class WorkItemRepository : IWorkItemRepository
             return false;
         }
 
-        if (!string.Equals(a: entity.Author, b: DependabotLogin, comparisonType: StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(a: entity.Author, b: DEPENDABOT_LOGIN, comparisonType: StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
@@ -186,7 +186,7 @@ public sealed class WorkItemRepository : IWorkItemRepository
         return new WorkItem(
             Repository: e.Repository,
             Id: e.Id,
-            ItemType: IssueType,
+            ItemType: ISSUE_TYPE,
             Priority: e.Priority,
             FirstSeen: e.FirstSeen,
             LastUpdated: e.LastUpdated,
@@ -195,7 +195,7 @@ public sealed class WorkItemRepository : IWorkItemRepository
             IsOnHold: e.IsOnHold,
             LinkedPrNumbers: e.LinkedPrNumber.HasValue ? [e.LinkedPrNumber.Value] : [],
             CommentCount: 0,
-            ReviewDecision: ReviewDecisionState.NotApplicable,
+            ReviewDecision: ReviewDecisionState.NOT_APPLICABLE,
             FailedCheckCount: 0,
             FailedCheckNames: [],
             FailedCheckSha: null,
@@ -207,25 +207,25 @@ public sealed class WorkItemRepository : IWorkItemRepository
     {
         if (!isPullRequest)
         {
-            return ReviewDecisionState.NotApplicable;
+            return ReviewDecisionState.NOT_APPLICABLE;
         }
 
         if (string.IsNullOrEmpty(reviewDecision))
         {
-            return ReviewDecisionState.NotReviewed;
+            return ReviewDecisionState.NOT_REVIEWED;
         }
 
         if (string.Equals(a: reviewDecision, b: "Approved", comparisonType: StringComparison.OrdinalIgnoreCase))
         {
-            return ReviewDecisionState.Approved;
+            return ReviewDecisionState.APPROVED;
         }
 
         if (string.Equals(a: reviewDecision, b: "ChangesRequested", comparisonType: StringComparison.OrdinalIgnoreCase))
         {
-            return ReviewDecisionState.ChangesRequested;
+            return ReviewDecisionState.CHANGES_REQUESTED;
         }
 
-        return ReviewDecisionState.NotReviewed;
+        return ReviewDecisionState.NOT_REVIEWED;
     }
 
     private static ImmutableArray<string> SplitNames(string? names)
@@ -240,7 +240,7 @@ public sealed class WorkItemRepository : IWorkItemRepository
 
     private static bool IsPullRequest(WorkItem w)
     {
-        return string.Equals(a: w.ItemType, b: PullRequestType, comparisonType: StringComparison.Ordinal);
+        return string.Equals(a: w.ItemType, b: PULL_REQUEST_TYPE, comparisonType: StringComparison.Ordinal);
     }
 
     private static int FindIndex(IReadOnlyList<string> list, string value)
@@ -286,11 +286,11 @@ public sealed class WorkItemRepository : IWorkItemRepository
 
         await context
             .PullRequests.Where(e =>
-                e.Repository == repository && e.Status != ClosedStatus && !activePullRequestNumbers.Contains(e.Id)
+                e.Repository == repository && e.Status != CLOSED_STATUS && !activePullRequestNumbers.Contains(e.Id)
             )
             .ExecuteUpdateAsync(
                 s =>
-                    s.SetProperty(e => e.Status, ClosedStatus)
+                    s.SetProperty(e => e.Status, CLOSED_STATUS)
                         .SetProperty(e => e.WhenClosed, now)
                         .SetProperty(e => e.LastUpdated, now),
                 cancellationToken
@@ -298,11 +298,11 @@ public sealed class WorkItemRepository : IWorkItemRepository
 
         await context
             .Issues.Where(e =>
-                e.Repository == repository && e.Status != ClosedStatus && !activeIssueNumbers.Contains(e.Id)
+                e.Repository == repository && e.Status != CLOSED_STATUS && !activeIssueNumbers.Contains(e.Id)
             )
             .ExecuteUpdateAsync(
                 s =>
-                    s.SetProperty(e => e.Status, ClosedStatus)
+                    s.SetProperty(e => e.Status, CLOSED_STATUS)
                         .SetProperty(e => e.WhenClosed, now)
                         .SetProperty(e => e.LastUpdated, now),
                 cancellationToken

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Credfeto.Dispatcher.GitHub.DataTypes;
@@ -11,38 +11,33 @@ internal static class LabelParser
     {
         foreach (string label in labels)
         {
-            if (
-                label.Contains(
-                    value: "security",
-                    comparisonType: StringComparison.OrdinalIgnoreCase
-                )
-            )
+            if (label.Contains(value: "security", comparisonType: StringComparison.OrdinalIgnoreCase))
             {
-                return WorkPriority.Security;
+                return WorkPriority.SECURITY;
             }
 
             if (label.Contains(value: "urgent", comparisonType: StringComparison.OrdinalIgnoreCase))
             {
-                return WorkPriority.Urgent;
+                return WorkPriority.URGENT;
             }
 
             if (label.Contains(value: "high", comparisonType: StringComparison.OrdinalIgnoreCase))
             {
-                return WorkPriority.High;
+                return WorkPriority.HIGH;
             }
 
             if (label.Contains(value: "medium", comparisonType: StringComparison.OrdinalIgnoreCase))
             {
-                return WorkPriority.Medium;
+                return WorkPriority.MEDIUM;
             }
 
             if (label.Contains(value: "low", comparisonType: StringComparison.OrdinalIgnoreCase))
             {
-                return WorkPriority.Low;
+                return WorkPriority.LOW;
             }
         }
 
-        return WorkPriority.Unknown;
+        return WorkPriority.UNKNOWN;
     }
 
     public static bool IsOnHold(IReadOnlyList<string> labels, IReadOnlyList<string> noWorkFilter)
@@ -52,30 +47,14 @@ internal static class LabelParser
 
     internal static bool FuzzyEquals(string a, string b)
     {
-        return string.Equals(
-            a: Normalize(a),
-            b: Normalize(b),
-            comparisonType: StringComparison.OrdinalIgnoreCase
-        );
+        return string.Equals(a: Normalize(a), b: Normalize(b), comparisonType: StringComparison.OrdinalIgnoreCase);
     }
 
     private static string Normalize(string value)
     {
         return value
-            .Replace(
-                oldValue: "-",
-                newValue: string.Empty,
-                comparisonType: StringComparison.Ordinal
-            )
-            .Replace(
-                oldValue: " ",
-                newValue: string.Empty,
-                comparisonType: StringComparison.Ordinal
-            )
-            .Replace(
-                oldValue: "_",
-                newValue: string.Empty,
-                comparisonType: StringComparison.Ordinal
-            );
+            .Replace(oldValue: "-", newValue: string.Empty, comparisonType: StringComparison.Ordinal)
+            .Replace(oldValue: " ", newValue: string.Empty, comparisonType: StringComparison.Ordinal)
+            .Replace(oldValue: "_", newValue: string.Empty, comparisonType: StringComparison.Ordinal);
     }
 }

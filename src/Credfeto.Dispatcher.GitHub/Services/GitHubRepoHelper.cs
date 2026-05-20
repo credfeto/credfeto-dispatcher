@@ -14,7 +14,7 @@ namespace Credfeto.Dispatcher.GitHub.Services;
 
 public sealed class GitHubRepoHelper
 {
-    private const string UserReposUrl = "user/repos?affiliation=owner,collaborator,organization_member&per_page=100";
+    private const string USER_REPOS_URL = "user/repos?affiliation=owner,collaborator,organization_member&per_page=100";
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<GitHubRepoHelper> _logger;
@@ -32,7 +32,7 @@ public sealed class GitHubRepoHelper
     {
         List<string> active = [];
         List<string> inactive = [];
-        string? url = UserReposUrl;
+        string? url = USER_REPOS_URL;
 
         while (url is not null)
         {

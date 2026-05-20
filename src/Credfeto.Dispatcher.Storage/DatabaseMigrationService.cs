@@ -19,8 +19,15 @@ public sealed class DatabaseMigrationService : IRunOnStartup
 
     public ValueTask StartAsync(CancellationToken cancellationToken)
     {
+        string connectionString = this._config.Value.ConnectionString;
+
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return ValueTask.CompletedTask;
+        }
+
         DbUp.Engine.DatabaseUpgradeResult result = DeployChanges
-            .To.SqlDatabase(this._config.Value.ConnectionString)
+            .To.SqlDatabase(connectionString)
             .WithScriptsEmbeddedInAssembly(Assembly.GetExecutingAssembly())
             .LogToConsole()
             .Build()

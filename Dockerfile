@@ -16,6 +16,7 @@ RUN apt-get update && apt-get upgrade -y && apt-get install curl -y --no-install
 RUN Discord__WebhookUrl=http://localhost:1/dummy \
     Discord__NotificationsChannelWebhookUrl=http://localhost:1/dummy \
     GitHub__Token=smoke-test-dummy \
+    Database__ConnectionString='' \
     sh -c 'set -e; \
     ./Credfeto.Dispatcher.Server >/tmp/smoke.log 2>&1 & PID=$!; \
     i=0; while [ $i -lt 30 ]; do \

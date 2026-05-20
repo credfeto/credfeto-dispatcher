@@ -80,19 +80,19 @@ BEGIN
       SELECT TRIM([value]) FROM STRING_SPLIT(@repositories, N',')
       WHERE LEN(TRIM([value])) > 0;
     END;
-  MERGE [dbo].[Repos] AS Target
+  MERGE [dbo].[Repos] AS [Target]
   USING (SELECT
     [Repository],
     1 AS [IsActive]
-  FROM @ActiveRepos) AS Source
-  ON Target.[Repository] = Source.[Repository]
+  FROM @ActiveRepos) AS [Source]
+  ON [Target].[Repository] = [Source].[Repository]
   WHEN MATCHED
     THEN
     UPDATE SET [IsActive] = 1, [LastUpdated] = @lastUpdated
   WHEN NOT MATCHED BY TARGET
     THEN
     INSERT ([Repository], [IsActive], [LastUpdated])
-    VALUES (Source.[Repository], 1, @lastUpdated)
+    VALUES ([Source].[Repository], 1, @lastUpdated)
   WHEN NOT MATCHED BY SOURCE
     THEN
     UPDATE SET [IsActive] = 0, [LastUpdated] = @lastUpdated;
@@ -115,13 +115,13 @@ CREATE OR ALTER PROCEDURE [dbo].[PullRequests_Upsert]
 AS
 BEGIN
   SET NOCOUNT ON;
-  MERGE [dbo].[PullRequests] AS Target
+  MERGE [dbo].[PullRequests] AS [Target]
   USING (
     SELECT
       @repository AS [Repository],
       @id         AS [Id]
-  ) AS Source
-  ON Target.[Repository] = Source.[Repository] AND Target.[Id] = Source.[Id]
+  ) AS [Source]
+  ON [Target].[Repository] = [Source].[Repository] AND [Target].[Id] = [Source].[Id]
   WHEN MATCHED
     THEN
     UPDATE
@@ -134,9 +134,9 @@ BEGIN
         [FailedCheckCount] = @failedCheckCount,
         [FailedCheckNames] = @failedCheckNames,
         [FailedCheckSha] = @failedCheckSha,
-        [Author] = ISNULL(@author, Target.[Author]),
+        [Author] = ISNULL(@author, [Target].[Author]),
         [LastUpdated] = @now,
-        [WhenClosed] = CASE WHEN @status = N'Closed' THEN ISNULL(Target.[WhenClosed], @now) END
+        [WhenClosed] = CASE WHEN @status = N'Closed' THEN ISNULL([Target].[WhenClosed], @now) END
   WHEN NOT MATCHED
     THEN
     INSERT (
@@ -164,13 +164,13 @@ CREATE OR ALTER PROCEDURE [dbo].[Issues_Upsert]
 AS
 BEGIN
   SET NOCOUNT ON;
-  MERGE [dbo].[Issues] AS Target
+  MERGE [dbo].[Issues] AS [Target]
   USING (
     SELECT
       @repository AS [Repository],
       @id         AS [Id]
-  ) AS Source
-  ON Target.[Repository] = Source.[Repository] AND Target.[Id] = Source.[Id]
+  ) AS [Source]
+  ON [Target].[Repository] = [Source].[Repository] AND [Target].[Id] = [Source].[Id]
   WHEN MATCHED
     THEN
     UPDATE
@@ -180,7 +180,7 @@ BEGIN
         [IsOnHold] = @isOnHold,
         [LinkedPrNumber] = @linkedPrNumber,
         [LastUpdated] = @now,
-        [WhenClosed] = CASE WHEN @status = N'Closed' THEN ISNULL(Target.[WhenClosed], @now) END
+        [WhenClosed] = CASE WHEN @status = N'Closed' THEN ISNULL([Target].[WhenClosed], @now) END
   WHEN NOT MATCHED
     THEN
     INSERT (
@@ -209,8 +209,8 @@ CREATE OR ALTER PROCEDURE [dbo].[NotificationQueue_Upsert]
 AS
 BEGIN
   SET NOCOUNT ON;
-  MERGE [dbo].[NotificationQueue] AS Target
-  USING (SELECT @subjectUrl AS [SubjectUrl]) AS Source ON Target.[SubjectUrl] = Source.[SubjectUrl]
+  MERGE [dbo].[NotificationQueue] AS [Target]
+  USING (SELECT @subjectUrl AS [SubjectUrl]) AS [Source] ON [Target].[SubjectUrl] = [Source].[SubjectUrl]
   WHEN MATCHED
     THEN
     UPDATE
@@ -285,8 +285,8 @@ CREATE OR ALTER PROCEDURE [dbo].[PollingStates_Upsert]
 AS
 BEGIN
   SET NOCOUNT ON;
-  MERGE [dbo].[PollingStates] AS Target
-  USING (SELECT @key AS [Key]) AS Source ON Target.[Key] = Source.[Key]
+  MERGE [dbo].[PollingStates] AS [Target]
+  USING (SELECT @key AS [Key]) AS [Source] ON [Target].[Key] = [Source].[Key]
   WHEN MATCHED THEN UPDATE SET [ETag] = @eTag
   WHEN NOT MATCHED THEN INSERT ([Key], [ETag]) VALUES (@key, @eTag);
 END;

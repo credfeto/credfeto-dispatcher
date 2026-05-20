@@ -61,6 +61,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Structured WorkItem fields: LinkedPrNumbers as ImmutableArray<int>, ReviewDecision as enum, FailedCheckNames as ImmutableArray<string>, added FailedCheckSha
 - Security label now has higher priority than Urgent in issue priority ordering
 - Priorities endpoint: suppress issues from repos with open PRs, cap to 1 issue per repo, and apply configurable MaxIssues limit
+- Replaced Entity Framework Core with Credfeto.Database.SourceGenerator and DbUp for all database access in storage layer
 ### Deprecated
 ### Removed
 - Removed IsUpToDate field from WorkItem and PullRequestDetails as it was never populated in production

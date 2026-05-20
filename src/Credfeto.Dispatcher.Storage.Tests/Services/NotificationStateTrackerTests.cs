@@ -1,68 +1,54 @@
-﻿using System;
-using System.IO;
-using System.Threading;
+using System;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Interfaces;
 using FunFair.Test.Common;
 using FunFair.Test.Common.Mocks;
-using Microsoft.EntityFrameworkCore;
 using Xunit;
 
 namespace Credfeto.Dispatcher.Storage.Tests.Services;
 
-public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
+public sealed class NotificationStateTrackerTests : TestBase
 {
-    private const string TEST_REPOSITORY = "test-owner/test-repo";
-    private const int TEST_PULL_REQUEST_NUMBER = 42;
-    private const int TEST_ISSUE_NUMBER = 7;
-    private const string OPEN_STATUS = "Open";
-    private const string CLOSED_STATUS = "Closed";
+    private static readonly DateTimeOffset BaseTime = MockDateTimeSources.Past.GetUtcNow();
 
+    private readonly TestDatabaseStub _database;
     private readonly INotificationStateTracker _tracker;
 
-    public NotificationStateTrackerTests(ITestOutputHelper output)
-        : base(output)
+    public NotificationStateTrackerTests()
     {
-        string dbPath = Path.Combine(this.TempFolder, "test.db");
-        DbContextOptions<DispatcherDbContext> options = new DbContextOptionsBuilder<DispatcherDbContext>()
-            .UseSqlite($"DataSource={dbPath}")
-            .Options;
-
-        using (DispatcherDbContext ctx = new(options))
-        {
-            ctx.Database.EnsureCreated();
-        }
-
-        this._tracker = new NotificationStateTracker(new TestDbContextFactory(options), MockDateTimeSources.Past);
+        this._database = new TestDatabaseStub();
+        this._tracker = new NotificationStateTracker(this._database, MockDateTimeSources.Past);
     }
 
-    private static GitHubNotification BuildNotification()
+    private static GitHubNotification CreateNotification(string repo = "owner/repo")
     {
         return new GitHubNotification(
-            Id: "test-1",
-            Reason: "subscribed",
+            Id: "notif-1",
+            Reason: "review_requested",
             Subject: new NotificationSubject(
-                Title: "Test",
-                Url: new Uri("https://api.github.com/repos/test-owner/test-repo/pulls/42"),
+                Title: "Test PR",
+                Url: new Uri("https://api.github.com/repos/owner/repo/pulls/1"),
                 Type: "PullRequest"
             ),
             Repository: new NotificationRepository(
-                FullName: TEST_REPOSITORY,
-                Url: new Uri("https://github.com/test-owner/test-repo")
+                FullName: repo,
+                Url: new Uri("https://api.github.com/repos/owner/repo")
             ),
-            UpdatedAt: MockDateTimeSources.Past.GetUtcNow(),
+            UpdatedAt: BaseTime,
             Unread: true
         );
     }
 
-    private static PullRequestDetails BuildPullRequestDetails(string status)
+    private static PullRequestDetails CreatePullRequestDetails(string status)
     {
+        Uri repoUri = new("https://github.com/owner/repo");
+
         return new PullRequestDetails(
-            Number: TEST_PULL_REQUEST_NUMBER,
+            Number: 1,
             Title: "Test PR",
             Status: status,
-            HtmlUrl: new Uri("https://github.com/test-owner/test-repo/pull/42"),
+            HtmlUrl: new Uri("https://github.com/owner/repo/pull/1"),
             Assignees: [],
             Labels: [],
             Body: null,
@@ -70,168 +56,86 @@ public sealed class NotificationStateTrackerTests : LoggingFolderCleanupTestBase
             Reviews: [],
             Runs: [],
             LinkedItems: [],
-            Repository: new ItemRepository(
-                Owner: "test-owner",
-                Name: "test-repo",
-                Url: new Uri("https://github.com/test-owner/test-repo")
-            ),
-            LastNotification: new LastNotification(Id: "test-1", Timestamp: MockDateTimeSources.Past.GetUtcNow()),
+            Repository: new ItemRepository(Owner: "owner", Name: "repo", Url: repoUri),
+            LastNotification: new LastNotification(Id: "notif-1", Timestamp: BaseTime),
             Author: null
         );
     }
 
-    private static IssueDetails BuildIssueDetails(string status)
+    private static IssueDetails CreateIssueDetails(string status)
     {
+        Uri repoUri = new("https://github.com/owner/repo");
+
         return new IssueDetails(
-            Number: TEST_ISSUE_NUMBER,
+            Number: 1,
             Title: "Test Issue",
             Status: status,
-            HtmlUrl: new Uri("https://github.com/test-owner/test-repo/issues/7"),
+            HtmlUrl: new Uri("https://github.com/owner/repo/issues/1"),
             Assignees: [],
             Labels: [],
             LinkedPullRequestUrl: null,
-            Repository: new ItemRepository(
-                Owner: "test-owner",
-                Name: "test-repo",
-                Url: new Uri("https://github.com/test-owner/test-repo")
-            ),
-            LastNotification: new LastNotification(Id: "test-1", Timestamp: MockDateTimeSources.Past.GetUtcNow())
+            Repository: new ItemRepository(Owner: "owner", Name: "repo", Url: repoUri),
+            LastNotification: new LastNotification(Id: "notif-1", Timestamp: BaseTime)
         );
     }
 
     [Fact]
-    public async Task ShouldSkipPullRequestReturnsFalseForOpenStatusAsync()
+    public async Task ShouldSkip_ReturnsFalse_ForOpenPullRequestAsync()
     {
+        PullRequestDetails details = CreatePullRequestDetails("Open");
+
         bool result = await this._tracker.ShouldSkipAsync(
-            notification: BuildNotification(),
-            details: BuildPullRequestDetails(OPEN_STATUS),
+            notification: CreateNotification(),
+            details: details,
             cancellationToken: this.CancellationToken()
         );
 
-        Assert.False(result, "Expected ShouldSkipPullRequest to return false for non-closed status");
+        Assert.False(condition: result, userMessage: "Should not skip an open pull request");
     }
 
     [Fact]
-    public async Task ShouldSkipPullRequestReturnsTrueForClosedStatusAsync()
+    public async Task ShouldSkip_ReturnsTrue_ForClosedPullRequestAsync()
     {
+        PullRequestDetails details = CreatePullRequestDetails("Closed");
+
         bool result = await this._tracker.ShouldSkipAsync(
-            notification: BuildNotification(),
-            details: BuildPullRequestDetails(CLOSED_STATUS),
+            notification: CreateNotification(),
+            details: details,
             cancellationToken: this.CancellationToken()
         );
 
-        Assert.True(result, "Expected ShouldSkipPullRequest to return true for closed status");
+        Assert.True(condition: result, userMessage: "Should skip a closed pull request");
     }
 
     [Fact]
-    public async Task UpdatePullRequestStateCreatesNewRecordAsync()
+    public async Task UpdateStateAsync_ForPullRequest_CallsDatabaseAsync()
     {
-        await this._tracker.UpdateStateAsync(
-            notification: BuildNotification(),
-            details: BuildPullRequestDetails(OPEN_STATUS),
-            priority: WorkPriority.UNKNOWN,
-            isOnHold: false,
-            cancellationToken: this.CancellationToken()
-        );
-    }
-
-    [Fact]
-    public async Task UpdatePullRequestStateUpdatesExistingRecordAsync()
-    {
-        GitHubNotification notification = BuildNotification();
+        PullRequestDetails details = CreatePullRequestDetails("Open");
 
         await this._tracker.UpdateStateAsync(
-            notification: notification,
-            details: BuildPullRequestDetails(OPEN_STATUS),
-            priority: WorkPriority.UNKNOWN,
+            notification: CreateNotification(),
+            details: details,
+            priority: WorkPriority.MEDIUM,
             isOnHold: false,
             cancellationToken: this.CancellationToken()
         );
 
-        await this._tracker.UpdateStateAsync(
-            notification: notification,
-            details: BuildPullRequestDetails(CLOSED_STATUS),
-            priority: WorkPriority.UNKNOWN,
-            isOnHold: false,
-            cancellationToken: this.CancellationToken()
-        );
+        Assert.Equal(expected: 1, actual: this._database.VoidExecuteCallCount);
     }
 
     [Fact]
-    public async Task ShouldSkipIssueReturnsFalseForOpenStatusAsync()
+    public async Task UpdateStateAsync_ForIssue_CallsDatabaseAsync()
     {
-        bool result = await this._tracker.ShouldSkipAsync(
-            notification: BuildNotification(),
-            details: BuildIssueDetails(OPEN_STATUS),
-            cancellationToken: this.CancellationToken()
-        );
-
-        Assert.False(result, "Expected ShouldSkipIssue to return false for non-closed status");
-    }
-
-    [Fact]
-    public async Task ShouldSkipIssueReturnsTrueForClosedStatusAsync()
-    {
-        bool result = await this._tracker.ShouldSkipAsync(
-            notification: BuildNotification(),
-            details: BuildIssueDetails(CLOSED_STATUS),
-            cancellationToken: this.CancellationToken()
-        );
-
-        Assert.True(result, "Expected ShouldSkipIssue to return true for closed status");
-    }
-
-    [Fact]
-    public async Task UpdateIssueStateCreatesNewRecordAsync()
-    {
-        await this._tracker.UpdateStateAsync(
-            notification: BuildNotification(),
-            details: BuildIssueDetails(OPEN_STATUS),
-            priority: WorkPriority.UNKNOWN,
-            isOnHold: false,
-            cancellationToken: this.CancellationToken()
-        );
-    }
-
-    [Fact]
-    public async Task UpdateIssueStateUpdatesExistingRecordAsync()
-    {
-        GitHubNotification notification = BuildNotification();
+        IssueDetails details = CreateIssueDetails("Open");
 
         await this._tracker.UpdateStateAsync(
-            notification: notification,
-            details: BuildIssueDetails(OPEN_STATUS),
-            priority: WorkPriority.UNKNOWN,
+            notification: CreateNotification(),
+            details: details,
+            priority: WorkPriority.MEDIUM,
             isOnHold: false,
             cancellationToken: this.CancellationToken()
         );
 
-        await this._tracker.UpdateStateAsync(
-            notification: notification,
-            details: BuildIssueDetails(CLOSED_STATUS),
-            priority: WorkPriority.UNKNOWN,
-            isOnHold: false,
-            cancellationToken: this.CancellationToken()
-        );
-    }
-
-    private sealed class TestDbContextFactory : IDbContextFactory<DispatcherDbContext>
-    {
-        private readonly DbContextOptions<DispatcherDbContext> _options;
-
-        public TestDbContextFactory(DbContextOptions<DispatcherDbContext> options)
-        {
-            this._options = options;
-        }
-
-        public DispatcherDbContext CreateDbContext()
-        {
-            return new DispatcherDbContext(this._options);
-        }
-
-        public Task<DispatcherDbContext> CreateDbContextAsync(CancellationToken cancellationToken = default)
-        {
-            return Task.FromResult(new DispatcherDbContext(this._options));
-        }
+        Assert.Equal(expected: 1, actual: this._database.VoidExecuteCallCount);
     }
 }

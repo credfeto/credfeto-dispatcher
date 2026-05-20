@@ -4,10 +4,11 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Credfeto.Database;
 using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Interfaces;
-using Credfeto.Dispatcher.Storage.Entities;
-using Microsoft.EntityFrameworkCore;
+using Credfeto.Dispatcher.Storage.Database;
+using Credfeto.Dispatcher.Storage.Database.Rows;
 
 namespace Credfeto.Dispatcher.Storage;
 
@@ -15,15 +16,14 @@ public sealed class WorkItemRepository : IWorkItemRepository
 {
     private const string PULL_REQUEST_TYPE = "PullRequest";
     private const string ISSUE_TYPE = "Issue";
-    private const string CLOSED_STATUS = "Closed";
     private const string DEPENDABOT_LOGIN = "dependabot[bot]";
 
-    private readonly IDbContextFactory<DispatcherDbContext> _dbContextFactory;
+    private readonly IDatabase _database;
     private readonly TimeProvider _timeProvider;
 
-    public WorkItemRepository(IDbContextFactory<DispatcherDbContext> dbContextFactory, TimeProvider timeProvider)
+    public WorkItemRepository(IDatabase database, TimeProvider timeProvider)
     {
-        this._dbContextFactory = dbContextFactory;
+        this._database = database;
         this._timeProvider = timeProvider;
     }
 
@@ -35,21 +35,13 @@ public sealed class WorkItemRepository : IWorkItemRepository
         CancellationToken cancellationToken
     )
     {
-        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(cancellationToken);
+        IReadOnlyList<PullRequestRow> prRows = await this._database.ExecuteAsync(
+            action: DispatcherDatabase.PullRequests_GetActiveAsync,
+            cancellationToken: cancellationToken
+        );
 
-        List<PullRequestEntity> prEntities = await context
-            .PullRequests.Where(e =>
-                e.Status != CLOSED_STATUS
-                && !e.IsOnHold
-                && !context.Repos.Any(r => r.Repository == e.Repository && !r.IsActive)
-            )
-            .ToListAsync(cancellationToken);
-
-        List<WorkItem> issues = await BuildIssuesAsync(
-            context: context,
-            owners: owners,
-            repos: repos,
-            maxIssues: maxIssues,
+        IReadOnlyList<IssueRow> issueRows = await this._database.ExecuteAsync(
+            action: DispatcherDatabase.Issues_GetActiveAsync,
             cancellationToken: cancellationToken
         );
 
@@ -57,8 +49,10 @@ public sealed class WorkItemRepository : IWorkItemRepository
 
         List<WorkItem> pullRequests =
         [
-            .. prEntities.Select(e => MapPullRequest(entity: e, now: now, stuckDependabotTimeout)),
+            .. prRows.Select(row => MapPullRequest(row: row, now: now, stuckDependabotTimeout: stuckDependabotTimeout)),
         ];
+
+        List<WorkItem> issues = BuildIssues(issueRows: issueRows, owners: owners, repos: repos, maxIssues: maxIssues);
 
         List<WorkItem> combined = Deduplicate([.. pullRequests, .. issues]);
 
@@ -80,96 +74,74 @@ public sealed class WorkItemRepository : IWorkItemRepository
         return new PrioritiesResponse(Priorities: ordered, AsOf: asOf, LagSeconds: lagSeconds);
     }
 
-    private static async Task<List<WorkItem>> BuildIssuesAsync(
-        DispatcherDbContext context,
+    private static List<WorkItem> BuildIssues(
+        IReadOnlyList<IssueRow> issueRows,
         IReadOnlyList<string> owners,
         IReadOnlyList<string> repos,
-        int maxIssues,
-        CancellationToken cancellationToken
+        int maxIssues
     )
     {
-        List<IssueEntity> issueEntities = await context
-            .Issues.Where(e =>
-                e.Status != CLOSED_STATUS
-                && !e.IsOnHold
-                && !context.Repos.Any(r => r.Repository == e.Repository && !r.IsActive)
-                && (
-                    e.LinkedPrNumber == null
-                    || !context.PullRequests.Any(pr =>
-                        pr.Repository == e.Repository && pr.Id == e.LinkedPrNumber.Value && pr.Status != CLOSED_STATUS
-                    )
-                )
-                && (
-                    e.Priority >= WorkPriority.URGENT
-                    || !context.PullRequests.Any(pr => pr.Repository == e.Repository && pr.Status != CLOSED_STATUS)
-                )
-            )
-            .ToListAsync(cancellationToken);
-
-        IEnumerable<WorkItem> topIssuePerRepo = issueEntities
+        IEnumerable<WorkItem> topIssuePerRepo = issueRows
             .GroupBy(e => e.Repository, comparer: StringComparer.Ordinal)
-            .Select(g => MapIssue(g.OrderByDescending(e => (int)e.Priority).ThenBy(e => e.FirstSeen).First()));
+            .Select(g => MapIssue(g.OrderByDescending(e => e.Priority).ThenBy(e => e.FirstSeen).First()));
 
-        return ApplyMaxIssuesCap(
-            topIssuePerRepo
-                .OrderBy(w => FindIndex(owners, GetOwner(w.Repository)))
-                .ThenBy(w => GetOwner(w.Repository), comparer: StringComparer.OrdinalIgnoreCase)
-                .ThenBy(w => FindIndex(repos, w.Repository))
-                .ThenBy(w => w.Repository, comparer: StringComparer.OrdinalIgnoreCase)
-                .ThenByDescending(w => (int)w.Priority)
-                .ThenBy(w => w.FirstSeen),
-            maxIssues
-        );
+        IEnumerable<WorkItem> ordered = topIssuePerRepo
+            .OrderBy(w => FindIndex(owners, GetOwner(w.Repository)))
+            .ThenBy(w => GetOwner(w.Repository), comparer: StringComparer.OrdinalIgnoreCase)
+            .ThenBy(w => FindIndex(repos, w.Repository))
+            .ThenBy(w => w.Repository, comparer: StringComparer.OrdinalIgnoreCase)
+            .ThenByDescending(w => (int)w.Priority)
+            .ThenBy(w => w.FirstSeen);
+
+        return ApplyMaxIssuesCap(ordered, maxIssues);
     }
 
-    private static List<WorkItem> ApplyMaxIssuesCap(IOrderedEnumerable<WorkItem> ordered, int maxIssues)
+    private static List<WorkItem> ApplyMaxIssuesCap(IEnumerable<WorkItem> ordered, int maxIssues)
     {
         return maxIssues > 0 ? [.. ordered.Take(maxIssues)] : [.. ordered];
     }
 
     private static List<WorkItem> Deduplicate(IReadOnlyList<WorkItem> items)
     {
-        // Defensive: a PR and an Issue can share the same numeric Id in the same repo.
-        // DistinctBy ensures the merged list never surfaces the same (Repository, Id) pair twice.
         return [.. items.DistinctBy(static w => (w.Repository, w.Id))];
     }
 
     private static WorkItem MapPullRequest(
-        PullRequestEntity entity,
+        PullRequestRow row,
         in DateTimeOffset now,
         in TimeSpan stuckDependabotTimeout
     )
     {
         WorkPriority priority = IsStuckDependabotPullRequest(
-            entity: entity,
+            row: row,
             now: now,
             stuckDependabotTimeout: stuckDependabotTimeout
         )
             ? WorkPriority.SECURITY
-            : entity.Priority;
+            : (WorkPriority)row.Priority;
 
         return new WorkItem(
-            Repository: entity.Repository,
-            Id: entity.Id,
+            Repository: row.Repository,
+            Id: row.Id,
             ItemType: PULL_REQUEST_TYPE,
             Priority: priority,
-            FirstSeen: entity.FirstSeen,
-            LastUpdated: entity.LastUpdated,
-            Status: entity.Status,
-            WhenClosed: entity.WhenClosed,
-            IsOnHold: entity.IsOnHold,
+            FirstSeen: row.FirstSeen,
+            LastUpdated: row.LastUpdated,
+            Status: row.Status,
+            WhenClosed: row.WhenClosed,
+            IsOnHold: row.IsOnHold,
             LinkedPrNumbers: [],
-            CommentCount: entity.CommentCount,
-            ReviewDecision: MapReviewDecision(entity.ReviewDecision, isPullRequest: true),
-            FailedCheckCount: entity.FailedCheckCount,
-            FailedCheckNames: SplitNames(entity.FailedCheckNames),
-            FailedCheckSha: entity.FailedCheckSha,
-            Author: entity.Author
+            CommentCount: row.CommentCount,
+            ReviewDecision: MapReviewDecision(row.ReviewDecision, isPullRequest: true),
+            FailedCheckCount: row.FailedCheckCount,
+            FailedCheckNames: SplitNames(row.FailedCheckNames),
+            FailedCheckSha: row.FailedCheckSha,
+            Author: row.Author
         );
     }
 
     private static bool IsStuckDependabotPullRequest(
-        PullRequestEntity entity,
+        PullRequestRow row,
         in DateTimeOffset now,
         in TimeSpan stuckDependabotTimeout
     )
@@ -179,27 +151,27 @@ public sealed class WorkItemRepository : IWorkItemRepository
             return false;
         }
 
-        if (!string.Equals(a: entity.Author, b: DEPENDABOT_LOGIN, comparisonType: StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(a: row.Author, b: DEPENDABOT_LOGIN, comparisonType: StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
 
-        return now - entity.FirstSeen >= stuckDependabotTimeout;
+        return now - row.FirstSeen >= stuckDependabotTimeout;
     }
 
-    private static WorkItem MapIssue(IssueEntity e)
+    private static WorkItem MapIssue(IssueRow row)
     {
         return new WorkItem(
-            Repository: e.Repository,
-            Id: e.Id,
+            Repository: row.Repository,
+            Id: row.Id,
             ItemType: ISSUE_TYPE,
-            Priority: e.Priority,
-            FirstSeen: e.FirstSeen,
-            LastUpdated: e.LastUpdated,
-            Status: e.Status,
-            WhenClosed: e.WhenClosed,
-            IsOnHold: e.IsOnHold,
-            LinkedPrNumbers: e.LinkedPrNumber.HasValue ? [e.LinkedPrNumber.Value] : [],
+            Priority: (WorkPriority)row.Priority,
+            FirstSeen: row.FirstSeen,
+            LastUpdated: row.LastUpdated,
+            Status: row.Status,
+            WhenClosed: row.WhenClosed,
+            IsOnHold: row.IsOnHold,
+            LinkedPrNumbers: row.LinkedPrNumber.HasValue ? [row.LinkedPrNumber.Value] : [],
             CommentCount: 0,
             ReviewDecision: ReviewDecisionState.NOT_APPLICABLE,
             FailedCheckCount: 0,
@@ -272,12 +244,27 @@ public sealed class WorkItemRepository : IWorkItemRepository
             return;
         }
 
-        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(cancellationToken);
+        string reposCsv = string.Join(separator: ',', repositories);
 
-        await context
-            .PullRequests.Where(e => repositories.Contains(e.Repository))
-            .ExecuteDeleteAsync(cancellationToken);
-        await context.Issues.Where(e => repositories.Contains(e.Repository)).ExecuteDeleteAsync(cancellationToken);
+        await this._database.ExecuteAsync(
+            action: (c, ct) =>
+                DispatcherDatabase.PullRequests_RemoveForRepositoriesAsync(
+                    connection: c,
+                    repositories: reposCsv,
+                    cancellationToken: ct
+                ),
+            cancellationToken: cancellationToken
+        );
+
+        await this._database.ExecuteAsync(
+            action: (c, ct) =>
+                DispatcherDatabase.Issues_RemoveForRepositoriesAsync(
+                    connection: c,
+                    repositories: reposCsv,
+                    cancellationToken: ct
+                ),
+            cancellationToken: cancellationToken
+        );
     }
 
     public async ValueTask CloseStaleItemsForRepoAsync(
@@ -287,32 +274,34 @@ public sealed class WorkItemRepository : IWorkItemRepository
         CancellationToken cancellationToken
     )
     {
-        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(cancellationToken);
         DateTimeOffset now = this._timeProvider.GetUtcNow();
+        string? activePrIds =
+            activePullRequestNumbers.Count > 0 ? string.Join(separator: ',', activePullRequestNumbers) : null;
+        string? activeIssueIds = activeIssueNumbers.Count > 0 ? string.Join(separator: ',', activeIssueNumbers) : null;
 
-        await context
-            .PullRequests.Where(e =>
-                e.Repository == repository && e.Status != CLOSED_STATUS && !activePullRequestNumbers.Contains(e.Id)
-            )
-            .ExecuteUpdateAsync(
-                s =>
-                    s.SetProperty(e => e.Status, CLOSED_STATUS)
-                        .SetProperty(e => e.WhenClosed, now)
-                        .SetProperty(e => e.LastUpdated, now),
-                cancellationToken
-            );
+        await this._database.ExecuteAsync(
+            action: (c, ct) =>
+                DispatcherDatabase.PullRequests_CloseStaleAsync(
+                    connection: c,
+                    repository: repository,
+                    activePrIds: activePrIds,
+                    now: now,
+                    cancellationToken: ct
+                ),
+            cancellationToken: cancellationToken
+        );
 
-        await context
-            .Issues.Where(e =>
-                e.Repository == repository && e.Status != CLOSED_STATUS && !activeIssueNumbers.Contains(e.Id)
-            )
-            .ExecuteUpdateAsync(
-                s =>
-                    s.SetProperty(e => e.Status, CLOSED_STATUS)
-                        .SetProperty(e => e.WhenClosed, now)
-                        .SetProperty(e => e.LastUpdated, now),
-                cancellationToken
-            );
+        await this._database.ExecuteAsync(
+            action: (c, ct) =>
+                DispatcherDatabase.Issues_CloseStaleAsync(
+                    connection: c,
+                    repository: repository,
+                    activeIssueIds: activeIssueIds,
+                    now: now,
+                    cancellationToken: ct
+                ),
+            cancellationToken: cancellationToken
+        );
     }
 
     private static string GetOwner(string repository)

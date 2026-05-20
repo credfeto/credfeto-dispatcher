@@ -319,9 +319,6 @@ src/Data
 # Dotnet
 .dotnet/
 
-# Jetbrains
-.idea
-
 # Lock files
 *.lock
 

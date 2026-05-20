@@ -1,9 +1,9 @@
-﻿using System;
+using System;
+using Credfeto.Database.SqlServer;
 using Credfeto.Dispatcher.GitHub.Interfaces;
 using Credfeto.Dispatcher.Storage.Configuration;
 using Credfeto.Dispatcher.Storage.Services;
 using Credfeto.Services.Startup.Interfaces;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
@@ -16,15 +16,14 @@ public static class StorageSetup
     {
         services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<IValidateOptions<DatabaseConfiguration>, DatabaseConfigurationValidator>();
+        services.AddSingleton<IOptions<SqlServerConfiguration>>(sp =>
+        {
+            DatabaseConfiguration cfg = sp.GetRequiredService<IOptions<DatabaseConfiguration>>().Value;
+            return Options.Create(new SqlServerConfiguration(cfg.ConnectionString));
+        });
 
         return services
-            .AddDbContextFactory<DispatcherDbContext>(
-                (sp, options) =>
-                {
-                    DatabaseConfiguration cfg = sp.GetRequiredService<IOptions<DatabaseConfiguration>>().Value;
-                    options.UseSqlServer(cfg.ConnectionString);
-                }
-            )
+            .AddSqlServer()
             .AddRunOnStartupTask<DatabaseMigrationService>()
             .AddSingleton<IActiveRepoTracker, ActiveRepoTracker>()
             .AddSingleton<IETagStore, ETagStore>()

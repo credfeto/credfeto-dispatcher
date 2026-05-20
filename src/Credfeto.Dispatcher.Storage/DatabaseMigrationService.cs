@@ -1,35 +1,39 @@
-﻿using System.Threading;
+﻿using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
+using Credfeto.Dispatcher.Storage.Configuration;
 using Credfeto.Services.Startup.Interfaces;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Storage;
-using Microsoft.Extensions.DependencyInjection;
+using DbUp;
+using Microsoft.Extensions.Options;
 
 namespace Credfeto.Dispatcher.Storage;
 
 public sealed class DatabaseMigrationService : IRunOnStartup
 {
-    private readonly IDbContextFactory<DispatcherDbContext> _dbContextFactory;
+    private readonly IOptions<DatabaseConfiguration> _config;
 
-    public DatabaseMigrationService(IDbContextFactory<DispatcherDbContext> dbContextFactory)
+    public DatabaseMigrationService(IOptions<DatabaseConfiguration> config)
     {
-        this._dbContextFactory = dbContextFactory;
+        this._config = config;
     }
 
-    public async ValueTask StartAsync(CancellationToken cancellationToken)
+    public ValueTask StartAsync(CancellationToken cancellationToken)
     {
-        await using DispatcherDbContext context = await this._dbContextFactory.CreateDbContextAsync(cancellationToken);
+        DbUp.Engine.DatabaseUpgradeResult result = DeployChanges
+            .To.SqlDatabase(this._config.Value.ConnectionString)
+            .WithScriptsEmbeddedInAssembly(Assembly.GetExecutingAssembly())
+            .LogToConsole()
+            .Build()
+            .PerformUpgrade();
 
-        IRelationalDatabaseCreator creator = context
-            .GetInfrastructure()
-            .GetRequiredService<IRelationalDatabaseCreator>();
-
-        if (!await creator.ExistsAsync(cancellationToken))
+        if (!result.Successful)
         {
-            await creator.CreateAsync(cancellationToken);
+            throw new System.InvalidOperationException(
+                $"Database migration failed: {result.Error?.Message}",
+                result.Error
+            );
         }
 
-        await context.Database.MigrateAsync(cancellationToken);
+        return ValueTask.CompletedTask;
     }
 }

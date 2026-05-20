@@ -1,62 +1,40 @@
-﻿using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.Interfaces;
+using Credfeto.Dispatcher.Storage.Database.Rows;
 using Credfeto.Dispatcher.Storage.Services;
 using FunFair.Test.Common;
-using Microsoft.Data.Sqlite;
-using Microsoft.EntityFrameworkCore;
 using Xunit;
 
 namespace Credfeto.Dispatcher.Storage.Tests.Services;
 
-public sealed class ETagStoreTests : TestBase, IAsyncLifetime
+public sealed class ETagStoreTests : TestBase
 {
     private const string TEST_KEY = "test.key";
     private const string TEST_E_TAG = "\"abc123\"";
-    private const string UPDATED_E_TAG = "\"xyz789\"";
 
+    private readonly TestDatabaseStub _database;
     private readonly IETagStore _store;
-    private readonly SqliteConnection _connection;
 
     public ETagStoreTests()
     {
-        this._connection = new SqliteConnection("DataSource=:memory:");
-        this._connection.Open();
-
-        DbContextOptions<DispatcherDbContext> options = new DbContextOptionsBuilder<DispatcherDbContext>()
-            .UseSqlite(this._connection)
-            .Options;
-
-        using (DispatcherDbContext ctx = new(options))
-        {
-            _ = ctx.Database.EnsureCreated();
-        }
-
-        this._store = new ETagStore(new TestDbContextFactory(options));
-    }
-
-    public ValueTask InitializeAsync()
-    {
-        return ValueTask.CompletedTask;
-    }
-
-    public ValueTask DisposeAsync()
-    {
-        return this._connection.DisposeAsync();
+        this._database = new TestDatabaseStub();
+        this._store = new ETagStore(this._database);
     }
 
     [Fact]
-    public async Task GetETagAsyncReturnsNullWhenNoRecordExistsAsync()
+    public async Task GetETagAsyncReturnsNullWhenDatabaseReturnsNullAsync()
     {
+        this._database.SetReturn<PollingStateRow?>(value: null);
+
         string? result = await this._store.GetETagAsync(key: TEST_KEY, cancellationToken: this.CancellationToken());
 
         Assert.Null(result);
     }
 
     [Fact]
-    public async Task GetETagAsyncReturnsStoredValueAfterSaveAsync()
+    public async Task GetETagAsyncReturnsETagFromRowAsync()
     {
-        await this._store.SaveETagAsync(key: TEST_KEY, eTag: TEST_E_TAG, cancellationToken: this.CancellationToken());
+        this._database.SetReturn<PollingStateRow?>(new PollingStateRow(Key: TEST_KEY, ETag: TEST_E_TAG));
 
         string? result = await this._store.GetETagAsync(key: TEST_KEY, cancellationToken: this.CancellationToken());
 
@@ -64,59 +42,10 @@ public sealed class ETagStoreTests : TestBase, IAsyncLifetime
     }
 
     [Fact]
-    public async Task SaveETagAsyncCreatesNewRecordWhenNoneExistsAsync()
+    public async Task SaveETagAsyncCallsDatabaseAsync()
     {
         await this._store.SaveETagAsync(key: TEST_KEY, eTag: TEST_E_TAG, cancellationToken: this.CancellationToken());
 
-        string? result = await this._store.GetETagAsync(key: TEST_KEY, cancellationToken: this.CancellationToken());
-
-        Assert.NotNull(result);
-    }
-
-    [Fact]
-    public async Task SaveETagAsyncUpdatesExistingRecordAsync()
-    {
-        await this._store.SaveETagAsync(key: TEST_KEY, eTag: TEST_E_TAG, cancellationToken: this.CancellationToken());
-        await this._store.SaveETagAsync(
-            key: TEST_KEY,
-            eTag: UPDATED_E_TAG,
-            cancellationToken: this.CancellationToken()
-        );
-
-        string? result = await this._store.GetETagAsync(key: TEST_KEY, cancellationToken: this.CancellationToken());
-
-        Assert.Equal(expected: UPDATED_E_TAG, actual: result);
-    }
-
-    [Fact]
-    public async Task SaveETagAsyncDoesNotAffectOtherKeysAsync()
-    {
-        const string otherKey = "other.key";
-
-        await this._store.SaveETagAsync(key: TEST_KEY, eTag: TEST_E_TAG, cancellationToken: this.CancellationToken());
-
-        string? result = await this._store.GetETagAsync(key: otherKey, cancellationToken: this.CancellationToken());
-
-        Assert.Null(result);
-    }
-
-    private sealed class TestDbContextFactory : IDbContextFactory<DispatcherDbContext>
-    {
-        private readonly DbContextOptions<DispatcherDbContext> _options;
-
-        public TestDbContextFactory(DbContextOptions<DispatcherDbContext> options)
-        {
-            this._options = options;
-        }
-
-        public DispatcherDbContext CreateDbContext()
-        {
-            return new DispatcherDbContext(this._options);
-        }
-
-        public Task<DispatcherDbContext> CreateDbContextAsync(CancellationToken cancellationToken = default)
-        {
-            return Task.FromResult(new DispatcherDbContext(this._options));
-        }
+        Assert.Equal(expected: 1, actual: this._database.VoidExecuteCallCount);
     }
 }

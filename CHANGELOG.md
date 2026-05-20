@@ -28,6 +28,8 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Freshness metadata (as_of, lag_seconds) on /priorities response so consumers can detect stale snapshots
 - Poll GitHub Events API per-repo and per-owner feeds to keep work-item state fresher between full scans (enabled via Filter.PollEvents: true)
 - Default PollIssueEdits and PollEvents to true so event polling is active without explicit configuration
+- Added Credfeto.Dispatcher.Storage.Database project using MSBuild.Sdk.SqlProj to generate a DACPAC from the schema files
+- Fixed migration script 001_InitialCreate to use IF NOT EXISTS guards so it can run against databases that already have EF Core-created tables
 ### Fixed
 - EF Core change-tracking comparers trimmed away at publish time causing MissingMethodException at startup; preserve EF Core and Ben.Demystifier assemblies as trimmer roots
 - preserve EF Core migration types as trimmer roots to prevent missing-table errors at runtime on trimmed binaries
@@ -44,6 +46,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Create SQL Server database catalog on startup if it does not already exist before running migrations
 - Filter issues with open linked PRs from priorities endpoint
 - Remove work items for repos that become inaccessible during scan
+- Fixed SQLFLUFF RF04 lint violations - quoted [Target] and [Source] aliases in MERGE stored procedure SQL
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934
@@ -61,6 +64,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Structured WorkItem fields: LinkedPrNumbers as ImmutableArray<int>, ReviewDecision as enum, FailedCheckNames as ImmutableArray<string>, added FailedCheckSha
 - Security label now has higher priority than Urgent in issue priority ordering
 - Priorities endpoint: suppress issues from repos with open PRs, cap to 1 issue per repo, and apply configurable MaxIssues limit
+- Replaced Entity Framework Core with Credfeto.Database.SourceGenerator and DbUp for all database access in storage layer
 ### Deprecated
 ### Removed
 - Removed IsUpToDate field from WorkItem and PullRequestDetails as it was never populated in production

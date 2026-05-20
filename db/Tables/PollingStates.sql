@@ -1,0 +1,5 @@
+CREATE TABLE [dbo].[PollingStates] (
+  [Key] NVARCHAR(256) NOT NULL,
+  [ETag] NVARCHAR(1024) NOT NULL,
+  CONSTRAINT [PK_PollingStates] PRIMARY KEY ([Key])
+);

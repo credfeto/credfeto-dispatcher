@@ -1,0 +1,95 @@
+<Project Sdk="MSBuild.Sdk.SqlProj/4.2.0">
+  <!-- SQLProj Github repo https://github.com/rr-wfm/MSBuild.Sdk.SqlProj -->
+  <PropertyGroup>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisMode>AllEnabledByDefault</AnalysisMode>
+    <BackupDatabaseBeforeChanges>True</BackupDatabaseBeforeChanges>
+    <BlockOnPossibleDataLoss>True</BlockOnPossibleDataLoss>
+    <GenerateCreateScript>True</GenerateCreateScript>
+    <IncludeCompositeObjects>True</IncludeCompositeObjects>
+    <DebuggerSupport>true</DebuggerSupport>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateNeutralResourcesLanguageAttribute>true</GenerateNeutralResourcesLanguageAttribute>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <OutputType>Library</OutputType>
+    <RunAOTCompilation>false</RunAOTCompilation>
+    <TieredPGO>true</TieredPGO>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <IlcGenerateStackTraceData>false</IlcGenerateStackTraceData>
+    <IlcOptimizationPreference>Size</IlcOptimizationPreference>
+    <Features>strict;flow-analysis</Features>
+    <WarningsAsErrors />
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <CodeAnalysisRules>
+      -Microsoft.Rules.Data.SR0007;
+      -SqlServer.Rules.SRD0003;
+      -SqlServer.Rules.SRD0005;
+      -SqlServer.Rules.SRD0009;
+      -SqlServer.Rules.SRD0010;
+      -SqlServer.Rules.SRD0013;
+      -SqlServer.Rules.SRD0019;
+      -SqlServer.Rules.SRD0020;
+      -SqlServer.Rules.SRD0028;
+      -SqlServer.Rules.SRD0030;
+      -SqlServer.Rules.SRD0033;
+      -SqlServer.Rules.SRD0034;
+      -SqlServer.Rules.SRD0038;
+      -SqlServer.Rules.SRD0039;
+      -SqlServer.Rules.SRD0047;
+      -SqlServer.Rules.SRD0063;
+      -SqlServer.Rules.SRD0068;
+      -SqlServer.Rules.SRN0007;
+      -SqlServer.Rules.SRP0001;
+      -SqlServer.Rules.SRP0014;
+      -SqlServer.Rules.SRP0016;
+      -SqlServer.Rules.SRP0018;
+      -SqlServer.Rules.SRP0024;
+      -Smells.SML003;
+      -Smells.SML004;
+      -Smells.SML034;
+      -SqlServer.Rules.SRD0700;
+      -SqlServer.Rules.SRD0701;
+      -SqlServer.Rules.SRD0703;
+      -SqlServer.Rules.SRD0704;
+    </CodeAnalysisRules>
+    <CodeAnalysisTreatWarningsAsErrors>true</CodeAnalysisTreatWarningsAsErrors>
+    <ModelCollation>1033, CI</ModelCollation>
+    <Collation>SQL_Latin1_General_CP1_CI_AS</Collation>
+    <DeployOnPublish>False</DeployOnPublish>
+    <DisableImplicitNuGetFallbackFolder>true</DisableImplicitNuGetFallbackFolder>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <IsPackable>false</IsPackable>
+    <IsPublishable>false</IsPublishable>
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditLevel>low</NuGetAuditLevel>
+    <NuGetAuditMode>all</NuGetAuditMode>
+    <RecoveryMode>Full</RecoveryMode>
+    <RunSqlCodeAnalysis>True</RunSqlCodeAnalysis>
+    <SqlServerVersion>Sql160</SqlServerVersion>
+    <TargetFramework>net10.0</TargetFramework>
+    <TreatTSqlWarningsAsErrors>True</TreatTSqlWarningsAsErrors>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarnOnPackingNonPackableProject>false</WarnOnPackingNonPackableProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="ErikEJ.DacFX.SqlServer.Rules" Version="5.0.0" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
+    <PackageReference Include="ErikEJ.DacFX.TSQLSmellSCA" Version="4.2.0" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
+    <PackageReference Include="AsyncFixer" Version="2.1.0" PrivateAssets="All" ExcludeAssets="runtime" />
+    <PackageReference Include="FunFair.CodeAnalysis" Version="7.1.41.1934" PrivateAssets="All" ExcludeAssets="runtime" />
+    <PackageReference Include="Meziantou.Analyzer" Version="3.0.58" PrivateAssets="All" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" Version="17.14.15" PrivateAssets="All" ExcludeAssets="runtime" />
+    <PackageReference Include="Philips.CodeAnalysis.DuplicateCodeAnalyzer" Version="2.0.0" PrivateAssets="All" ExcludeAssets="runtime" />
+    <PackageReference Include="Philips.CodeAnalysis.MaintainabilityAnalyzers" Version="2.0.0" PrivateAssets="All" ExcludeAssets="runtime" />
+    <PackageReference Include="Roslynator.Analyzers" Version="4.15.0" PrivateAssets="All" ExcludeAssets="runtime" />
+    <PackageReference Include="SecurityCodeScan.VS2019" Version="5.6.7" PrivateAssets="All" ExcludeAssets="runtime" />
+    <PackageReference Include="SmartAnalyzers.CSharpExtensions.Annotations" Version="4.2.11" PrivateAssets="All" ExcludeAssets="runtime" />
+    <PackageReference Include="SonarAnalyzer.CSharp" Version="10.25.0.139117" PrivateAssets="All" ExcludeAssets="runtime" />
+    <PackageReference Include="ToStringWithoutOverrideAnalyzer" Version="0.6.0" PrivateAssets="All" ExcludeAssets="runtime" />
+    <PackageReference Include="SourceLink.Create.CommandLine" Version="2.8.3" PrivateAssets="All" ExcludeAssets="runtime" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="..\..\db\**\*.sql" />
+  </ItemGroup>
+</Project>

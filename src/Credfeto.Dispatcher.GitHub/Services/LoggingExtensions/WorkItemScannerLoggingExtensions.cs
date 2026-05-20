@@ -79,4 +79,11 @@ internal static partial class WorkItemScannerLoggingExtensions
         Message = "Removing stored work items for {Count} inactive (archived/disabled) repos"
     )]
     public static partial void LogRemovingItemsForInactiveRepos(this ILogger logger, int count);
+
+    [LoggerMessage(
+        EventId = 13,
+        Level = LogLevel.Warning,
+        Message = "Failed to scan repo {Repo}: scan returned null result"
+    )]
+    public static partial void LogRepoScanFailed(this ILogger logger, string repo);
 }

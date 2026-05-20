@@ -4,7 +4,7 @@ namespace Credfeto.Dispatcher.GitHub.Configuration;
 
 public sealed class GitHubOptionsValidator : IValidateOptions<GitHubOptions>
 {
-    private const int MinimumPollIntervalSeconds = 30;
+    private const int MINIMUM_POLL_INTERVAL_SECONDS = 30;
 
     public ValidateOptionsResult Validate(string? name, GitHubOptions options)
     {
@@ -13,10 +13,10 @@ public sealed class GitHubOptionsValidator : IValidateOptions<GitHubOptions>
             return ValidateOptionsResult.Fail("GitHub API token must be configured.");
         }
 
-        if (options.PollIntervalSeconds < MinimumPollIntervalSeconds)
+        if (options.PollIntervalSeconds < MINIMUM_POLL_INTERVAL_SECONDS)
         {
             return ValidateOptionsResult.Fail(
-                $"GitHub PollIntervalSeconds must be at least {MinimumPollIntervalSeconds}."
+                $"GitHub PollIntervalSeconds must be at least {MINIMUM_POLL_INTERVAL_SECONDS}."
             );
         }
 

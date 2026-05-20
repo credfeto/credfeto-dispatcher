@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
@@ -16,7 +16,7 @@ namespace Credfeto.Dispatcher.GitHub.Tests.Services;
 
 public sealed class NotificationPollerTests : TestBase
 {
-    private const string NotificationJson = """
+    private const string NOTIFICATION_JSON = """
         [
           {
             "id": "1",
@@ -57,12 +57,10 @@ public sealed class NotificationPollerTests : TestBase
         this._httpClientFactory.MockCreateClientWithResponse(
             clientName: "GitHub",
             httpStatusCode: HttpStatusCode.OK,
-            responseMessage: NotificationJson
+            responseMessage: NOTIFICATION_JSON
         );
 
-        IReadOnlyList<GitHubNotification> result = await this._poller.PollAsync(
-            this.CancellationToken()
-        );
+        IReadOnlyList<GitHubNotification> result = await this._poller.PollAsync(this.CancellationToken());
 
         Assert.NotEmpty(result);
     }
@@ -73,12 +71,10 @@ public sealed class NotificationPollerTests : TestBase
         this._httpClientFactory.MockCreateClientWithResponse(
             clientName: "GitHub",
             httpStatusCode: HttpStatusCode.OK,
-            responseMessage: NotificationJson
+            responseMessage: NOTIFICATION_JSON
         );
 
-        IReadOnlyList<GitHubNotification> result = await this._poller.PollAsync(
-            this.CancellationToken()
-        );
+        IReadOnlyList<GitHubNotification> result = await this._poller.PollAsync(this.CancellationToken());
 
         Assert.Single(result);
     }
@@ -89,12 +85,10 @@ public sealed class NotificationPollerTests : TestBase
         this._httpClientFactory.MockCreateClientWithResponse(
             clientName: "GitHub",
             httpStatusCode: HttpStatusCode.OK,
-            responseMessage: NotificationJson
+            responseMessage: NOTIFICATION_JSON
         );
 
-        IReadOnlyList<GitHubNotification> result = await this._poller.PollAsync(
-            this.CancellationToken()
-        );
+        IReadOnlyList<GitHubNotification> result = await this._poller.PollAsync(this.CancellationToken());
 
         Assert.Equal(expected: "1", actual: result[0].Id);
     }
@@ -105,12 +99,10 @@ public sealed class NotificationPollerTests : TestBase
         this._httpClientFactory.MockCreateClientWithResponse(
             clientName: "GitHub",
             httpStatusCode: HttpStatusCode.OK,
-            responseMessage: NotificationJson
+            responseMessage: NOTIFICATION_JSON
         );
 
-        IReadOnlyList<GitHubNotification> result = await this._poller.PollAsync(
-            this.CancellationToken()
-        );
+        IReadOnlyList<GitHubNotification> result = await this._poller.PollAsync(this.CancellationToken());
 
         Assert.Equal(expected: "mention", actual: result[0].Reason);
     }
@@ -121,12 +113,10 @@ public sealed class NotificationPollerTests : TestBase
         this._httpClientFactory.MockCreateClientWithResponse(
             clientName: "GitHub",
             httpStatusCode: HttpStatusCode.OK,
-            responseMessage: NotificationJson
+            responseMessage: NOTIFICATION_JSON
         );
 
-        IReadOnlyList<GitHubNotification> result = await this._poller.PollAsync(
-            this.CancellationToken()
-        );
+        IReadOnlyList<GitHubNotification> result = await this._poller.PollAsync(this.CancellationToken());
 
         Assert.Equal(expected: "A pull request", actual: result[0].Subject.Title);
     }
@@ -137,12 +127,10 @@ public sealed class NotificationPollerTests : TestBase
         this._httpClientFactory.MockCreateClientWithResponse(
             clientName: "GitHub",
             httpStatusCode: HttpStatusCode.OK,
-            responseMessage: NotificationJson
+            responseMessage: NOTIFICATION_JSON
         );
 
-        IReadOnlyList<GitHubNotification> result = await this._poller.PollAsync(
-            this.CancellationToken()
-        );
+        IReadOnlyList<GitHubNotification> result = await this._poller.PollAsync(this.CancellationToken());
 
         Assert.Equal(expected: "owner/repo", actual: result[0].Repository.FullName);
     }
@@ -155,9 +143,7 @@ public sealed class NotificationPollerTests : TestBase
             httpStatusCode: HttpStatusCode.NotModified
         );
 
-        IReadOnlyList<GitHubNotification> result = await this._poller.PollAsync(
-            this.CancellationToken()
-        );
+        IReadOnlyList<GitHubNotification> result = await this._poller.PollAsync(this.CancellationToken());
 
         Assert.Empty(result);
     }
@@ -168,7 +154,7 @@ public sealed class NotificationPollerTests : TestBase
         this._httpClientFactory.MockCreateClientWithResponse(
             clientName: "GitHub",
             httpStatusCode: HttpStatusCode.OK,
-            responseMessage: NotificationJson
+            responseMessage: NOTIFICATION_JSON
         );
         await this._poller.PollAsync(this.CancellationToken());
 
@@ -176,9 +162,7 @@ public sealed class NotificationPollerTests : TestBase
             clientName: "GitHub",
             httpStatusCode: HttpStatusCode.NotModified
         );
-        IReadOnlyList<GitHubNotification> secondResult = await this._poller.PollAsync(
-            this.CancellationToken()
-        );
+        IReadOnlyList<GitHubNotification> secondResult = await this._poller.PollAsync(this.CancellationToken());
 
         Assert.Empty(secondResult);
     }
@@ -192,9 +176,7 @@ public sealed class NotificationPollerTests : TestBase
             responseMessage: "null"
         );
 
-        IReadOnlyList<GitHubNotification> result = await this._poller.PollAsync(
-            this.CancellationToken()
-        );
+        IReadOnlyList<GitHubNotification> result = await this._poller.PollAsync(this.CancellationToken());
 
         Assert.Empty(result);
     }
@@ -205,12 +187,10 @@ public sealed class NotificationPollerTests : TestBase
         this._httpClientFactory.MockCreateClientWithResponse(
             clientName: "GitHub",
             httpStatusCode: HttpStatusCode.OK,
-            responseMessage: NotificationJson
+            responseMessage: NOTIFICATION_JSON
         );
 
-        IReadOnlyList<GitHubNotification> result = await this._poller.PollAsync(
-            this.CancellationToken()
-        );
+        IReadOnlyList<GitHubNotification> result = await this._poller.PollAsync(this.CancellationToken());
 
         Assert.True(result[0].Unread, userMessage: "Expected unread flag to be true");
     }
@@ -221,12 +201,10 @@ public sealed class NotificationPollerTests : TestBase
         this._httpClientFactory.MockCreateClientWithResponse(
             clientName: "GitHub",
             httpStatusCode: HttpStatusCode.OK,
-            responseMessage: NotificationJson
+            responseMessage: NOTIFICATION_JSON
         );
 
-        IReadOnlyList<GitHubNotification> result = await this._poller.PollAsync(
-            this.CancellationToken()
-        );
+        IReadOnlyList<GitHubNotification> result = await this._poller.PollAsync(this.CancellationToken());
 
         Assert.Equal(expected: "PullRequest", actual: result[0].Subject.Type);
     }
@@ -237,17 +215,12 @@ public sealed class NotificationPollerTests : TestBase
         this._httpClientFactory.MockCreateClientWithResponse(
             clientName: "GitHub",
             httpStatusCode: HttpStatusCode.OK,
-            responseMessage: NotificationJson
+            responseMessage: NOTIFICATION_JSON
         );
 
-        IReadOnlyList<GitHubNotification> result = await this._poller.PollAsync(
-            this.CancellationToken()
-        );
+        IReadOnlyList<GitHubNotification> result = await this._poller.PollAsync(this.CancellationToken());
 
-        Assert.Equal(
-            expected: new Uri("https://github.com/owner/repo"),
-            actual: result[0].Repository.Url
-        );
+        Assert.Equal(expected: new Uri("https://github.com/owner/repo"), actual: result[0].Repository.Url);
     }
 
     [Fact]
@@ -279,9 +252,7 @@ public sealed class NotificationPollerTests : TestBase
             responseMessage: jsonWithNullUrl
         );
 
-        IReadOnlyList<GitHubNotification> result = await this._poller.PollAsync(
-            this.CancellationToken()
-        );
+        IReadOnlyList<GitHubNotification> result = await this._poller.PollAsync(this.CancellationToken());
 
         Assert.Equal(expected: new Uri("about:blank"), actual: result[0].Subject.Url);
     }
@@ -292,7 +263,7 @@ public sealed class NotificationPollerTests : TestBase
         this._httpClientFactory.MockCreateClientWithResponse(
             clientName: "GitHub",
             httpStatusCode: HttpStatusCode.OK,
-            responseMessage: NotificationJson
+            responseMessage: NOTIFICATION_JSON
         );
 
         await this._poller.PollAsync(this.CancellationToken());
@@ -330,10 +301,7 @@ public sealed class NotificationPollerTests : TestBase
             content: eTagJson,
             eTag: "\"new-etag\""
         );
-        using HttpClient httpClient = new(handler)
-        {
-            BaseAddress = new Uri("https://api.github.com/"),
-        };
+        using HttpClient httpClient = new(handler) { BaseAddress = new Uri("https://api.github.com/") };
         this._httpClientFactory.CreateClient("GitHub").Returns(httpClient);
 
         await this._poller.PollAsync(this.CancellationToken());

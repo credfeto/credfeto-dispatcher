@@ -18,10 +18,10 @@ namespace Credfeto.Dispatcher.GitHub.Tests.Services;
 
 public sealed class WorkItemScannerTests : TestBase
 {
-    private const string Owner = "owner";
-    private const string Repo = "owner/repo";
+    private const string OWNER = "owner";
+    private const string REPO = "owner/repo";
 
-    private const string UserReposJson = """
+    private const string USER_REPOS_JSON = """
         [{
           "full_name": "owner/repo",
           "archived": false,
@@ -30,7 +30,7 @@ public sealed class WorkItemScannerTests : TestBase
         }]
         """;
 
-    private const string ReadOnlyRepoJson = """
+    private const string READ_ONLY_REPO_JSON = """
         [{
           "full_name": "owner/repo",
           "archived": false,
@@ -39,7 +39,7 @@ public sealed class WorkItemScannerTests : TestBase
         }]
         """;
 
-    private const string ArchivedRepoJson = """
+    private const string ARCHIVED_REPO_JSON = """
         [{
           "full_name": "owner/repo",
           "archived": true,
@@ -48,7 +48,7 @@ public sealed class WorkItemScannerTests : TestBase
         }]
         """;
 
-    private const string OpenPrJson = """
+    private const string OPEN_PR_JSON = """
         [{
           "number": 1,
           "title": "Test PR",
@@ -61,7 +61,7 @@ public sealed class WorkItemScannerTests : TestBase
         }]
         """;
 
-    private const string DraftPrJson = """
+    private const string DRAFT_PR_JSON = """
         [{
           "number": 2,
           "title": "Draft PR",
@@ -74,7 +74,7 @@ public sealed class WorkItemScannerTests : TestBase
         }]
         """;
 
-    private const string PrWithUrgentLabelJson = """
+    private const string PR_WITH_URGENT_LABEL_JSON = """
         [{
           "number": 3,
           "title": "Urgent PR",
@@ -87,7 +87,7 @@ public sealed class WorkItemScannerTests : TestBase
         }]
         """;
 
-    private const string PrWithSecurityLabelJson = """
+    private const string PR_WITH_SECURITY_LABEL_JSON = """
         [{
           "number": 9,
           "title": "Security PR",
@@ -100,7 +100,7 @@ public sealed class WorkItemScannerTests : TestBase
         }]
         """;
 
-    private const string PrWithOnHoldLabelJson = """
+    private const string PR_WITH_ON_HOLD_LABEL_JSON = """
         [{
           "number": 4,
           "title": "On-hold PR",
@@ -113,7 +113,7 @@ public sealed class WorkItemScannerTests : TestBase
         }]
         """;
 
-    private const string PrWithAiWorkLabelJson = """
+    private const string PR_WITH_AI_WORK_LABEL_JSON = """
         [{
           "number": 5,
           "title": "AI Work PR",
@@ -126,7 +126,7 @@ public sealed class WorkItemScannerTests : TestBase
         }]
         """;
 
-    private const string PrWithUnrelatedLabelJson = """
+    private const string PR_WITH_UNRELATED_LABEL_JSON = """
         [{
           "number": 6,
           "title": "Unrelated PR",
@@ -139,7 +139,7 @@ public sealed class WorkItemScannerTests : TestBase
         }]
         """;
 
-    private const string PrWithAiWorkSpaceLabelJson = """
+    private const string PR_WITH_AI_WORK_SPACE_LABEL_JSON = """
         [{
           "number": 7,
           "title": "AI Work PR (space variant)",
@@ -152,7 +152,7 @@ public sealed class WorkItemScannerTests : TestBase
         }]
         """;
 
-    private const string PrWithAiWorkLowercaseLabelJson = """
+    private const string PR_WITH_AI_WORK_LOWERCASE_LABEL_JSON = """
         [{
           "number": 8,
           "title": "AI Work PR (lowercase variant)",
@@ -165,7 +165,7 @@ public sealed class WorkItemScannerTests : TestBase
         }]
         """;
 
-    private const string PrWithOnHoldSpaceLabelJson = """
+    private const string PR_WITH_ON_HOLD_SPACE_LABEL_JSON = """
         [{
           "number": 9,
           "title": "On-hold PR (space variant)",
@@ -178,7 +178,7 @@ public sealed class WorkItemScannerTests : TestBase
         }]
         """;
 
-    private const string PrPage1Json = """
+    private const string PR_PAGE1_JSON = """
         [{
           "number": 10,
           "title": "PR Page 1",
@@ -191,7 +191,7 @@ public sealed class WorkItemScannerTests : TestBase
         }]
         """;
 
-    private const string PrPage2Json = """
+    private const string PR_PAGE2_JSON = """
         [{
           "number": 11,
           "title": "PR Page 2",
@@ -204,7 +204,7 @@ public sealed class WorkItemScannerTests : TestBase
         }]
         """;
 
-    private const string OpenIssueJson = """
+    private const string OPEN_ISSUE_JSON = """
         [{
           "number": 20,
           "title": "Test Issue",
@@ -216,7 +216,7 @@ public sealed class WorkItemScannerTests : TestBase
         }]
         """;
 
-    private const string IssueWithLinkedPrJson = """
+    private const string ISSUE_WITH_LINKED_PR_JSON = """
         [{
           "number": 21,
           "title": "Issue with PR",
@@ -228,7 +228,7 @@ public sealed class WorkItemScannerTests : TestBase
         }]
         """;
 
-    private const string TwoReposJson = """
+    private const string TWO_REPOS_JSON = """
         [
           {
             "full_name": "owner/repo",
@@ -245,7 +245,7 @@ public sealed class WorkItemScannerTests : TestBase
         ]
         """;
 
-    private const string EmptyJson = "[]";
+    private const string EMPTY_JSON = "[]";
 
     private readonly IActiveRepoTracker _activeRepoTracker;
     private readonly System.Net.Http.IHttpClientFactory _httpClientFactory;
@@ -300,7 +300,7 @@ public sealed class WorkItemScannerTests : TestBase
     [Fact]
     public async Task ScanAsync_WhenRepoDiscoveryReturnsEmpty_MakesNoStateUpdatesAsync()
     {
-        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, EmptyJson);
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient);
 
         WorkItemScanner scanner = this.CreateScanner();
@@ -331,7 +331,7 @@ public sealed class WorkItemScannerTests : TestBase
     [Fact]
     public async Task ScanAsync_WhenRepoIsReadOnly_MakesNoStateUpdatesAsync()
     {
-        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, ReadOnlyRepoJson);
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, READ_ONLY_REPO_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient);
 
         WorkItemScanner scanner = this.CreateScanner();
@@ -352,7 +352,7 @@ public sealed class WorkItemScannerTests : TestBase
     [Fact]
     public async Task ScanAsync_WhenRepoIsArchived_MakesNoStateUpdatesAsync()
     {
-        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, ArchivedRepoJson);
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, ARCHIVED_REPO_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient);
 
         WorkItemScanner scanner = this.CreateScanner();
@@ -373,7 +373,7 @@ public sealed class WorkItemScannerTests : TestBase
     [Fact]
     public async Task ScanAsync_WhenRepoIsArchived_RemovesStoredItemsAsync()
     {
-        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, ArchivedRepoJson);
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, ARCHIVED_REPO_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient);
 
         WorkItemScanner scanner = this.CreateScanner();
@@ -391,7 +391,7 @@ public sealed class WorkItemScannerTests : TestBase
     [Fact]
     public async Task ScanAsync_WhenOwnerNotInAllowedOwners_MakesNoStateUpdatesAsync()
     {
-        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient);
 
         GitHubOptions options = new() { Filter = new GitHubFilterOptions { AllowedOwners = ["other-owner"] } };
@@ -414,7 +414,7 @@ public sealed class WorkItemScannerTests : TestBase
     [Fact]
     public async Task ScanAsync_WhenRepoNotInAllowedRepos_MakesNoStateUpdatesAsync()
     {
-        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient);
 
         GitHubOptions options = new() { Filter = new GitHubFilterOptions { AllowedRepos = ["owner/other-repo"] } };
@@ -437,10 +437,10 @@ public sealed class WorkItemScannerTests : TestBase
     [Fact]
     public async Task ScanAsync_WhenRepoIsExcluded_MakesNoStateUpdatesAsync()
     {
-        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient);
 
-        GitHubOptions options = new() { Filter = new GitHubFilterOptions { ExcludedRepos = [Repo] } };
+        GitHubOptions options = new() { Filter = new GitHubFilterOptions { ExcludedRepos = [REPO] } };
 
         WorkItemScanner scanner = this.CreateScanner(options);
 
@@ -460,9 +460,9 @@ public sealed class WorkItemScannerTests : TestBase
     [Fact]
     public async Task ScanAsync_WithOpenPullRequest_CallsUpdateWithOpenStatusAsync()
     {
-        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
-        using HttpClient prClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
-        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EmptyJson);
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, OPEN_PR_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
 
         WorkItemScanner scanner = this.CreateScanner();
@@ -472,7 +472,7 @@ public sealed class WorkItemScannerTests : TestBase
         await this
             ._notificationStateTracker.Received(1)
             .UpdateStateAsync(
-                notification: Arg.Is<GitHubNotification>(n => n.Repository.FullName == Repo),
+                notification: Arg.Is<GitHubNotification>(n => n.Repository.FullName == REPO),
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 1 && d.Status == "Open"),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
@@ -483,9 +483,9 @@ public sealed class WorkItemScannerTests : TestBase
     [Fact]
     public async Task ScanAsync_WithDraftPullRequest_CallsUpdateWithDraftStatusAsync()
     {
-        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
-        using HttpClient prClient = CreateClient(HttpStatusCode.OK, DraftPrJson);
-        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EmptyJson);
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, DRAFT_PR_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
 
         WorkItemScanner scanner = this.CreateScanner();
@@ -495,7 +495,7 @@ public sealed class WorkItemScannerTests : TestBase
         await this
             ._notificationStateTracker.Received(1)
             .UpdateStateAsync(
-                notification: Arg.Is<GitHubNotification>(n => n.Repository.FullName == Repo),
+                notification: Arg.Is<GitHubNotification>(n => n.Repository.FullName == REPO),
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 2 && d.Status == "Draft"),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
@@ -506,9 +506,9 @@ public sealed class WorkItemScannerTests : TestBase
     [Fact]
     public async Task ScanAsync_WithUrgentPriorityLabel_CallsUpdateWithUrgentPriorityAsync()
     {
-        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
-        using HttpClient prClient = CreateClient(HttpStatusCode.OK, PrWithUrgentLabelJson);
-        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EmptyJson);
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, PR_WITH_URGENT_LABEL_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
 
         WorkItemScanner scanner = this.CreateScanner();
@@ -520,7 +520,7 @@ public sealed class WorkItemScannerTests : TestBase
             .UpdateStateAsync(
                 notification: Arg.Any<GitHubNotification>(),
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 3),
-                priority: WorkPriority.Urgent,
+                priority: WorkPriority.URGENT,
                 isOnHold: Arg.Any<bool>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
@@ -529,9 +529,9 @@ public sealed class WorkItemScannerTests : TestBase
     [Fact]
     public async Task ScanAsync_WithSecurityPriorityLabel_CallsUpdateWithSecurityPriorityAsync()
     {
-        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
-        using HttpClient prClient = CreateClient(HttpStatusCode.OK, PrWithSecurityLabelJson);
-        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EmptyJson);
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, PR_WITH_SECURITY_LABEL_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
 
         WorkItemScanner scanner = this.CreateScanner();
@@ -543,7 +543,7 @@ public sealed class WorkItemScannerTests : TestBase
             .UpdateStateAsync(
                 notification: Arg.Any<GitHubNotification>(),
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 9),
-                priority: WorkPriority.Security,
+                priority: WorkPriority.SECURITY,
                 isOnHold: Arg.Any<bool>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
@@ -552,9 +552,9 @@ public sealed class WorkItemScannerTests : TestBase
     [Fact]
     public async Task ScanAsync_WithOnHoldLabel_CallsUpdateWithIsOnHoldTrueAsync()
     {
-        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
-        using HttpClient prClient = CreateClient(HttpStatusCode.OK, PrWithOnHoldLabelJson);
-        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EmptyJson);
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, PR_WITH_ON_HOLD_LABEL_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
 
         GitHubOptions options = new() { Filter = new GitHubFilterOptions { NoWorkFilter = ["on-hold"] } };
@@ -577,9 +577,9 @@ public sealed class WorkItemScannerTests : TestBase
     [Fact]
     public async Task ScanAsync_WithMatchingLabelFilter_CallsUpdateAsync()
     {
-        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
-        using HttpClient prClient = CreateClient(HttpStatusCode.OK, PrWithAiWorkLabelJson);
-        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EmptyJson);
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, PR_WITH_AI_WORK_LABEL_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
 
         GitHubOptions options = new() { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } };
@@ -602,9 +602,9 @@ public sealed class WorkItemScannerTests : TestBase
     [Fact]
     public async Task ScanAsync_WithNonMatchingLabelFilter_DoesNotCallUpdateAsync()
     {
-        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
-        using HttpClient prClient = CreateClient(HttpStatusCode.OK, PrWithUnrelatedLabelJson);
-        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EmptyJson);
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, PR_WITH_UNRELATED_LABEL_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
 
         GitHubOptions options = new() { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } };
@@ -627,9 +627,9 @@ public sealed class WorkItemScannerTests : TestBase
     [Fact]
     public async Task ScanAsync_WithSpaceVariantLabelFilter_CallsUpdateAsync()
     {
-        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
-        using HttpClient prClient = CreateClient(HttpStatusCode.OK, PrWithAiWorkSpaceLabelJson);
-        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EmptyJson);
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, PR_WITH_AI_WORK_SPACE_LABEL_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
 
         GitHubOptions options = new() { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } };
@@ -652,9 +652,9 @@ public sealed class WorkItemScannerTests : TestBase
     [Fact]
     public async Task ScanAsync_WithLowercaseVariantLabelFilter_CallsUpdateAsync()
     {
-        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
-        using HttpClient prClient = CreateClient(HttpStatusCode.OK, PrWithAiWorkLowercaseLabelJson);
-        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EmptyJson);
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, PR_WITH_AI_WORK_LOWERCASE_LABEL_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
 
         GitHubOptions options = new() { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } };
@@ -677,9 +677,9 @@ public sealed class WorkItemScannerTests : TestBase
     [Fact]
     public async Task ScanAsync_WithSpaceVariantOnHoldLabel_CallsUpdateWithIsOnHoldTrueAsync()
     {
-        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
-        using HttpClient prClient = CreateClient(HttpStatusCode.OK, PrWithOnHoldSpaceLabelJson);
-        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EmptyJson);
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, PR_WITH_ON_HOLD_SPACE_LABEL_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
 
         GitHubOptions options = new() { Filter = new GitHubFilterOptions { NoWorkFilter = ["on-hold"] } };
@@ -702,9 +702,9 @@ public sealed class WorkItemScannerTests : TestBase
     [Fact]
     public async Task ScanAsync_WithPullRequestApiFailure_DoesNotThrowAsync()
     {
-        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
         using HttpClient prClient = CreateClient(HttpStatusCode.InternalServerError);
-        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EmptyJson);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
 
         WorkItemScanner scanner = this.CreateScanner();
@@ -725,9 +725,9 @@ public sealed class WorkItemScannerTests : TestBase
     [Fact]
     public async Task ScanAsync_WithOpenIssue_CallsUpdateStateAsync()
     {
-        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
-        using HttpClient prClient = CreateClient(HttpStatusCode.OK, EmptyJson);
-        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, OpenIssueJson);
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, OPEN_ISSUE_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
 
         WorkItemScanner scanner = this.CreateScanner();
@@ -748,9 +748,9 @@ public sealed class WorkItemScannerTests : TestBase
     [Fact]
     public async Task ScanAsync_WithIssueLinkedToPr_SkipsIssueAsync()
     {
-        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
-        using HttpClient prClient = CreateClient(HttpStatusCode.OK, EmptyJson);
-        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, IssueWithLinkedPrJson);
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, ISSUE_WITH_LINKED_PR_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
 
         WorkItemScanner scanner = this.CreateScanner();
@@ -771,8 +771,8 @@ public sealed class WorkItemScannerTests : TestBase
     [Fact]
     public async Task ScanAsync_WithIssueApiFailure_DoesNotThrowAsync()
     {
-        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
-        using HttpClient prClient = CreateClient(HttpStatusCode.OK, EmptyJson);
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
         using HttpClient issueClient = CreateClient(HttpStatusCode.InternalServerError);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
 
@@ -796,10 +796,10 @@ public sealed class WorkItemScannerTests : TestBase
     {
         const string page2Url = "https://api.github.com/repos/owner/repo/pulls?state=open&per_page=100&page=2";
 
-        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
-        using HttpClient prPage1Client = CreateClient(HttpStatusCode.OK, PrPage1Json, linkUrl: page2Url);
-        using HttpClient prPage2Client = CreateClient(HttpStatusCode.OK, PrPage2Json);
-        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EmptyJson);
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prPage1Client = CreateClient(HttpStatusCode.OK, PR_PAGE1_JSON, linkUrl: page2Url);
+        using HttpClient prPage2Client = CreateClient(HttpStatusCode.OK, PR_PAGE2_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prPage1Client, prPage2Client, issueClient);
 
         WorkItemScanner scanner = this.CreateScanner();
@@ -832,11 +832,11 @@ public sealed class WorkItemScannerTests : TestBase
     {
         const string repo2 = "owner/repo2";
 
-        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, TwoReposJson);
-        using HttpClient prClient1 = CreateClient(HttpStatusCode.OK, EmptyJson);
-        using HttpClient issueClient1 = CreateClient(HttpStatusCode.OK, OpenIssueJson);
-        using HttpClient prClient2 = CreateClient(HttpStatusCode.OK, EmptyJson);
-        using HttpClient issueClient2 = CreateClient(HttpStatusCode.OK, EmptyJson);
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, TWO_REPOS_JSON);
+        using HttpClient prClient1 = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        using HttpClient issueClient1 = CreateClient(HttpStatusCode.OK, OPEN_ISSUE_JSON);
+        using HttpClient prClient2 = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        using HttpClient issueClient2 = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
         this._httpClientFactory.CreateClient("GitHub")
             .Returns(repoClient, prClient1, issueClient1, prClient2, issueClient2);
 
@@ -847,7 +847,7 @@ public sealed class WorkItemScannerTests : TestBase
         await this
             ._notificationStateTracker.Received(1)
             .UpdateStateAsync(
-                notification: Arg.Is<GitHubNotification>(n => n.Repository.FullName == Repo),
+                notification: Arg.Is<GitHubNotification>(n => n.Repository.FullName == REPO),
                 details: Arg.Is<IssueDetails>(d => d.Number == 20),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
@@ -868,12 +868,12 @@ public sealed class WorkItemScannerTests : TestBase
     [Fact]
     public async Task ScanAsync_WhenAllowedOwnerMatches_ScansRepoAsync()
     {
-        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
-        using HttpClient prClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
-        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EmptyJson);
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, OPEN_PR_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
 
-        GitHubOptions options = new() { Filter = new GitHubFilterOptions { AllowedOwners = [Owner] } };
+        GitHubOptions options = new() { Filter = new GitHubFilterOptions { AllowedOwners = [OWNER] } };
 
         WorkItemScanner scanner = this.CreateScanner(options);
 
@@ -882,7 +882,7 @@ public sealed class WorkItemScannerTests : TestBase
         await this
             ._notificationStateTracker.Received(1)
             .UpdateStateAsync(
-                notification: Arg.Is<GitHubNotification>(n => n.Repository.FullName == Repo),
+                notification: Arg.Is<GitHubNotification>(n => n.Repository.FullName == REPO),
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 1),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
@@ -893,9 +893,9 @@ public sealed class WorkItemScannerTests : TestBase
     [Fact]
     public async Task ScanAsync_WithDiscoveredRepos_CallsUpdateActiveReposWithRepoListAsync()
     {
-        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
-        using HttpClient prClient = CreateClient(HttpStatusCode.OK, EmptyJson);
-        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EmptyJson);
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
 
         WorkItemScanner scanner = this.CreateScanner();
@@ -906,7 +906,7 @@ public sealed class WorkItemScannerTests : TestBase
             ._activeRepoTracker.Received(1)
             .UpdateActiveReposAsync(
                 activeRepos: Arg.Is<System.Collections.Generic.IReadOnlyList<string>>(r =>
-                    r.Count == 1 && r[0] == Repo
+                    r.Count == 1 && r[0] == REPO
                 ),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
@@ -915,7 +915,7 @@ public sealed class WorkItemScannerTests : TestBase
     [Fact]
     public async Task ScanAsync_WhenNoReposDiscovered_CallsUpdateActiveReposWithEmptyListAsync()
     {
-        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, EmptyJson);
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient);
 
         WorkItemScanner scanner = this.CreateScanner();
@@ -933,7 +933,7 @@ public sealed class WorkItemScannerTests : TestBase
     [Fact]
     public async Task ScanAsync_WhenRepoIsArchived_CallsUpdateActiveReposWithEmptyListAsync()
     {
-        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, ArchivedRepoJson);
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, ARCHIVED_REPO_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient);
 
         WorkItemScanner scanner = this.CreateScanner();
@@ -951,9 +951,9 @@ public sealed class WorkItemScannerTests : TestBase
     [Fact]
     public async Task ScanAsync_WithSuccessfulScan_CallsCloseStaleItemsAsync()
     {
-        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
-        using HttpClient prClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
-        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, OpenIssueJson);
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, OPEN_PR_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, OPEN_ISSUE_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
 
         WorkItemScanner scanner = this.CreateScanner();
@@ -963,7 +963,7 @@ public sealed class WorkItemScannerTests : TestBase
         await this
             ._workItemRepository.Received(1)
             .CloseStaleItemsForRepoAsync(
-                repository: Repo,
+                repository: REPO,
                 activePullRequestNumbers: Arg.Is<IReadOnlyList<int>>(l => l.Count == 1 && l[0] == 1),
                 activeIssueNumbers: Arg.Is<IReadOnlyList<int>>(l => l.Count == 1 && l[0] == 20),
                 cancellationToken: Arg.Any<CancellationToken>()
@@ -973,9 +973,9 @@ public sealed class WorkItemScannerTests : TestBase
     [Fact]
     public async Task ScanAsync_WhenPrScanFails_DoesNotCallCloseStaleItemsAsync()
     {
-        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
         using HttpClient prClient = CreateClient(HttpStatusCode.InternalServerError);
-        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, OpenIssueJson);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, OPEN_ISSUE_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
 
         WorkItemScanner scanner = this.CreateScanner();
@@ -995,8 +995,8 @@ public sealed class WorkItemScannerTests : TestBase
     [Fact]
     public async Task ScanAsync_WhenIssueScanFails_DoesNotCallCloseStaleItemsAsync()
     {
-        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
-        using HttpClient prClient = CreateClient(HttpStatusCode.OK, EmptyJson);
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
         using HttpClient issueClient = CreateClient(HttpStatusCode.InternalServerError);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
 
@@ -1017,9 +1017,9 @@ public sealed class WorkItemScannerTests : TestBase
     [Fact]
     public async Task ScanAsync_WithEmptyRepo_CallsCloseStaleItemsWithEmptyListsAsync()
     {
-        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
-        using HttpClient prClient = CreateClient(HttpStatusCode.OK, EmptyJson);
-        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EmptyJson);
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
 
         WorkItemScanner scanner = this.CreateScanner();
@@ -1029,7 +1029,7 @@ public sealed class WorkItemScannerTests : TestBase
         await this
             ._workItemRepository.Received(1)
             .CloseStaleItemsForRepoAsync(
-                repository: Repo,
+                repository: REPO,
                 activePullRequestNumbers: Arg.Is<IReadOnlyList<int>>(l => l.Count == 0),
                 activeIssueNumbers: Arg.Is<IReadOnlyList<int>>(l => l.Count == 0),
                 cancellationToken: Arg.Any<CancellationToken>()
@@ -1039,9 +1039,9 @@ public sealed class WorkItemScannerTests : TestBase
     [Fact]
     public async Task ScanAsync_WithFilteredOutPr_StillIncludesItInActiveListForReconciliationAsync()
     {
-        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, UserReposJson);
-        using HttpClient prClient = CreateClient(HttpStatusCode.OK, PrWithUnrelatedLabelJson);
-        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EmptyJson);
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, PR_WITH_UNRELATED_LABEL_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
 
         GitHubOptions options = new() { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } };
@@ -1053,7 +1053,7 @@ public sealed class WorkItemScannerTests : TestBase
         await this
             ._workItemRepository.Received(1)
             .CloseStaleItemsForRepoAsync(
-                repository: Repo,
+                repository: REPO,
                 activePullRequestNumbers: Arg.Is<IReadOnlyList<int>>(l => l.Count == 1 && l[0] == 6),
                 activeIssueNumbers: Arg.Is<IReadOnlyList<int>>(l => l.Count == 0),
                 cancellationToken: Arg.Any<CancellationToken>()

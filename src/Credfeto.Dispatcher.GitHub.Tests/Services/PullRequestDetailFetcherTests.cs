@@ -14,9 +14,9 @@ namespace Credfeto.Dispatcher.GitHub.Tests.Services;
 
 public sealed class PullRequestDetailFetcherTests : TestBase
 {
-    private const string PrApiUrl = "https://api.github.com/repos/owner/repo/pulls/42";
+    private const string PR_API_URL = "https://api.github.com/repos/owner/repo/pulls/42";
 
-    private const string OpenPrJson = """
+    private const string OPEN_PR_JSON = """
         {
           "data": {
             "repository": {
@@ -39,7 +39,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         }
         """;
 
-    private const string DraftPrJson = """
+    private const string DRAFT_PR_JSON = """
         {
           "data": {
             "repository": {
@@ -62,7 +62,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         }
         """;
 
-    private const string ClosedPrJson = """
+    private const string CLOSED_PR_JSON = """
         {
           "data": {
             "repository": {
@@ -85,7 +85,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         }
         """;
 
-    private const string MergedPrJson = """
+    private const string MERGED_PR_JSON = """
         {
           "data": {
             "repository": {
@@ -108,7 +108,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         }
         """;
 
-    private const string PrWithAssigneesJson = """
+    private const string PR_WITH_ASSIGNEES_JSON = """
         {
           "data": {
             "repository": {
@@ -131,7 +131,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         }
         """;
 
-    private const string PrWithLabelsJson = """
+    private const string PR_WITH_LABELS_JSON = """
         {
           "data": {
             "repository": {
@@ -154,7 +154,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         }
         """;
 
-    private const string OpenPrWithCommentJson = """
+    private const string OPEN_PR_WITH_COMMENT_JSON = """
         {
           "data": {
             "repository": {
@@ -177,7 +177,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         }
         """;
 
-    private const string OpenPrWithChangesRequestedReviewJson = """
+    private const string OPEN_PR_WITH_CHANGES_REQUESTED_REVIEW_JSON = """
         {
           "data": {
             "repository": {
@@ -200,7 +200,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         }
         """;
 
-    private const string OpenPrWithApprovedReviewJson = """
+    private const string OPEN_PR_WITH_APPROVED_REVIEW_JSON = """
         {
           "data": {
             "repository": {
@@ -223,7 +223,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         }
         """;
 
-    private const string OpenPrWithLinkedItemsJson = """
+    private const string OPEN_PR_WITH_LINKED_ITEMS_JSON = """
         {
           "data": {
             "repository": {
@@ -246,7 +246,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         }
         """;
 
-    private const string WorkflowRunsWithFailureJson = """
+    private const string WORKFLOW_RUNS_WITH_FAILURE_JSON = """
         {
           "workflow_runs": [{
             "name": "CI",
@@ -257,7 +257,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         }
         """;
 
-    private const string WorkflowRunsAllPassedJson = """
+    private const string WORKFLOW_RUNS_ALL_PASSED_JSON = """
         {
           "workflow_runs": [{
             "name": "CI",
@@ -302,7 +302,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         return new GitHubNotification(
             Id: "1",
             Reason: reason,
-            Subject: new NotificationSubject(Title: "Test PR", Url: new Uri(PrApiUrl), Type: type),
+            Subject: new NotificationSubject(Title: "Test PR", Url: new Uri(PR_API_URL), Type: type),
             Repository: new NotificationRepository(
                 FullName: "owner/repo",
                 Url: new Uri("https://github.com/owner/repo")
@@ -352,7 +352,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task ReturnsPullRequestDetailsForOpenPrAsync()
     {
-        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OPEN_PR_JSON);
         using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
         this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
 
@@ -370,7 +370,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task ReturnsPullRequestDetailsForDraftPrAsync()
     {
-        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, DraftPrJson);
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, DRAFT_PR_JSON);
         using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
         this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
 
@@ -388,7 +388,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task ReturnsPullRequestDetailsForClosedPrAsync()
     {
-        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, ClosedPrJson);
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, CLOSED_PR_JSON);
         using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
         this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
 
@@ -406,7 +406,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task ReturnsPullRequestDetailsForMergedPrAsync()
     {
-        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, MergedPrJson);
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, MERGED_PR_JSON);
         using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
         this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
 
@@ -424,7 +424,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task MapsTitleFromPullRequestAsync()
     {
-        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OPEN_PR_JSON);
         using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
         this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
 
@@ -442,7 +442,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task MapsNumberFromPullRequestAsync()
     {
-        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OPEN_PR_JSON);
         using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
         this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
 
@@ -460,7 +460,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task MapsHtmlUrlFromPullRequestAsync()
     {
-        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OPEN_PR_JSON);
         using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
         this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
 
@@ -478,7 +478,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task MapsAssigneesFromPullRequestAsync()
     {
-        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, PrWithAssigneesJson);
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, PR_WITH_ASSIGNEES_JSON);
         using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
         this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
 
@@ -498,7 +498,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task MapsLabelsFromPullRequestAsync()
     {
-        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, PrWithLabelsJson);
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, PR_WITH_LABELS_JSON);
         using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
         this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
 
@@ -518,7 +518,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task ReturnsCommentsRegardlessOfNotificationReasonAsync()
     {
-        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OpenPrWithCommentJson);
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OPEN_PR_WITH_COMMENT_JSON);
         using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
         this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
 
@@ -542,7 +542,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task ReturnsEmptyCommentsWhenCommentListIsEmptyAsync()
     {
-        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OPEN_PR_JSON);
         using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
         this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
 
@@ -560,7 +560,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task ReturnsAllReviewsRegardlessOfNotificationReasonAsync()
     {
-        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OpenPrWithChangesRequestedReviewJson);
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OPEN_PR_WITH_CHANGES_REQUESTED_REVIEW_JSON);
         using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
         this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
 
@@ -581,7 +581,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task ReturnsApprovedReviewInReviewsListAsync()
     {
-        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OpenPrWithApprovedReviewJson);
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OPEN_PR_WITH_APPROVED_REVIEW_JSON);
         using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
         this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
 
@@ -600,8 +600,8 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task ReturnsRunsAlwaysNotOnlyForCiActivityAsync()
     {
-        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
-        using HttpClient runsClient = CreateClient(HttpStatusCode.OK, WorkflowRunsWithFailureJson);
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OPEN_PR_JSON);
+        using HttpClient runsClient = CreateClient(HttpStatusCode.OK, WORKFLOW_RUNS_WITH_FAILURE_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, runsClient);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
@@ -621,8 +621,8 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task ReturnsSuccessRunsInRunsListAsync()
     {
-        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
-        using HttpClient runsClient = CreateClient(HttpStatusCode.OK, WorkflowRunsAllPassedJson);
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OPEN_PR_JSON);
+        using HttpClient runsClient = CreateClient(HttpStatusCode.OK, WORKFLOW_RUNS_ALL_PASSED_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, runsClient);
 
         GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
@@ -640,7 +640,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task ReturnsEmptyRunsWhenNoRunsExistAsync()
     {
-        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OpenPrJson);
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OPEN_PR_JSON);
         using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
         this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
 
@@ -658,7 +658,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     [Fact]
     public async Task ParsesLinkedItemsFromBodyAsync()
     {
-        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OpenPrWithLinkedItemsJson);
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OPEN_PR_WITH_LINKED_ITEMS_JSON);
         using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
         this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
 

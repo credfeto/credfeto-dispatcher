@@ -25,7 +25,6 @@ using Microsoft.Extensions.Logging;
 using Serilog;
 using Serilog.Configuration;
 using Serilog.Core;
-using AppJsonContexts = Credfeto.Dispatcher.Server.AppJsonContexts;
 
 namespace Credfeto.Dispatcher.Server.Helpers;
 

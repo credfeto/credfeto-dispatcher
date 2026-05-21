@@ -1,5 +1,4 @@
 using System;
-using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.Server.Helpers;
 using Microsoft.AspNetCore.Builder;

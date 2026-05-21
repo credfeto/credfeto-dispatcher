@@ -70,6 +70,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 ### Removed
 - Removed IsUpToDate field from WorkItem and PullRequestDetails as it was never populated in production
 - Removed Docker smoke test from Dockerfile as it had too many gaps to be reliable
+- Removed tracked .idea IDE metadata files now covered by .gitignore
 ### Deployment Changes
 <!--
 Releases that have at least been deployed to staging, BUT NOT necessarily released to live.  Changes should be moved from [Unreleased] into here as they are merged into the appropriate release branch

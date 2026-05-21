@@ -5,13 +5,19 @@ CREATE PROCEDURE [dbo].[PullRequests_CloseStale]
 AS
 BEGIN
   SET NOCOUNT ON;
+  WITH
+    [ActiveIds] AS (
+      SELECT TRIM([value]) AS [CleanValue]
+      FROM STRING_SPLIT(@activePrIds, N',')
+    )
+
   UPDATE [dbo].[PullRequests]
   SET [Status] = N'Closed', [WhenClosed] = @now, [LastUpdated] = @now
   WHERE [Repository] = @repository
     AND [Status] <> N'Closed'
     AND (@activePrIds IS NULL OR [Id] NOT IN (
-      SELECT TRY_CAST(TRIM([value]) AS INT)
-      FROM STRING_SPLIT(@activePrIds, N',')
-      WHERE LEN(TRIM([value])) > 0
+      SELECT TRY_CAST([CleanValue] AS INT)
+      FROM [ActiveIds]
+      WHERE [CleanValue] <> N''
     ));
 END;

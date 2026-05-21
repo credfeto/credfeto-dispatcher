@@ -7,9 +7,15 @@ BEGIN
     BEGIN
       RETURN;
     END;
+  WITH
+    [RepositoryList] AS (
+      SELECT TRIM([value]) AS [Repository]
+      FROM STRING_SPLIT(@repositories, N',')
+    )
+
   DELETE FROM [dbo].[PullRequests]
   WHERE [Repository] IN (
-      SELECT TRIM([value]) FROM STRING_SPLIT(@repositories, N',')
-      WHERE LEN(TRIM([value])) > 0
+      SELECT [Repository] FROM [RepositoryList]
+      WHERE [Repository] <> N''
     );
 END;

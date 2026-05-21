@@ -48,6 +48,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Remove work items for repos that become inaccessible during scan
 - Fixed SQLFLUFF RF04 lint violations - quoted [Target] and [Source] aliases in MERGE stored procedure SQL
 - Docker smoke test now skips database migrations when no connection string is configured, allowing the trim-failure check to pass without a SQL Server
+- Rewrote stored procedures to use CTEs instead of functions in filter predicates to satisfy non-sargable SQL lint rule
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934

@@ -7,9 +7,15 @@ BEGIN
   DECLARE @ActiveRepos TABLE ([Repository] NVARCHAR(450) NOT NULL);
   IF @repositories IS NOT NULL
     BEGIN
+      WITH
+        [RepoList] AS (
+          SELECT TRIM([value]) AS [Repository]
+          FROM STRING_SPLIT(@repositories, N',')
+        )
+
       INSERT INTO @ActiveRepos ([Repository])
-      SELECT TRIM([value]) FROM STRING_SPLIT(@repositories, N',')
-      WHERE LEN(TRIM([value])) > 0;
+      SELECT [Repository] FROM [RepoList]
+      WHERE [Repository] <> N'';
     END;
   MERGE [dbo].[Repos] AS [Target]
   USING (SELECT

@@ -48,6 +48,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Remove work items for repos that become inaccessible during scan
 - Fixed SQLFLUFF RF04 lint violations - quoted [Target] and [Source] aliases in MERGE stored procedure SQL
 - Docker smoke test now skips database migrations when no connection string is configured, allowing the trim-failure check to pass without a SQL Server
+- Rewrote stored procedures to use CTEs instead of functions in filter predicates to satisfy non-sargable SQL lint rule
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934
@@ -69,6 +70,8 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 ### Deprecated
 ### Removed
 - Removed IsUpToDate field from WorkItem and PullRequestDetails as it was never populated in production
+- Removed Docker smoke test from Dockerfile as it had too many gaps to be reliable
+- Removed tracked .idea IDE metadata files now covered by .gitignore
 ### Deployment Changes
 <!--
 Releases that have at least been deployed to staging, BUT NOT necessarily released to live.  Changes should be moved from [Unreleased] into here as they are merged into the appropriate release branch

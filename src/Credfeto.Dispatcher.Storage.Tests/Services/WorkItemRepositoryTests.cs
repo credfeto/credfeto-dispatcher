@@ -193,9 +193,9 @@ public sealed class WorkItemRepositoryTests : TestBase
 
         IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
 
-        Assert.Single(result);
-        Assert.Equal(expected: 2, actual: result[0].Id);
-        Assert.Equal(expected: WorkPriority.HIGH, actual: result[0].Priority);
+        WorkItem item = Assert.Single(result);
+        Assert.Equal(expected: 2, actual: item.Id);
+        Assert.Equal(expected: WorkPriority.HIGH, actual: item.Priority);
     }
 
     [Fact]
@@ -211,8 +211,8 @@ public sealed class WorkItemRepositoryTests : TestBase
 
         IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
 
-        Assert.Single(result);
-        Assert.Equal(expected: 1, actual: result[0].Id);
+        WorkItem item = Assert.Single(result);
+        Assert.Equal(expected: 1, actual: item.Id);
     }
 
     [Fact]
@@ -228,7 +228,7 @@ public sealed class WorkItemRepositoryTests : TestBase
 
         IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
 
-        Assert.Single(result);
+        _ = Assert.Single(result);
     }
 
     [Fact]
@@ -278,8 +278,8 @@ public sealed class WorkItemRepositoryTests : TestBase
 
         IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
 
-        Assert.Single(result);
-        Assert.Equal(expected: "Open", actual: result[0].Status);
+        WorkItem item = Assert.Single(result);
+        Assert.Equal(expected: "Open", actual: item.Status);
     }
 
     [Fact]
@@ -290,8 +290,8 @@ public sealed class WorkItemRepositoryTests : TestBase
 
         IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
 
-        Assert.Single(result);
-        Assert.Empty(result[0].LinkedPrNumbers);
+        WorkItem item = Assert.Single(result);
+        Assert.Empty(item.LinkedPrNumbers);
     }
 
     [Fact]
@@ -318,8 +318,8 @@ public sealed class WorkItemRepositoryTests : TestBase
             stuckDependabotTimeout: stuckTimeout
         );
 
-        Assert.Single(result);
-        Assert.Equal(expected: WorkPriority.SECURITY, actual: result[0].Priority);
+        WorkItem item = Assert.Single(result);
+        Assert.Equal(expected: WorkPriority.SECURITY, actual: item.Priority);
     }
 
     [Fact]
@@ -345,8 +345,8 @@ public sealed class WorkItemRepositoryTests : TestBase
             stuckDependabotTimeout: stuckTimeout
         );
 
-        Assert.Single(result);
-        Assert.Equal(expected: WorkPriority.LOW, actual: result[0].Priority);
+        WorkItem item = Assert.Single(result);
+        Assert.Equal(expected: WorkPriority.LOW, actual: item.Priority);
     }
 
     [Fact]
@@ -372,8 +372,8 @@ public sealed class WorkItemRepositoryTests : TestBase
             stuckDependabotTimeout: stuckTimeout
         );
 
-        Assert.Single(result);
-        Assert.Equal(expected: WorkPriority.LOW, actual: result[0].Priority);
+        WorkItem item = Assert.Single(result);
+        Assert.Equal(expected: WorkPriority.LOW, actual: item.Priority);
     }
 
     [Fact]
@@ -384,8 +384,8 @@ public sealed class WorkItemRepositoryTests : TestBase
 
         IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
 
-        Assert.Single(result);
-        int linkedPr = Assert.Single(result[0].LinkedPrNumbers);
+        WorkItem item = Assert.Single(result);
+        int linkedPr = Assert.Single(item.LinkedPrNumbers);
         Assert.Equal(expected: 42, actual: linkedPr);
     }
 

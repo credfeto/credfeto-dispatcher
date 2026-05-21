@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.DataTypes;
@@ -24,15 +25,24 @@ internal static partial class Endpoints
         CancellationToken cancellationToken
     )
     {
-        PrioritiesOptions config = options.Value;
-        PrioritiesResponse response = await workItemRepository.GetPrioritisedWorkItemsAsync(
-            owners: config.Owners,
-            repos: config.Repos,
-            stuckDependabotTimeout: TimeSpan.FromHours(config.StuckDependabotTimeoutHours),
-            maxIssues: config.MaxIssues,
-            cancellationToken: cancellationToken
-        );
+        try
+        {
+            PrioritiesOptions config = options.Value;
+            PrioritiesResponse response = await workItemRepository.GetPrioritisedWorkItemsAsync(
+                owners: config.Owners,
+                repos: config.Repos,
+                stuckDependabotTimeout: TimeSpan.FromHours(config.StuckDependabotTimeoutHours),
+                maxIssues: config.MaxIssues,
+                cancellationToken: cancellationToken
+            );
 
-        return Results.Ok(response);
+            string json = JsonSerializer.Serialize(response, AppJsonContexts.Default.PrioritiesResponse);
+
+            return Results.Content(content: json, contentType: "application/json");
+        }
+        catch (Exception ex)
+        {
+            return Results.Problem(detail: ex.ToString(), statusCode: 500);
+        }
     }
 }

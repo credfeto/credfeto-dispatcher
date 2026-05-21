@@ -49,6 +49,10 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Fixed SQLFLUFF RF04 lint violations - quoted [Target] and [Source] aliases in MERGE stored procedure SQL
 - Docker smoke test now skips database migrations when no connection string is configured, allowing the trim-failure check to pass without a SQL Server
 - Rewrote stored procedures to use CTEs instead of functions in filter predicates to satisfy non-sargable SQL lint rule
+- LabelFilter now ignores empty/whitespace entries, so a config override of [""] correctly disables label filtering
+- DateTimeOffset columns now extracted correctly from database results — updated Credfeto.Database.Source.Generation to 1.2.209.2134
+- /priorities endpoint now returns a structured error response rather than a silent HTTP 500 with empty body when an exception occurs
+- Repo discovery partial failure (nil page from GitHub API) no longer updates the active repo list with incomplete data
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934
@@ -67,6 +71,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Security label now has higher priority than Urgent in issue priority ordering
 - Priorities endpoint: suppress issues from repos with open PRs, cap to 1 issue per repo, and apply configurable MaxIssues limit
 - Replaced Entity Framework Core with Credfeto.Database.SourceGenerator and DbUp for all database access in storage layer
+- Added 'blocked' label to default NoWorkFilter so blocked items are excluded from work queues
 ### Deprecated
 ### Removed
 - Removed IsUpToDate field from WorkItem and PullRequestDetails as it was never populated in production

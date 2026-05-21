@@ -48,7 +48,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
             return;
         }
 
-        (IReadOnlyList<string> repos, _) = await this._helper.DiscoverReposAsync(
+        (_, IReadOnlyList<string> repos, _) = await this._helper.DiscoverReposAsync(
             shouldInclude: this.ShouldIncludeRepo,
             cancellationToken: cancellationToken
         );

@@ -891,6 +891,45 @@ public sealed class WorkItemScannerTests : TestBase
     }
 
     [Fact]
+    public async Task ScanAsync_WhenRepoDiscoveryApiFails_DoesNotCallUpdateActiveReposAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.InternalServerError);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient);
+
+        WorkItemScanner scanner = this.CreateScanner();
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._activeRepoTracker.DidNotReceive()
+            .UpdateActiveReposAsync(
+                activeRepos: Arg.Any<System.Collections.Generic.IReadOnlyList<string>>(),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WhenSecondPageOfRepoDiscoveryFails_DoesNotCallUpdateActiveReposAsync()
+    {
+        const string page2Url = "https://api.github.com/repos?page=2";
+
+        using HttpClient repoPage1Client = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON, linkUrl: page2Url);
+        using HttpClient repoPage2Client = CreateClient(HttpStatusCode.InternalServerError);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoPage1Client, repoPage2Client);
+
+        WorkItemScanner scanner = this.CreateScanner();
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._activeRepoTracker.DidNotReceive()
+            .UpdateActiveReposAsync(
+                activeRepos: Arg.Any<System.Collections.Generic.IReadOnlyList<string>>(),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
     public async Task ScanAsync_WithDiscoveredRepos_CallsUpdateActiveReposWithRepoListAsync()
     {
         using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
@@ -913,7 +952,7 @@ public sealed class WorkItemScannerTests : TestBase
     }
 
     [Fact]
-    public async Task ScanAsync_WhenNoReposDiscovered_CallsUpdateActiveReposWithEmptyListAsync()
+    public async Task ScanAsync_WhenNoReposDiscovered_DoesNotCallUpdateActiveReposAsync()
     {
         using HttpClient repoClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient);
@@ -923,15 +962,15 @@ public sealed class WorkItemScannerTests : TestBase
         await scanner.ScanAsync(this.CancellationToken());
 
         await this
-            ._activeRepoTracker.Received(1)
+            ._activeRepoTracker.DidNotReceive()
             .UpdateActiveReposAsync(
-                activeRepos: Arg.Is<System.Collections.Generic.IReadOnlyList<string>>(r => r.Count == 0),
+                activeRepos: Arg.Any<System.Collections.Generic.IReadOnlyList<string>>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
 
     [Fact]
-    public async Task ScanAsync_WhenRepoIsArchived_CallsUpdateActiveReposWithEmptyListAsync()
+    public async Task ScanAsync_WhenRepoIsArchived_DoesNotCallUpdateActiveReposAsync()
     {
         using HttpClient repoClient = CreateClient(HttpStatusCode.OK, ARCHIVED_REPO_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoClient);
@@ -941,9 +980,9 @@ public sealed class WorkItemScannerTests : TestBase
         await scanner.ScanAsync(this.CancellationToken());
 
         await this
-            ._activeRepoTracker.Received(1)
+            ._activeRepoTracker.DidNotReceive()
             .UpdateActiveReposAsync(
-                activeRepos: Arg.Is<System.Collections.Generic.IReadOnlyList<string>>(r => r.Count == 0),
+                activeRepos: Arg.Any<System.Collections.Generic.IReadOnlyList<string>>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }

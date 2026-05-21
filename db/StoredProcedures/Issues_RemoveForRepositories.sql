@@ -14,8 +14,10 @@ BEGIN
     )
 
   DELETE FROM [dbo].[Issues]
-  WHERE [Repository] IN (
-      SELECT [Repository] FROM [RepositoryList]
-      WHERE [Repository] <> N''
+  WHERE EXISTS (
+      SELECT 1
+      FROM [RepositoryList]
+      WHERE [RepositoryList].[Repository] = [Issues].[Repository]
+        AND [RepositoryList].[Repository] > N''
     );
 END;

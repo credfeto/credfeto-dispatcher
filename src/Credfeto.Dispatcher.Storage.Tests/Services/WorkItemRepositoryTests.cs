@@ -35,12 +35,12 @@ public sealed class WorkItemRepositoryTests : TestBase
 
     private void SetupPullRequests(IReadOnlyList<PullRequestRow> rows)
     {
-        this._database.SetReturn<IReadOnlyList<PullRequestRow>>(rows);
+        this._database.SetReturn(rows);
     }
 
     private void SetupIssues(IReadOnlyList<IssueRow> rows)
     {
-        this._database.SetReturn<IReadOnlyList<IssueRow>>(rows);
+        this._database.SetReturn(rows);
     }
 
     private async Task<IReadOnlyList<WorkItem>> GetItemsAsync(

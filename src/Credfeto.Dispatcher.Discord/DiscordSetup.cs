@@ -4,7 +4,6 @@ using Credfeto.Dispatcher.Discord.Configuration;
 using Credfeto.Dispatcher.Discord.Interfaces;
 using Credfeto.Dispatcher.Discord.Services;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Options;
 
 namespace Credfeto.Dispatcher.Discord;

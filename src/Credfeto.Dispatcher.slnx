@@ -15,7 +15,7 @@
   </Folder>
   <Folder Name="/Services/"></Folder>
   <Folder Name="/Storage/">
-    <Project Path="Credfeto.Dispatcher.Storage.Database/Credfeto.Dispatcher.Storage.Database.sqlproj" />
+    <Project Path="Credfeto.Dispatcher.Storage.Database/Credfeto.Dispatcher.Storage.Database.csproj" />
     <Project Path="Credfeto.Dispatcher.Storage/Credfeto.Dispatcher.Storage.csproj" />
     <Project Path="Credfeto.Dispatcher.Storage.Tests/Credfeto.Dispatcher.Storage.Tests.csproj" />
   </Folder>

@@ -71,6 +71,14 @@ internal static class ServerStartup
             .ConfigureWebHost(configPath: configPath)
             .Build();
 
+        app.Use(
+            async (context, next) =>
+            {
+                context.Response.Headers["X-Version"] = VersionInformation.Version;
+                await next(context);
+            }
+        );
+
         app.MapEndpoints();
 
         return app;

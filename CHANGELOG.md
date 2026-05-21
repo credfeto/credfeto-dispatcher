@@ -30,6 +30,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Default PollIssueEdits and PollEvents to true so event polling is active without explicit configuration
 - Added Credfeto.Dispatcher.Storage.Database project using MSBuild.Sdk.SqlProj to generate a DACPAC from the schema files
 - Fixed migration script 001_InitialCreate to use IF NOT EXISTS guards so it can run against databases that already have EF Core-created tables
+- Added X-Version response header middleware to expose server version on all HTTP responses
 ### Fixed
 - EF Core change-tracking comparers trimmed away at publish time causing MissingMethodException at startup; preserve EF Core and Ben.Demystifier assemblies as trimmer roots
 - preserve EF Core migration types as trimmer roots to prevent missing-table errors at runtime on trimmed binaries

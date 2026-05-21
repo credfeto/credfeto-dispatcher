@@ -41,12 +41,11 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
     public async Task ScanAsync(CancellationToken cancellationToken)
     {
-        (IReadOnlyList<string> repos, IReadOnlyList<string> inactiveRepos) = await this._helper.DiscoverReposAsync(
-            shouldInclude: this.ShouldIncludeRepo,
-            cancellationToken: cancellationToken
-        );
-
-        await this._activeRepoTracker.UpdateActiveReposAsync(activeRepos: repos, cancellationToken: cancellationToken);
+        (bool discoveryComplete, IReadOnlyList<string> repos, IReadOnlyList<string> inactiveRepos) =
+            await this._helper.DiscoverReposAsync(
+                shouldInclude: this.ShouldIncludeRepo,
+                cancellationToken: cancellationToken
+            );
 
         if (inactiveRepos.Count > 0)
         {
@@ -57,12 +56,14 @@ public sealed class WorkItemScanner : IWorkItemScanner
             );
         }
 
-        if (repos.Count == 0)
+        if (!discoveryComplete || repos.Count == 0)
         {
             this._logger.LogNoReposDiscovered();
 
             return;
         }
+
+        await this._activeRepoTracker.UpdateActiveReposAsync(activeRepos: repos, cancellationToken: cancellationToken);
 
         this._logger.LogDiscoveredRepos(count: repos.Count);
 
@@ -328,14 +329,14 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
     private bool PassesLabelFilter(IReadOnlyList<string> labelNames)
     {
-        if (this._options.Filter.LabelFilter.Count == 0)
+        List<string> filters = [.. this._options.Filter.LabelFilter.Where(static f => !string.IsNullOrWhiteSpace(f))];
+
+        if (filters.Count == 0)
         {
             return true;
         }
 
-        return labelNames.Any(label =>
-            this._options.Filter.LabelFilter.Any(filter => LabelParser.FuzzyEquals(label, filter))
-        );
+        return labelNames.Any(label => filters.Exists(filter => LabelParser.FuzzyEquals(label, filter)));
     }
 
     private static string GetRepoName(string fullName)

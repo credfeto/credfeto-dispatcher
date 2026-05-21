@@ -25,10 +25,11 @@ public sealed class GitHubRepoHelper
         this._logger = logger;
     }
 
-    internal async Task<(IReadOnlyList<string> Active, IReadOnlyList<string> Inactive)> DiscoverReposAsync(
-        Func<ApiUserRepo, bool> shouldInclude,
-        CancellationToken cancellationToken
-    )
+    internal async Task<(
+        bool DiscoveryComplete,
+        IReadOnlyList<string> Active,
+        IReadOnlyList<string> Inactive
+    )> DiscoverReposAsync(Func<ApiUserRepo, bool> shouldInclude, CancellationToken cancellationToken)
     {
         List<string> active = [];
         List<string> inactive = [];
@@ -44,7 +45,7 @@ public sealed class GitHubRepoHelper
 
             if (items is null)
             {
-                break;
+                return (false, active, inactive);
             }
 
             foreach (ApiUserRepo repo in items)
@@ -62,7 +63,7 @@ public sealed class GitHubRepoHelper
             url = nextUrl;
         }
 
-        return (active, inactive);
+        return (true, active, inactive);
     }
 
     internal async ValueTask<(T[]? items, string? nextUrl)> GetPagedAsync<T>(

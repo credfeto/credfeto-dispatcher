@@ -58,7 +58,8 @@ public sealed class NotificationStateTrackerTests : TestBase
             LinkedItems: [],
             Repository: new ItemRepository(Owner: "owner", Name: "repo", Url: repoUri),
             LastNotification: new LastNotification(Id: "notif-1", Timestamp: BaseTime),
-            Author: null
+            Author: null,
+            HeadBranchName: null
         );
     }
 

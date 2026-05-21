@@ -36,6 +36,7 @@ public sealed partial class PullRequestDetailFetcher : IPullRequestDetailFetcher
               url
               body
               headRefOid
+              headRefName
               author {
                 login
               }
@@ -149,7 +150,8 @@ public sealed partial class PullRequestDetailFetcher : IPullRequestDetailFetcher
             LinkedItems: ExtractLinkedItems(pr.Body),
             Repository: repository,
             LastNotification: lastNotification,
-            Author: pr.Author?.Login
+            Author: pr.Author?.Login,
+            HeadBranchName: pr.HeadRefName
         );
     }
 

@@ -19,5 +19,6 @@ public sealed record PullRequestDetails(
     IReadOnlyList<LinkedItem> LinkedItems,
     ItemRepository Repository,
     LastNotification LastNotification,
-    string? Author
+    string? Author,
+    string? HeadBranchName
 );

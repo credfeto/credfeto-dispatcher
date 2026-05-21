@@ -66,6 +66,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
                     failedCheckNames: BuildFailedCheckNames(details.Runs),
                     failedCheckSha: BuildFailedCheckSha(details.Runs),
                     author: details.Author,
+                    headBranchName: details.HeadBranchName,
                     now: now,
                     cancellationToken: ct
                 ),

@@ -44,6 +44,7 @@ internal static partial class DispatcherDatabase
         string? failedCheckNames,
         string? failedCheckSha,
         string? author,
+        string? headBranchName,
         DateTimeOffset now,
         CancellationToken cancellationToken
     );

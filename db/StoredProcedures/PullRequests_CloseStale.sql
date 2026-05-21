@@ -14,10 +14,14 @@ BEGIN
   UPDATE [dbo].[PullRequests]
   SET [Status] = N'Closed', [WhenClosed] = @now, [LastUpdated] = @now
   WHERE [Repository] = @repository
-    AND [Status] <> N'Closed'
-    AND (@activePrIds IS NULL OR [Id] NOT IN (
-      SELECT TRY_CAST([CleanValue] AS INT)
-      FROM [ActiveIds]
-      WHERE [CleanValue] <> N''
-    ));
+    AND ([Status] = N'Open' OR [Status] = N'Draft')
+    AND (
+      @activePrIds IS NULL
+      OR NOT EXISTS (
+        SELECT 1
+        FROM [ActiveIds]
+        WHERE TRY_CAST([ActiveIds].[CleanValue] AS INT) = [dbo].[PullRequests].[Id]
+          AND [ActiveIds].[CleanValue] > N''
+      )
+    );
 END;

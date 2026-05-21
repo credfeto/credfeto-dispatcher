@@ -15,13 +15,15 @@ BEGIN
 
       INSERT INTO @ActiveRepos ([Repository])
       SELECT [Repository] FROM [RepoList]
-      WHERE [Repository] <> N'';
+      WHERE [Repository] > N'';
     END;
   MERGE [dbo].[Repos] AS [Target]
-  USING (SELECT
-    [Repository],
-    1 AS [IsActive]
-  FROM @ActiveRepos) AS [Source]
+  USING (
+    SELECT
+      [Repository],
+      1 AS [IsActive]
+    FROM @ActiveRepos
+  ) AS [Source]
   ON [Target].[Repository] = [Source].[Repository]
   WHEN MATCHED
     THEN

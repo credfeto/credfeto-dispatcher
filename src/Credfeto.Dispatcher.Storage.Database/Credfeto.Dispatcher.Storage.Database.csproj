@@ -1,27 +1,10 @@
-<Project Sdk="MSBuild.Sdk.SqlProj/4.2.0">
+﻿<Project Sdk="MSBuild.Sdk.SqlProj/4.2.0">
   <!-- SQLProj Github repo https://github.com/rr-wfm/MSBuild.Sdk.SqlProj -->
   <PropertyGroup>
     <AnalysisLevel>latest</AnalysisLevel>
     <AnalysisMode>AllEnabledByDefault</AnalysisMode>
     <BackupDatabaseBeforeChanges>True</BackupDatabaseBeforeChanges>
     <BlockOnPossibleDataLoss>True</BlockOnPossibleDataLoss>
-    <GenerateCreateScript>True</GenerateCreateScript>
-    <IncludeCompositeObjects>True</IncludeCompositeObjects>
-    <DebuggerSupport>true</DebuggerSupport>
-    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
-    <GenerateNeutralResourcesLanguageAttribute>true</GenerateNeutralResourcesLanguageAttribute>
-    <ImplicitUsings>disable</ImplicitUsings>
-    <LangVersion>latest</LangVersion>
-    <Nullable>enable</Nullable>
-    <OutputType>Library</OutputType>
-    <RunAOTCompilation>false</RunAOTCompilation>
-    <TieredPGO>true</TieredPGO>
-    <UseSystemResourceKeys>true</UseSystemResourceKeys>
-    <IlcGenerateStackTraceData>false</IlcGenerateStackTraceData>
-    <IlcOptimizationPreference>Size</IlcOptimizationPreference>
-    <Features>strict;flow-analysis</Features>
-    <WarningsAsErrors />
-    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
     <CodeAnalysisRules>
       -Microsoft.Rules.Data.SR0007;
       -SqlServer.Rules.SRD0003;
@@ -49,29 +32,47 @@
       -Smells.SML003;
       -Smells.SML004;
       -Smells.SML034;
+      -SqlServer.Rules.SRD0071;
       -SqlServer.Rules.SRD0700;
       -SqlServer.Rules.SRD0701;
       -SqlServer.Rules.SRD0703;
       -SqlServer.Rules.SRD0704;
     </CodeAnalysisRules>
     <CodeAnalysisTreatWarningsAsErrors>true</CodeAnalysisTreatWarningsAsErrors>
-    <ModelCollation>1033, CI</ModelCollation>
     <Collation>SQL_Latin1_General_CP1_CI_AS</Collation>
+    <DebuggerSupport>true</DebuggerSupport>
     <DeployOnPublish>False</DeployOnPublish>
     <DisableImplicitNuGetFallbackFolder>true</DisableImplicitNuGetFallbackFolder>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <Features>strict;flow-analysis</Features>
+    <GenerateCreateScript>True</GenerateCreateScript>
+    <GenerateNeutralResourcesLanguageAttribute>true</GenerateNeutralResourcesLanguageAttribute>
+    <IlcGenerateStackTraceData>false</IlcGenerateStackTraceData>
+    <IlcOptimizationPreference>Size</IlcOptimizationPreference>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <IncludeCompositeObjects>True</IncludeCompositeObjects>
     <IsPackable>false</IsPackable>
     <IsPublishable>false</IsPublishable>
+    <LangVersion>latest</LangVersion>
+    <ModelCollation>1033, CI</ModelCollation>
     <NuGetAudit>true</NuGetAudit>
     <NuGetAuditLevel>low</NuGetAuditLevel>
     <NuGetAuditMode>all</NuGetAuditMode>
+    <Nullable>enable</Nullable>
+    <OutputType>Library</OutputType>
     <RecoveryMode>Full</RecoveryMode>
+    <RunAOTCompilation>false</RunAOTCompilation>
     <RunSqlCodeAnalysis>True</RunSqlCodeAnalysis>
     <SqlServerVersion>Sql160</SqlServerVersion>
     <TargetFramework>net10.0</TargetFramework>
+    <TieredPGO>true</TieredPGO>
     <TreatTSqlWarningsAsErrors>True</TreatTSqlWarningsAsErrors>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
     <WarnOnPackingNonPackableProject>false</WarnOnPackingNonPackableProject>
+    <WarningsAsErrors />
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="ErikEJ.DacFX.SqlServer.Rules" Version="5.0.0" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />

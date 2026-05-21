@@ -18,7 +18,7 @@ BEGIN
     [FailedCheckSha],
     [Author]
   FROM [dbo].[PullRequests]
-  WHERE [Status] <> N'Closed'
+  WHERE ([Status] = N'Open' OR [Status] = N'Draft')
     AND [IsOnHold] = 0
     AND NOT EXISTS (
       SELECT 1 FROM [dbo].[Repos] AS Repo

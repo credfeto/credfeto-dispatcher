@@ -5,6 +5,7 @@ using System.IO;
 using System.Net;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
+using System.Threading.Tasks;
 using Credfeto.Date;
 using Credfeto.Dispatcher.Discord;
 using Credfeto.Dispatcher.Discord.Configuration;
@@ -17,6 +18,7 @@ using Credfeto.Random;
 using Credfeto.Services.Startup;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -71,17 +73,18 @@ internal static class ServerStartup
             .ConfigureWebHost(configPath: configPath)
             .Build();
 
-        app.Use(
-            async (context, next) =>
-            {
-                context.Response.Headers["X-Version"] = VersionInformation.Version;
-                await next(context);
-            }
-        );
+        app.Use(AddVersionHeaderAsync);
 
         app.MapEndpoints();
 
         return app;
+    }
+
+    private static Task AddVersionHeaderAsync(HttpContext context, RequestDelegate next)
+    {
+        context.Response.Headers["X-Version"] = VersionInformation.Version;
+
+        return next(context);
     }
 
     private static WebApplicationBuilder ConfigureAppHost(this WebApplicationBuilder builder)

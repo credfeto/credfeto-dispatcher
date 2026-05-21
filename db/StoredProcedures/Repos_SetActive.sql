@@ -15,7 +15,7 @@ BEGIN
 
       INSERT INTO @ActiveRepos ([Repository])
       SELECT [Repository] FROM [RepoList]
-      WHERE [Repository] <> N'';
+      WHERE [Repository] > N'';
     END;
   MERGE [dbo].[Repos] AS [Target]
   USING (SELECT

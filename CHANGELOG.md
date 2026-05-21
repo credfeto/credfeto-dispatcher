@@ -56,6 +56,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Fixed DACPAC not generated on Linux by renaming SQL project from .sqlproj to .csproj
 - Fixed SQL analyzer violations in stored procedures: NOT IN → NOT EXISTS, CASE expressions missing ELSE clause, single-character table aliases
 - Added .tsqllintignore to exclude generated build artefacts in bin/obj directories from SQL linting
+- SQL code analysis violations in stored procedures: replaced IN predicate with inequality comparison and added explicit ELSE NULL to CASE expressions
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934

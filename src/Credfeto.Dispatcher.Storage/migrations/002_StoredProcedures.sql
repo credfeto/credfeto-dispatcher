@@ -81,10 +81,12 @@ BEGIN
       WHERE LEN(TRIM([value])) > 0;
     END;
   MERGE [dbo].[Repos] AS [Target]
-  USING (SELECT
-    [Repository],
-    1 AS [IsActive]
-  FROM @ActiveRepos) AS [Source]
+  USING (
+    SELECT
+      [Repository],
+      1 AS [IsActive]
+    FROM @ActiveRepos
+  ) AS [Source]
   ON [Target].[Repository] = [Source].[Repository]
   WHEN MATCHED
     THEN

@@ -3,36 +3,36 @@ AS
 BEGIN
   SET NOCOUNT ON;
   SELECT
-    Iss.[Repository],
-    Iss.[Id],
-    Iss.[Status],
-    Iss.[FirstSeen],
-    Iss.[LastUpdated],
-    Iss.[WhenClosed],
-    Iss.[Priority],
-    Iss.[IsOnHold],
-    Iss.[LinkedPrNumber]
-  FROM [dbo].[Issues] AS Iss
-  WHERE Iss.[Status] = N'Open'
-    AND Iss.[IsOnHold] = 0
+    I.[Repository],
+    I.[Id],
+    I.[Status],
+    I.[FirstSeen],
+    I.[LastUpdated],
+    I.[WhenClosed],
+    I.[Priority],
+    I.[IsOnHold],
+    I.[LinkedPrNumber]
+  FROM [dbo].[Issues] AS I
+  WHERE I.[Status] <> N'Closed'
+    AND I.[IsOnHold] = 0
     AND NOT EXISTS (
-      SELECT 1 FROM [dbo].[Repos] AS Repo
-      WHERE Repo.[Repository] = Iss.[Repository] AND Repo.[IsActive] = 0
+      SELECT 1 FROM [dbo].[Repos] AS R
+      WHERE R.[Repository] = I.[Repository] AND R.[IsActive] = 0
     )
     AND (
-      Iss.[LinkedPrNumber] IS NULL
+      I.[LinkedPrNumber] IS NULL
       OR NOT EXISTS (
         SELECT 1 FROM [dbo].[PullRequests] AS Pr
-        WHERE Pr.[Repository] = Iss.[Repository]
-          AND Pr.[Id] = Iss.[LinkedPrNumber]
-          AND Pr.[Status] IN (N'Open', N'Draft')
+        WHERE Pr.[Repository] = I.[Repository]
+          AND Pr.[Id] = I.[LinkedPrNumber]
+          AND Pr.[Status] <> N'Closed'
       )
     )
     AND (
-      Iss.[Priority] >= 4
+      I.[Priority] >= 4
       OR NOT EXISTS (
         SELECT 1 FROM [dbo].[PullRequests] AS Pr2
-        WHERE Pr2.[Repository] = Iss.[Repository] AND Pr2.[Status] IN (N'Open', N'Draft')
+        WHERE Pr2.[Repository] = I.[Repository] AND Pr2.[Status] <> N'Closed'
       )
     );
 END;

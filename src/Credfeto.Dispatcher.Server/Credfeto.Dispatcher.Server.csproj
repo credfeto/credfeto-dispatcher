@@ -18,7 +18,7 @@
     <IsPackable>false</IsPackable>
     <IsPublishable>true</IsPublishable>
     <IsTrimmable>true</IsTrimmable>
-    <PublishAot>true</PublishAot>
+    <PublishAot>false</PublishAot>
     <PublishTrimmed>true</PublishTrimmed>
     <LangVersion>latest</LangVersion>
     <NoWarn />

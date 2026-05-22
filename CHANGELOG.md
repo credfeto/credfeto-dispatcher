@@ -11,6 +11,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 ## [Unreleased]
 ### Security
 ### Added
+- Enable Native AOT publishing for the server project
 - Work item scanner background service that polls configured GitHub repositories for open pull requests and issues, updating notification state with priority, hold status, and linked PR information
 - Work item scanner auto-discovers GitHub repositories with write access via the API — no longer requires explicit Repos configuration. Uses AllowedOwners, AllowedRepos, and ExcludedRepos filters; empty filters mean scan all accessible repos.
 - Enable PublishTrimmed for release builds, convert MaxLength data annotations to fluent API, and update options properties to use set accessors for trim-compatible configuration binding

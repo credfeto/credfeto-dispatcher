@@ -86,6 +86,10 @@
    color: "96f7d2"
    description: "Changes in Credfeto.Dispatcher.Storage project"
 
+ - name: "credfeto-dispatcher-storage-database"
+   color: "96f7d2"
+   description: "Changes in Credfeto.Dispatcher.Storage.Database project"
+
  - name: "credfeto-dispatcher-storage-tests"
    color: "0e8a16"
    description: "Changes in Credfeto.Dispatcher.Storage.Tests project"

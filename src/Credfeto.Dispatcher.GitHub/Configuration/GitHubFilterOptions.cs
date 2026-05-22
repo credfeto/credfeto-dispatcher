@@ -3,7 +3,7 @@ using System.Diagnostics;
 
 namespace Credfeto.Dispatcher.GitHub.Configuration;
 
-[DebuggerDisplay("Reasons: {Reasons.Count}, LabelFilter: {LabelFilter.Count}")]
+[DebuggerDisplay("Reasons: {Reasons.Count}, LabelFilter: {LabelFilter.Count}, MaxIssues: {MaxIssues}")]
 public sealed class GitHubFilterOptions
 {
     public IReadOnlyList<string> Reasons { get; set; } = [];
@@ -23,4 +23,8 @@ public sealed class GitHubFilterOptions
     public bool PollEvents { get; set; } = true;
 
     public string MentionedUser { get; set; } = string.Empty;
+
+    public int MaxIssues { get; set; } = 10;
+
+    public int StuckDependabotTimeoutHours { get; set; } = 3;
 }

@@ -2,56 +2,93 @@
 
 [Back to index](index.md)
 
-## Notification State Tracking Tables
+## Architecture Rule (MANDATORY)
 
-The application uses SQLite via Entity Framework Core to track the state of GitHub PR and Issue notifications. This prevents spamming Discord with repeated notifications about already-closed items.
+**Filtering and ordering of data belongs in the database, not in application code.**
 
-### PullRequests Table
+- Never filter or order result sets in C# after fetching rows from the database.
+- Never fetch more rows than needed and discard the excess in code.
+- Pass configuration values (owner lists, repo lists, caps, timeouts) as parameters to stored procedures and let the database do the work.
+- The database can use indexes, statistics, and execution plans to optimise queries far beyond what application-level LINQ can achieve.
+- When a stored procedure needs a list of values (e.g. allowed owners), pass it as a comma-separated `NVARCHAR(MAX)` parameter and use `STRING_SPLIT` inside the procedure.
 
-Tracks the state of each GitHub Pull Request that has been processed.
+## Database Engine
 
-| Column | Type | Nullable | Description |
-|---|---|---|---|
-| Repository | TEXT | No | Full repository name (e.g. `owner/repo`). Part of primary key. |
-| Id | INTEGER | No | Pull request number. Part of primary key. |
-| Status | TEXT | No | Current status: `Open`, `Draft`, or `Closed`. |
-| FirstSeen | TEXT | No | UTC timestamp when the PR was first processed. |
-| LastUpdated | TEXT | No | UTC timestamp of the most recent state update. Same as `FirstSeen` on creation. |
-| WhenClosed | TEXT | Yes | UTC timestamp when the PR was first recorded as closed. Null if open/draft. |
+SQL Server, accessed via the `Credfeto.Database` source-generated client. All data access goes through stored procedures — no inline SQL in application code.
 
-**Primary Key**: `(Repository, Id)`
+## Migrations
 
-### Issues Table
+- Migration scripts live in `src/Credfeto.Dispatcher.Storage/migrations/` and are numbered sequentially (`001_`, `002_`, …).
+- Every schema change (table, stored procedure, index) must be in a migration script.
+- Use `CREATE OR ALTER PROCEDURE` for stored procedures so migrations are re-runnable.
+- Never modify an existing migration — add a new one.
 
-Tracks the state of each GitHub Issue that has been processed.
+## Schema
 
-| Column | Type | Nullable | Description |
-|---|---|---|---|
-| Repository | TEXT | No | Full repository name (e.g. `owner/repo`). Part of primary key. |
-| Id | INTEGER | No | Issue number. Part of primary key. |
-| Status | TEXT | No | Current status: `Open` or `Closed`. |
-| FirstSeen | TEXT | No | UTC timestamp when the issue was first processed. |
-| LastUpdated | TEXT | No | UTC timestamp of the most recent state update. Same as `FirstSeen` on creation. |
-| WhenClosed | TEXT | Yes | UTC timestamp when the issue was first recorded as closed. Null if open. |
+### `dbo.Repos`
 
-**Primary Key**: `(Repository, Id)`
+Tracks which repositories are currently active (discovered by the scanner).
 
-## Adding Future Trackable Object Types
+| Column | Type | Description |
+| --- | --- | --- |
+| `Repository` | `NVARCHAR(450)` PK | Full repo name, e.g. `owner/repo` |
+| `IsActive` | `BIT` | `1` = active (seen in last scan), `0` = inactive |
+| `LastUpdated` | `DATETIMEOFFSET` | When `IsActive` was last changed |
 
-When a new GitHub notification subject type needs state tracking (e.g. Release, Discussion, Commit), follow this pattern:
+### `dbo.PullRequests`
 
-1. **Create an entity class** in `src/Credfeto.Dispatcher.Storage/Entities/` following the same schema as `PullRequestEntity` and `IssueEntity`.
-2. **Add a `DbSet<T>` property** to `DispatcherDbContext` and configure the composite key in `OnModelCreating`.
-3. **Add a migration** in `src/Credfeto.Dispatcher.Storage/Migrations/` to create the new table.
-4. **Update the model snapshot** (`DispatcherDbContextModelSnapshot.cs`) to include the new entity.
-5. **Add methods to `INotificationStateTracker`** for `ShouldSkipXxxAsync` and `UpdateXxxStateAsync`.
-6. **Implement the new methods** in `NotificationStateTracker`.
-7. **Create a detail fetcher** (implementing `IXxxDetailFetcher`) to retrieve the current status of the item.
-8. **Update `GitHubPollingWorker`** to use the new fetcher and state tracker methods for the new type.
-9. **Update this file** and `index.md` to document the new table.
+| Column | Type | Description |
+| --- | --- | --- |
+| `Repository` | `NVARCHAR(450)` PK | Full repo name |
+| `Id` | `INT` PK | PR number |
+| `Status` | `NVARCHAR(MAX)` | `Open`, `Draft`, or `Closed` |
+| `Priority` | `INT` | Maps to `WorkPriority` enum (0=UNKNOWN … 5=SECURITY) |
+| `IsOnHold` | `BIT` | Label-driven hold flag |
+| `CommentCount` | `INT` | |
+| `ReviewDecision` | `NVARCHAR(MAX)` | `Approved`, `ChangesRequested`, or `NULL` |
+| `FailedCheckCount` | `INT` | |
+| `FailedCheckNames` | `NVARCHAR(MAX)` | Comma-separated list of failed check names |
+| `FailedCheckSha` | `NVARCHAR(MAX)` | HEAD SHA when checks last failed |
+| `Author` | `NVARCHAR(MAX)` | GitHub login of the PR author |
+| `FirstSeen` | `DATETIMEOFFSET` | When the PR was first stored |
+| `LastUpdated` | `DATETIMEOFFSET` | Most recent upsert timestamp |
+| `WhenClosed` | `DATETIMEOFFSET` | Set when status first becomes `Closed`; `NULL` otherwise |
 
-## State Tracking Logic
+### `dbo.Issues`
 
-- Before dispatching a Discord notification, check if the item is already recorded as **Closed** in the database AND is currently still **Closed** — if so, skip the notification.
-- Always update the database state after deciding whether to dispatch.
-- If an item is reopened (status changes from `Closed` to `Open`), the `WhenClosed` column is set to `null` and the item becomes eligible for future close notifications again.
+| Column | Type | Description |
+| --- | --- | --- |
+| `Repository` | `NVARCHAR(450)` PK | Full repo name |
+| `Id` | `INT` PK | Issue number |
+| `Status` | `NVARCHAR(MAX)` | `Open` or `Closed` |
+| `Priority` | `INT` | Maps to `WorkPriority` enum |
+| `IsOnHold` | `BIT` | |
+| `LinkedPrNumber` | `INT` | PR number if a linked PR exists; `NULL` otherwise |
+| `FirstSeen` | `DATETIMEOFFSET` | |
+| `LastUpdated` | `DATETIMEOFFSET` | |
+| `WhenClosed` | `DATETIMEOFFSET` | |
+
+### `dbo.NotificationQueue`
+
+Holds notifications that have been received but are not yet ready to dispatch (deliberate delay to avoid noise from rapid state changes).
+
+### `dbo.PollingStates`
+
+Stores ETags for GitHub notification polling endpoints to support conditional requests.
+
+## Key Stored Procedures
+
+| Procedure | Purpose |
+| --- | --- |
+| `PullRequests_GetActive` | Returns open/draft PRs for active repos |
+| `Issues_GetActive` | Returns open issues for active repos (suppresses lower-priority issues when an open PR exists for the repo) |
+| `Repos_SetActive` | MERGE to mark discovered repos active and all others inactive |
+| `PullRequests_Upsert` / `Issues_Upsert` | Insert or update a single item |
+| `PullRequests_CloseStale` / `Issues_CloseStale` | Close items no longer present in a scan |
+| `PullRequests_RemoveForRepositories` / `Issues_RemoveForRepositories` | Hard-delete all items for given repos |
+| `NotificationQueue_Upsert` / `_Delete` / `_GetReady` | Notification queue management |
+| `PollingStates_GetByKey` / `_Upsert` | ETag persistence |
+
+## Pending Refactor
+
+`PullRequests_GetActive` and `Issues_GetActive` currently return all eligible rows and leave ordering, owner/repo filtering, the per-repo top-issue selection, the SECURITY/URGENT always-include rule, and the `MaxIssues` cap to application code. This violates the architecture rule above. See the linked GitHub issue for the planned work to push all of that logic into the stored procedures as parameters.

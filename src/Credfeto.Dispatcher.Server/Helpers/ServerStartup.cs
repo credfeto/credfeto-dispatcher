@@ -11,7 +11,6 @@ using Credfeto.Dispatcher.Discord;
 using Credfeto.Dispatcher.Discord.Configuration;
 using Credfeto.Dispatcher.GitHub;
 using Credfeto.Dispatcher.GitHub.Configuration;
-using Credfeto.Dispatcher.Server.Configuration;
 using Credfeto.Dispatcher.Storage;
 using Credfeto.Dispatcher.Storage.Configuration;
 using Credfeto.Random;
@@ -100,14 +99,12 @@ internal static class ServerStartup
         IConfigurationSection gitHubSection = builder.Configuration.GetSection("GitHub");
         IConfigurationSection discordSection = builder.Configuration.GetSection("Discord");
         IConfigurationSection notificationQueueSection = builder.Configuration.GetSection("NotificationQueue");
-        IConfigurationSection prioritiesSection = builder.Configuration.GetSection("Priorities");
 
         builder
             .Services.Configure<DatabaseConfiguration>(databaseSection)
             .Configure<GitHubOptions>(gitHubSection)
             .Configure<DiscordOptions>(discordSection)
             .Configure<NotificationQueueOptions>(notificationQueueSection)
-            .Configure<PrioritiesOptions>(prioritiesSection)
             .AddDate()
             .AddRandomNumbers()
             .AddRunOnStartupServices()

@@ -18,17 +18,18 @@
     <IsPackable>false</IsPackable>
     <IsPublishable>true</IsPublishable>
     <IsTrimmable>true</IsTrimmable>
-    <PublishAot>true</PublishAot>
-    <PublishTrimmed>true</PublishTrimmed>
     <LangVersion>latest</LangVersion>
     <NoWarn />
-    <!-- IL2104: EF Core, Kestrel, and their transitive deps are not yet fully trim-annotated; downgrade the per-assembly aggregated warning to non-fatal -->
+    <!-- IL2104: third-party assemblies (SqlClient, ASP.NET Core, Azure SDKs) are not yet fully
+         trim-annotated; downgrade aggregate trim warning to non-fatal for ILLink (non-AOT) builds. -->
     <WarningsNotAsErrors>IL2104</WarningsNotAsErrors>
     <NuGetAudit>true</NuGetAudit>
     <NuGetAuditLevel>low</NuGetAuditLevel>
     <NuGetAuditMode>direct</NuGetAuditMode>
     <Nullable>enable</Nullable>
     <OutputType>Exe</OutputType>
+    <PublishAot>true</PublishAot>
+    <PublishTrimmed>true</PublishTrimmed>
     <RunAOTCompilation>false</RunAOTCompilation>
     <RuntimeIdentifiers>win-x64;win-arm64;osx-x64;osx-arm64;linux-x64;linux-arm64</RuntimeIdentifiers>
     <ServerGarbageCollection>false</ServerGarbageCollection>
@@ -58,6 +59,16 @@
     <!-- DbUp discovers migrations via Assembly.GetTypes() at runtime; without this root
          the trimmer removes all migration implementations and the database is never initialised. -->
     <TrimmerRootAssembly Include="Credfeto.Dispatcher.Storage" />
+    <!-- Microsoft.Data.SqlClient and its transitive dep System.Configuration.ConfigurationManager
+         are not yet fully AOT-annotated; preserve to prevent runtime failures from trimming. -->
+    <TrimmerRootAssembly Include="Microsoft.Data.SqlClient" />
+    <TrimmerRootAssembly Include="System.Configuration.ConfigurationManager" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- IL2104/IL3053: Microsoft.Data.SqlClient and System.Configuration.ConfigurationManager
+         are not yet fully trim/AOT-annotated; suppress per-assembly aggregate warnings. -->
+    <IlcArg Include="--nowarn:IL2104" />
+    <IlcArg Include="--nowarn:IL3053" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Credfeto.Dispatcher.Discord\Credfeto.Dispatcher.Discord.csproj" />

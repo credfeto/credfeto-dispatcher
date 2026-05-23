@@ -2,9 +2,9 @@ using System;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Credfeto.Dispatcher.GitHub.Configuration;
 using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Interfaces;
-using Credfeto.Dispatcher.Server.Configuration;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -21,18 +21,18 @@ internal static partial class Endpoints
 
     private static async Task<IResult> GetPrioritiesAsync(
         [FromServices] IWorkItemRepository workItemRepository,
-        [FromServices] IOptions<PrioritiesOptions> options,
+        [FromServices] IOptions<GitHubOptions> options,
         CancellationToken cancellationToken
     )
     {
         try
         {
-            PrioritiesOptions config = options.Value;
+            GitHubFilterOptions filter = options.Value.Filter;
             PrioritiesResponse response = await workItemRepository.GetPrioritisedWorkItemsAsync(
-                owners: config.Owners,
-                repos: config.Repos,
-                stuckDependabotTimeout: TimeSpan.FromHours(config.StuckDependabotTimeoutHours),
-                maxIssues: config.MaxIssues,
+                owners: filter.AllowedOwners,
+                repos: filter.AllowedRepos,
+                stuckDependabotTimeout: TimeSpan.FromHours(filter.StuckDependabotTimeoutHours),
+                maxIssues: filter.MaxIssues,
                 cancellationToken: cancellationToken
             );
 

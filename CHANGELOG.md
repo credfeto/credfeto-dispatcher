@@ -59,6 +59,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Fixed SQL analyzer violations in stored procedures: NOT IN → NOT EXISTS, CASE expressions missing ELSE clause, single-character table aliases
 - Added .tsqllintignore to exclude generated build artefacts in bin/obj directories from SQL linting
 - SQL code analysis violations in stored procedures: replaced IN predicate with inequality comparison and added explicit ELSE NULL to CASE expressions
+- Suppress IL2104 trim warnings for Microsoft.Data.SqlClient and System.Configuration.ConfigurationManager by preserving them as trimmer roots
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934
@@ -78,12 +79,15 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Priorities endpoint: suppress issues from repos with open PRs, cap to 1 issue per repo, and apply configurable MaxIssues limit
 - Replaced Entity Framework Core with Credfeto.Database.SourceGenerator and DbUp for all database access in storage layer
 - Added 'blocked' label to default NoWorkFilter so blocked items are excluded from work queues
+- Consolidated GitHub filtering configuration: removed PrioritiesOptions class; MaxIssues and StuckDependabotTimeoutHours are now configured under GitHub:Filter
 ### Deprecated
 ### Removed
 - Removed IsUpToDate field from WorkItem and PullRequestDetails as it was never populated in production
 - Removed Docker smoke test from Dockerfile as it had too many gaps to be reliable
 - Removed tracked .idea IDE metadata files now covered by .gitignore
+- Serilog.Enrichers.Demystifier package as it is not AOT-compatible
 ### Deployment Changes
+- Removed Priorities configuration section; StuckDependabotTimeoutHours is now set under GitHub:Filter:StuckDependabotTimeoutHours and MaxIssues under GitHub:Filter:MaxIssues
 <!--
 Releases that have at least been deployed to staging, BUT NOT necessarily released to live.  Changes should be moved from [Unreleased] into here as they are merged into the appropriate release branch
 -->

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Diagnostics;
+using Credfeto.Dispatcher.GitHub.DataTypes;
 
 namespace Credfeto.Dispatcher.GitHub.Configuration;
 
@@ -23,4 +24,6 @@ public sealed class GitHubFilterOptions
     public bool PollEvents { get; set; } = true;
 
     public string MentionedUser { get; set; } = string.Empty;
+
+    public IReadOnlyList<BotPrRule> BotPrRules { get; set; } = [];
 }

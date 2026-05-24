@@ -138,8 +138,7 @@ public sealed class GitHubPollingWorkerTests : TestBase
             LinkedItems: [],
             Repository: BuildTestRepository(),
             LastNotification: BuildTestLastNotification(),
-            Author: null,
-            HeadBranchName: null
+            Author: null
         );
     }
 
@@ -159,8 +158,7 @@ public sealed class GitHubPollingWorkerTests : TestBase
             LinkedItems: [],
             Repository: BuildTestRepository(),
             LastNotification: BuildTestLastNotification(),
-            Author: null,
-            HeadBranchName: null
+            Author: null
         );
     }
 

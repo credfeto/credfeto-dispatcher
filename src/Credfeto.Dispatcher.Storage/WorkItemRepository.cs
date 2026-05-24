@@ -31,7 +31,6 @@ public sealed class WorkItemRepository : IWorkItemRepository
         IReadOnlyList<string> owners,
         IReadOnlyList<string> repos,
         TimeSpan stuckDependabotTimeout,
-        IReadOnlyList<BotPrRule> additionalBotPrRules,
         int maxIssues,
         CancellationToken cancellationToken
     )
@@ -50,14 +49,7 @@ public sealed class WorkItemRepository : IWorkItemRepository
 
         List<WorkItem> pullRequests =
         [
-            .. prRows.Select(row =>
-                MapPullRequest(
-                    row: row,
-                    now: now,
-                    stuckDependabotTimeout: stuckDependabotTimeout,
-                    additionalBotPrRules: additionalBotPrRules
-                )
-            ),
+            .. prRows.Select(row => MapPullRequest(row: row, now: now, stuckDependabotTimeout: stuckDependabotTimeout)),
         ];
 
         List<WorkItem> issues = BuildIssues(issueRows: issueRows, owners: owners, repos: repos, maxIssues: maxIssues);
@@ -117,16 +109,12 @@ public sealed class WorkItemRepository : IWorkItemRepository
     private static WorkItem MapPullRequest(
         PullRequestRow row,
         in DateTimeOffset now,
-        in TimeSpan stuckDependabotTimeout,
-        IReadOnlyList<BotPrRule> additionalBotPrRules
+        in TimeSpan stuckDependabotTimeout
     )
     {
         WorkPriority priority = (WorkPriority)row.Priority;
 
-        if (
-            IsStuckDependabotPullRequest(row: row, now: now, stuckDependabotTimeout: stuckDependabotTimeout)
-            || IsStuckBotPullRequest(row: row, now: now, additionalBotPrRules: additionalBotPrRules)
-        )
+        if (IsStuckDependabotPullRequest(row: row, now: now, stuckDependabotTimeout: stuckDependabotTimeout))
         {
             priority = WorkPriority.SECURITY;
         }
@@ -168,52 +156,6 @@ public sealed class WorkItemRepository : IWorkItemRepository
         }
 
         return now - row.FirstSeen >= stuckDependabotTimeout;
-    }
-
-    private static bool IsStuckBotPullRequest(
-        PullRequestRow row,
-        in DateTimeOffset now,
-        IReadOnlyList<BotPrRule> additionalBotPrRules
-    )
-    {
-        if (additionalBotPrRules.Count == 0)
-        {
-            return false;
-        }
-
-        foreach (BotPrRule rule in additionalBotPrRules)
-        {
-            if (rule.TimeoutHours <= 0)
-            {
-                continue;
-            }
-
-            if (!string.Equals(a: row.Author, b: rule.Author, comparisonType: StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            if (
-                !string.IsNullOrEmpty(rule.BranchPrefix)
-                && (
-                    string.IsNullOrEmpty(row.HeadBranchName)
-                    || !row.HeadBranchName.StartsWith(
-                        value: rule.BranchPrefix,
-                        comparisonType: StringComparison.OrdinalIgnoreCase
-                    )
-                )
-            )
-            {
-                continue;
-            }
-
-            if (now - row.FirstSeen >= TimeSpan.FromHours(rule.TimeoutHours))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private static WorkItem MapIssue(IssueRow row)

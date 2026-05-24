@@ -245,8 +245,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
             LinkedItems: [],
             Repository: new ItemRepository(Owner: owner, Name: name, Url: repoUri),
             LastNotification: new LastNotification(Id: $"event:{repo}:pr:{pr.Number}", Timestamp: ev.CreatedAt),
-            Author: pr.User?.Login,
-            HeadBranchName: null
+            Author: pr.User?.Login
         );
 
         WorkPriority priority = LabelParser.ParsePriority(details.Labels);

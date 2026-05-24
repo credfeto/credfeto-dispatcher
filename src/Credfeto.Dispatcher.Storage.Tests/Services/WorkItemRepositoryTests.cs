@@ -47,15 +47,13 @@ public sealed class WorkItemRepositoryTests : TestBase
         IReadOnlyList<string> owners,
         IReadOnlyList<string> repos,
         TimeSpan stuckDependabotTimeout = default,
-        int maxIssues = 0,
-        IReadOnlyList<BotPrRule>? additionalBotPrRules = null
+        int maxIssues = 0
     )
     {
         PrioritiesResponse response = await this._repository.GetPrioritisedWorkItemsAsync(
             owners: owners,
             repos: repos,
             stuckDependabotTimeout: stuckDependabotTimeout,
-            additionalBotPrRules: additionalBotPrRules ?? [],
             maxIssues: maxIssues,
             cancellationToken: this.CancellationToken()
         );
@@ -70,7 +68,6 @@ public sealed class WorkItemRepositoryTests : TestBase
         WorkPriority priority = WorkPriority.MEDIUM,
         bool isOnHold = false,
         string? author = null,
-        string? headBranchName = null,
         DateTimeOffset? firstSeen = null
     )
     {
@@ -88,8 +85,7 @@ public sealed class WorkItemRepositoryTests : TestBase
             FailedCheckCount: 0,
             FailedCheckNames: null,
             FailedCheckSha: null,
-            Author: author,
-            HeadBranchName: headBranchName
+            Author: author
         );
     }
 
@@ -402,118 +398,5 @@ public sealed class WorkItemRepositoryTests : TestBase
         IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
 
         Assert.Empty(result);
-    }
-
-    [Fact]
-    public async Task StuckBotPr_WithMatchingAuthorAndBranch_IsUpgradedToSecurityPriorityAsync()
-    {
-        DateTimeOffset oldFirstSeen = BaseTime.AddDays(-10);
-        this.SetupPullRequests(
-            [
-                CreatePrRow(
-                    "owner/repo",
-                    id: 1,
-                    priority: WorkPriority.LOW,
-                    author: "app/github-actions[bot]",
-                    headBranchName: "depends/update-thing",
-                    firstSeen: oldFirstSeen
-                ),
-            ]
-        );
-        this.SetupIssues([]);
-
-        BotPrRule rule = new()
-        {
-            Author = "app/github-actions[bot]",
-            BranchPrefix = "depends/",
-            TimeoutHours = 24,
-        };
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: [], additionalBotPrRules: [rule]);
-
-        WorkItem item = Assert.Single(result);
-        Assert.Equal(expected: WorkPriority.SECURITY, actual: item.Priority);
-    }
-
-    [Fact]
-    public async Task RecentBotPr_WithMatchingAuthorAndBranch_IsNotUpgradedToSecurityPriorityAsync()
-    {
-        this.SetupPullRequests(
-            [
-                CreatePrRow(
-                    "owner/repo",
-                    id: 1,
-                    priority: WorkPriority.LOW,
-                    author: "app/github-actions[bot]",
-                    headBranchName: "depends/update-thing",
-                    firstSeen: BaseTime.AddHours(-12)
-                ),
-            ]
-        );
-        this.SetupIssues([]);
-
-        BotPrRule rule = new()
-        {
-            Author = "app/github-actions[bot]",
-            BranchPrefix = "depends/",
-            TimeoutHours = 24,
-        };
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: [], additionalBotPrRules: [rule]);
-
-        WorkItem item = Assert.Single(result);
-        Assert.Equal(expected: WorkPriority.LOW, actual: item.Priority);
-    }
-
-    [Fact]
-    public async Task BotPr_WithWrongBranchPrefix_IsNotUpgradedToSecurityPriorityAsync()
-    {
-        DateTimeOffset oldFirstSeen = BaseTime.AddDays(-10);
-        this.SetupPullRequests(
-            [
-                CreatePrRow(
-                    "owner/repo",
-                    id: 1,
-                    priority: WorkPriority.LOW,
-                    author: "app/github-actions[bot]",
-                    headBranchName: "feature/something",
-                    firstSeen: oldFirstSeen
-                ),
-            ]
-        );
-        this.SetupIssues([]);
-
-        BotPrRule rule = new()
-        {
-            Author = "app/github-actions[bot]",
-            BranchPrefix = "depends/",
-            TimeoutHours = 24,
-        };
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: [], additionalBotPrRules: [rule]);
-
-        WorkItem item = Assert.Single(result);
-        Assert.Equal(expected: WorkPriority.LOW, actual: item.Priority);
-    }
-
-    [Fact]
-    public async Task BotPr_WithNoAdditionalRules_IsNotUpgradedToSecurityPriorityAsync()
-    {
-        DateTimeOffset oldFirstSeen = BaseTime.AddDays(-10);
-        this.SetupPullRequests(
-            [
-                CreatePrRow(
-                    "owner/repo",
-                    id: 1,
-                    priority: WorkPriority.LOW,
-                    author: "app/github-actions[bot]",
-                    headBranchName: "depends/update-thing",
-                    firstSeen: oldFirstSeen
-                ),
-            ]
-        );
-        this.SetupIssues([]);
-
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: [], additionalBotPrRules: []);
-
-        WorkItem item = Assert.Single(result);
-        Assert.Equal(expected: WorkPriority.LOW, actual: item.Priority);
     }
 }

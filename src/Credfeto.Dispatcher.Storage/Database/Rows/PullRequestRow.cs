@@ -18,6 +18,5 @@ internal sealed record PullRequestRow(
     int FailedCheckCount,
     string? FailedCheckNames,
     string? FailedCheckSha,
-    string? Author,
-    string? HeadBranchName
+    string? Author
 );

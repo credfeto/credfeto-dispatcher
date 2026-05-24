@@ -73,6 +73,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Priorities endpoint: suppress issues from repos with open PRs, cap to 1 issue per repo, and apply configurable MaxIssues limit
 - Replaced Entity Framework Core with Credfeto.Database.SourceGenerator and DbUp for all database access in storage layer
 - Added 'blocked' label to default NoWorkFilter so blocked items are excluded from work queues
+- Moved bot-PR escalation rule matching from database query time to scan time; bot-PR rules config moved from Priorities to GitHub Filter; removed HeadBranchName database column
 ### Deprecated
 ### Removed
 - Removed IsUpToDate field from WorkItem and PullRequestDetails as it was never populated in production

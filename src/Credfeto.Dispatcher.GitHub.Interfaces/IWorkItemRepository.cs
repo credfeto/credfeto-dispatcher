@@ -12,7 +12,6 @@ public interface IWorkItemRepository
         IReadOnlyList<string> owners,
         IReadOnlyList<string> repos,
         TimeSpan stuckDependabotTimeout,
-        IReadOnlyList<BotPrRule> additionalBotPrRules,
         int maxIssues,
         CancellationToken cancellationToken
     );

@@ -20,6 +20,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
     private readonly ILogger<WorkItemScanner> _logger;
     private readonly INotificationStateTracker _notificationStateTracker;
     private readonly GitHubOptions _options;
+    private readonly TimeProvider _timeProvider;
     private readonly IWorkItemRepository _workItemRepository;
 
     public WorkItemScanner(
@@ -28,6 +29,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
         INotificationStateTracker notificationStateTracker,
         IWorkItemRepository workItemRepository,
         IOptions<GitHubOptions> options,
+        TimeProvider timeProvider,
         ILogger<WorkItemScanner> logger
     )
     {
@@ -36,6 +38,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
         this._notificationStateTracker = notificationStateTracker;
         this._workItemRepository = workItemRepository;
         this._options = options.Value;
+        this._timeProvider = timeProvider;
         this._logger = logger;
     }
 
@@ -273,7 +276,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
             return;
         }
 
-        WorkPriority priority = LabelParser.ParsePriority(labelNames);
+        WorkPriority priority = this.ApplyBotPrRules(pr: pr, priority: LabelParser.ParsePriority(labelNames));
         bool isOnHold = LabelParser.IsOnHold(labels: labelNames, noWorkFilter: this._options.Filter.NoWorkFilter);
         string status = pr.Draft ? "Draft" : "Open";
 
@@ -389,9 +392,52 @@ public sealed class WorkItemScanner : IWorkItemScanner
                 Id: $"scan:{repo}:pr:{pr.Number}",
                 Timestamp: DateTimeOffset.MinValue
             ),
-            Author: pr.User?.Login,
-            HeadBranchName: null
+            Author: pr.User?.Login
         );
+    }
+
+    private WorkPriority ApplyBotPrRules(ApiPullRequest pr, WorkPriority priority)
+    {
+        if (this._options.Filter.BotPrRules.Count == 0)
+        {
+            return priority;
+        }
+
+        DateTimeOffset now = this._timeProvider.GetUtcNow();
+
+        foreach (BotPrRule rule in this._options.Filter.BotPrRules)
+        {
+            if (rule.TimeoutHours <= 0)
+            {
+                continue;
+            }
+
+            if (!string.Equals(a: pr.User?.Login, b: rule.Author, comparisonType: StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (
+                !string.IsNullOrEmpty(rule.BranchPrefix)
+                && (
+                    string.IsNullOrEmpty(pr.Head.Ref)
+                    || !pr.Head.Ref.StartsWith(
+                        value: rule.BranchPrefix,
+                        comparisonType: StringComparison.OrdinalIgnoreCase
+                    )
+                )
+            )
+            {
+                continue;
+            }
+
+            if (now - pr.CreatedAt >= TimeSpan.FromHours(rule.TimeoutHours))
+            {
+                return WorkPriority.SECURITY;
+            }
+        }
+
+        return priority;
     }
 
     private static IssueDetails BuildScannedIssueDetails(

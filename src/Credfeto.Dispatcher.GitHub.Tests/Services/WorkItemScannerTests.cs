@@ -10,8 +10,8 @@ using Credfeto.Dispatcher.GitHub.Interfaces;
 using Credfeto.Dispatcher.GitHub.Services;
 using Credfeto.Dispatcher.GitHub.Tests.Helpers;
 using FunFair.Test.Common;
+using FunFair.Test.Common.Mocks;
 using Microsoft.Extensions.Options;
-using Microsoft.Extensions.Time.Testing;
 using NSubstitute;
 using Xunit;
 
@@ -257,7 +257,7 @@ public sealed class WorkItemScannerTests : TestBase
           "labels": [],
           "head": {"sha": "aaa111", "ref": "depends/update-thing"},
           "user": {"login": "app/github-actions[bot]"},
-          "created_at": "2025-01-01T00:00:00Z"
+          "created_at": "1975-01-01T00:00:00Z"
         }]
         """;
 
@@ -272,7 +272,7 @@ public sealed class WorkItemScannerTests : TestBase
           "labels": [],
           "head": {"sha": "bbb222", "ref": "depends/update-thing"},
           "user": {"login": "app/github-actions[bot]"},
-          "created_at": "2025-01-14T12:00:00Z"
+          "created_at": "1975-03-15T12:00:00Z"
         }]
         """;
 
@@ -287,7 +287,7 @@ public sealed class WorkItemScannerTests : TestBase
           "labels": [],
           "head": {"sha": "ccc333", "ref": "feature/something"},
           "user": {"login": "app/github-actions[bot]"},
-          "created_at": "2025-01-01T00:00:00Z"
+          "created_at": "1975-01-01T00:00:00Z"
         }]
         """;
 
@@ -306,7 +306,7 @@ public sealed class WorkItemScannerTests : TestBase
         this._workItemRepository = GetSubstitute<IWorkItemRepository>();
     }
 
-    private WorkItemScanner CreateScanner(GitHubOptions? options = null, FakeTimeProvider? timeProvider = null)
+    private WorkItemScanner CreateScanner(GitHubOptions? options = null, TimeProvider? timeProvider = null)
     {
         GitHubRepoHelper helper = new(
             httpClientFactory: this._httpClientFactory,
@@ -319,18 +319,7 @@ public sealed class WorkItemScannerTests : TestBase
             notificationStateTracker: this._notificationStateTracker,
             workItemRepository: this._workItemRepository,
             options: Options.Create(options ?? new GitHubOptions()),
-            timeProvider: timeProvider
-                ?? new FakeTimeProvider(
-                    new DateTimeOffset(
-                        year: 2025,
-                        month: 1,
-                        day: 15,
-                        hour: 0,
-                        minute: 0,
-                        second: 0,
-                        offset: TimeSpan.Zero
-                    )
-                ),
+            timeProvider: timeProvider ?? MockDateTimeSources.Past,
             logger: this.GetTypedLogger<WorkItemScanner>()
         );
     }
@@ -1125,12 +1114,12 @@ public sealed class WorkItemScannerTests : TestBase
             BranchPrefix = "depends/",
             TimeoutHours = 24,
         };
-        GitHubOptions options = new() { Filter = new GitHubFilterOptions { BotPrRules = [rule] } };
-        FakeTimeProvider timeProvider = new(
-            new DateTimeOffset(year: 2025, month: 1, day: 15, hour: 0, minute: 0, second: 0, offset: TimeSpan.Zero)
-        );
+        GitHubOptions options = new()
+        {
+            Filter = new GitHubFilterOptions { PullRequests = new() { AdoptionRules = [rule] } },
+        };
 
-        WorkItemScanner scanner = this.CreateScanner(options: options, timeProvider: timeProvider);
+        WorkItemScanner scanner = this.CreateScanner(options: options, timeProvider: MockDateTimeSources.Past);
 
         await scanner.ScanAsync(this.CancellationToken());
 
@@ -1159,12 +1148,12 @@ public sealed class WorkItemScannerTests : TestBase
             BranchPrefix = "depends/",
             TimeoutHours = 24,
         };
-        GitHubOptions options = new() { Filter = new GitHubFilterOptions { BotPrRules = [rule] } };
-        FakeTimeProvider timeProvider = new(
-            new DateTimeOffset(year: 2025, month: 1, day: 15, hour: 0, minute: 0, second: 0, offset: TimeSpan.Zero)
-        );
+        GitHubOptions options = new()
+        {
+            Filter = new GitHubFilterOptions { PullRequests = new() { AdoptionRules = [rule] } },
+        };
 
-        WorkItemScanner scanner = this.CreateScanner(options: options, timeProvider: timeProvider);
+        WorkItemScanner scanner = this.CreateScanner(options: options, timeProvider: MockDateTimeSources.Past);
 
         await scanner.ScanAsync(this.CancellationToken());
 
@@ -1193,12 +1182,12 @@ public sealed class WorkItemScannerTests : TestBase
             BranchPrefix = "depends/",
             TimeoutHours = 24,
         };
-        GitHubOptions options = new() { Filter = new GitHubFilterOptions { BotPrRules = [rule] } };
-        FakeTimeProvider timeProvider = new(
-            new DateTimeOffset(year: 2025, month: 1, day: 15, hour: 0, minute: 0, second: 0, offset: TimeSpan.Zero)
-        );
+        GitHubOptions options = new()
+        {
+            Filter = new GitHubFilterOptions { PullRequests = new() { AdoptionRules = [rule] } },
+        };
 
-        WorkItemScanner scanner = this.CreateScanner(options: options, timeProvider: timeProvider);
+        WorkItemScanner scanner = this.CreateScanner(options: options, timeProvider: MockDateTimeSources.Past);
 
         await scanner.ScanAsync(this.CancellationToken());
 

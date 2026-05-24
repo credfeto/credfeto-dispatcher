@@ -16,8 +16,7 @@ BEGIN
     [FailedCheckCount],
     [FailedCheckNames],
     [FailedCheckSha],
-    [Author],
-    [HeadBranchName]
+    [Author]
   FROM [dbo].[PullRequests]
   WHERE [Status] <> N'Closed'
     AND [IsOnHold] = 0

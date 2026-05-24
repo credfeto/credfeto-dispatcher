@@ -103,11 +103,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
         {
             string owner = GetOwner(fullName);
 
-            if (
-                !this._options.Filter.AllowedOwners.Any(o =>
-                    string.Equals(a: o, b: owner, comparisonType: StringComparison.OrdinalIgnoreCase)
-                )
-            )
+            if (!this._options.Filter.AllowedOwners.Any(o => StringComparer.OrdinalIgnoreCase.Equals(o, owner)))
             {
                 this._logger.LogRepoSkippedOwnerFilter(repo: fullName, owner: owner);
 
@@ -117,11 +113,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
         if (this._options.Filter.AllowedRepos.Count > 0)
         {
-            if (
-                !this._options.Filter.AllowedRepos.Any(r =>
-                    string.Equals(a: r, b: fullName, comparisonType: StringComparison.OrdinalIgnoreCase)
-                )
-            )
+            if (!this._options.Filter.AllowedRepos.Any(r => StringComparer.OrdinalIgnoreCase.Equals(r, fullName)))
             {
                 this._logger.LogRepoSkippedAllowedRepoFilter(repo: fullName);
 
@@ -131,11 +123,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
         if (this._options.Filter.ExcludedRepos.Count > 0)
         {
-            if (
-                this._options.Filter.ExcludedRepos.Any(r =>
-                    string.Equals(a: r, b: fullName, comparisonType: StringComparison.OrdinalIgnoreCase)
-                )
-            )
+            if (this._options.Filter.ExcludedRepos.Any(r => StringComparer.OrdinalIgnoreCase.Equals(r, fullName)))
             {
                 this._logger.LogRepoSkippedExcludedRepoFilter(repo: fullName);
 
@@ -398,21 +386,21 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
     private WorkPriority ApplyBotPrRules(ApiPullRequest pr, WorkPriority priority)
     {
-        if (this._options.Filter.BotPrRules.Count == 0)
+        if (this._options.Filter.PullRequests.AdoptionRules.Count == 0)
         {
             return priority;
         }
 
         DateTimeOffset now = this._timeProvider.GetUtcNow();
 
-        foreach (BotPrRule rule in this._options.Filter.BotPrRules)
+        foreach (BotPrRule rule in this._options.Filter.PullRequests.AdoptionRules)
         {
             if (rule.TimeoutHours <= 0)
             {
                 continue;
             }
 
-            if (!string.Equals(a: pr.User?.Login, b: rule.Author, comparisonType: StringComparison.OrdinalIgnoreCase))
+            if (!StringComparer.OrdinalIgnoreCase.Equals(pr.User?.Login, rule.Author))
             {
                 continue;
             }
@@ -433,7 +421,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
             if (now - pr.CreatedAt >= TimeSpan.FromHours(rule.TimeoutHours))
             {
-                return WorkPriority.SECURITY;
+                return rule.Priority;
             }
         }
 

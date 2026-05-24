@@ -10,7 +10,6 @@ CREATE PROCEDURE [dbo].[PullRequests_Upsert]
   @failedCheckNames NVARCHAR(MAX),
   @failedCheckSha NVARCHAR(MAX),
   @author NVARCHAR(MAX),
-  @headBranchName NVARCHAR(MAX),
   @now DATETIMEOFFSET
 AS
 BEGIN
@@ -35,7 +34,6 @@ BEGIN
         [FailedCheckNames] = @failedCheckNames,
         [FailedCheckSha] = @failedCheckSha,
         [Author] = ISNULL(@author, [Target].[Author]),
-        [HeadBranchName] = ISNULL(@headBranchName, [Target].[HeadBranchName]),
         [LastUpdated] = @now,
         [WhenClosed] = CASE WHEN @status = N'Closed' THEN ISNULL([Target].[WhenClosed], @now) END
   WHEN NOT MATCHED
@@ -43,12 +41,12 @@ BEGIN
     INSERT (
       [Repository], [Id], [Status], [Priority], [IsOnHold], [CommentCount],
       [ReviewDecision], [FailedCheckCount], [FailedCheckNames], [FailedCheckSha],
-      [Author], [HeadBranchName], [FirstSeen], [LastUpdated], [WhenClosed]
+      [Author], [FirstSeen], [LastUpdated], [WhenClosed]
     )
     VALUES (
       @repository, @id, @status, @priority, @isOnHold, @commentCount,
       @reviewDecision, @failedCheckCount, @failedCheckNames, @failedCheckSha,
-      @author, @headBranchName, @now, @now,
+      @author, @now, @now,
       CASE WHEN @status = N'Closed' THEN @now END
     );
 END;

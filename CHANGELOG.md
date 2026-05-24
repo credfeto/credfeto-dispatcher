@@ -54,6 +54,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - DateTimeOffset columns now extracted correctly from database results — updated Credfeto.Database.Source.Generation to 1.2.209.2134
 - /priorities endpoint now returns a structured error response rather than a silent HTTP 500 with empty body when an exception occurs
 - Repo discovery partial failure (nil page from GitHub API) no longer updates the active repo list with incomplete data
+- Address review comments: rename BotPrRules to PullRequests.AdoptionRules, add configurable priority to BotPrRule, fix StringComparer usage, use MockDateTimeSources.Past in tests, remove HeadBranchName from stored procedures, fix non-sargable lint rule
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934

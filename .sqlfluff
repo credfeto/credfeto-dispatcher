@@ -1,7 +1,6 @@
 [sqlfluff]
 dialect = tsql
 templater = raw
-exclude_paths = bin,obj
 
 #exclude_rules = CV08,RF02,RF03,RF05
 exclude_rules = RF05

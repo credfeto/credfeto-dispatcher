@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text.Json.Serialization;
@@ -15,5 +16,6 @@ internal sealed record ApiPullRequest(
     [property: JsonPropertyName("labels")] IReadOnlyList<ApiLabel> Labels,
     [property: JsonPropertyName("head")] ApiPullRequestHead Head,
     [property: JsonPropertyName("mergeable_state")] string? MergeableState,
-    [property: JsonPropertyName("user")] ApiUser? User
+    [property: JsonPropertyName("user")] ApiUser? User,
+    [property: JsonPropertyName("created_at")] DateTimeOffset CreatedAt
 );

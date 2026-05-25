@@ -419,10 +419,17 @@ public sealed class WorkItemScanner : IWorkItemScanner
                 continue;
             }
 
+            if (priority < rule.DefaultPriority)
+            {
+                priority = rule.DefaultPriority;
+            }
+
             if (now - pr.CreatedAt >= TimeSpan.FromHours(rule.TimeoutHours))
             {
                 return rule.Priority;
             }
+
+            return priority;
         }
 
         return priority;

@@ -10,6 +10,7 @@ using Credfeto.Dispatcher.GitHub.Interfaces;
 using Credfeto.Dispatcher.GitHub.Services;
 using Credfeto.Dispatcher.GitHub.Tests.Helpers;
 using FunFair.Test.Common;
+using FunFair.Test.Common.Mocks;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using Xunit;
@@ -245,6 +246,51 @@ public sealed class WorkItemScannerTests : TestBase
         ]
         """;
 
+    private const string BOT_PR_STUCK_JSON = """
+        [{
+          "number": 30,
+          "title": "Bot Stuck PR",
+          "state": "open",
+          "draft": false,
+          "html_url": "https://github.com/owner/repo/pull/30",
+          "assignees": [],
+          "labels": [],
+          "head": {"sha": "aaa111", "ref": "depends/update-thing"},
+          "user": {"login": "app/github-actions[bot]"},
+          "created_at": "1975-01-01T00:00:00Z"
+        }]
+        """;
+
+    private const string BOT_PR_RECENT_JSON = """
+        [{
+          "number": 31,
+          "title": "Bot Recent PR",
+          "state": "open",
+          "draft": false,
+          "html_url": "https://github.com/owner/repo/pull/31",
+          "assignees": [],
+          "labels": [],
+          "head": {"sha": "bbb222", "ref": "depends/update-thing"},
+          "user": {"login": "app/github-actions[bot]"},
+          "created_at": "1975-03-15T12:00:00Z"
+        }]
+        """;
+
+    private const string BOT_PR_WRONG_BRANCH_JSON = """
+        [{
+          "number": 32,
+          "title": "Bot Wrong Branch PR",
+          "state": "open",
+          "draft": false,
+          "html_url": "https://github.com/owner/repo/pull/32",
+          "assignees": [],
+          "labels": [],
+          "head": {"sha": "ccc333", "ref": "feature/something"},
+          "user": {"login": "app/github-actions[bot]"},
+          "created_at": "1975-01-01T00:00:00Z"
+        }]
+        """;
+
     private const string EMPTY_JSON = "[]";
 
     private readonly IActiveRepoTracker _activeRepoTracker;
@@ -260,7 +306,7 @@ public sealed class WorkItemScannerTests : TestBase
         this._workItemRepository = GetSubstitute<IWorkItemRepository>();
     }
 
-    private WorkItemScanner CreateScanner(GitHubOptions? options = null)
+    private WorkItemScanner CreateScanner(GitHubOptions? options = null, TimeProvider? timeProvider = null)
     {
         GitHubRepoHelper helper = new(
             httpClientFactory: this._httpClientFactory,
@@ -273,6 +319,7 @@ public sealed class WorkItemScannerTests : TestBase
             notificationStateTracker: this._notificationStateTracker,
             workItemRepository: this._workItemRepository,
             options: Options.Create(options ?? new GitHubOptions()),
+            timeProvider: timeProvider ?? MockDateTimeSources.Past,
             logger: this.GetTypedLogger<WorkItemScanner>()
         );
     }
@@ -1049,6 +1096,131 @@ public sealed class WorkItemScannerTests : TestBase
                 repository: Arg.Any<string>(),
                 activePullRequestNumbers: Arg.Any<IReadOnlyList<int>>(),
                 activeIssueNumbers: Arg.Any<IReadOnlyList<int>>(),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WithStuckBotPr_CallsUpdateWithSecurityPriorityAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, BOT_PR_STUCK_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        BotPrRule rule = new()
+        {
+            Author = "app/github-actions[bot]",
+            BranchPrefix = "depends/",
+            TimeoutHours = 24,
+        };
+        GitHubOptions options = new()
+        {
+            Filter = new GitHubFilterOptions { PullRequests = new() { AdoptionRules = [rule] } },
+        };
+
+        WorkItemScanner scanner = this.CreateScanner(options: options, timeProvider: MockDateTimeSources.Past);
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._notificationStateTracker.Received(1)
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Is<PullRequestDetails>(d => d.Number == 30),
+                priority: WorkPriority.SECURITY,
+                isOnHold: Arg.Any<bool>(),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WithRecentBotPr_DoesNotCallUpdateWithSecurityPriorityAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, BOT_PR_RECENT_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        BotPrRule rule = new()
+        {
+            Author = "app/github-actions[bot]",
+            BranchPrefix = "depends/",
+            TimeoutHours = 24,
+        };
+        GitHubOptions options = new()
+        {
+            Filter = new GitHubFilterOptions { PullRequests = new() { AdoptionRules = [rule] } },
+        };
+
+        WorkItemScanner scanner = this.CreateScanner(options: options, timeProvider: MockDateTimeSources.Past);
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._notificationStateTracker.DidNotReceive()
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Any<PullRequestDetails>(),
+                priority: WorkPriority.SECURITY,
+                isOnHold: Arg.Any<bool>(),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WithBotPrWrongBranch_DoesNotCallUpdateWithSecurityPriorityAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, BOT_PR_WRONG_BRANCH_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        BotPrRule rule = new()
+        {
+            Author = "app/github-actions[bot]",
+            BranchPrefix = "depends/",
+            TimeoutHours = 24,
+        };
+        GitHubOptions options = new()
+        {
+            Filter = new GitHubFilterOptions { PullRequests = new() { AdoptionRules = [rule] } },
+        };
+
+        WorkItemScanner scanner = this.CreateScanner(options: options, timeProvider: MockDateTimeSources.Past);
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._notificationStateTracker.DidNotReceive()
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Any<PullRequestDetails>(),
+                priority: WorkPriority.SECURITY,
+                isOnHold: Arg.Any<bool>(),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WithBotPrAndNoRulesConfigured_DoesNotCallUpdateWithSecurityPriorityAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, BOT_PR_STUCK_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        WorkItemScanner scanner = this.CreateScanner();
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._notificationStateTracker.DidNotReceive()
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Any<PullRequestDetails>(),
+                priority: WorkPriority.SECURITY,
+                isOnHold: Arg.Any<bool>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }

@@ -390,43 +390,6 @@ public sealed class WorkItemRepositoryTests : TestBase
     }
 
     [Fact]
-    public async Task Issues_SecurityAndUrgent_AlwaysIncludedEvenWhenOverCapAsync()
-    {
-        this.SetupPullRequests([]);
-        this.SetupIssues(
-            [
-                CreateIssueRow("owner/repo-a", id: 1, priority: WorkPriority.LOW),
-                CreateIssueRow("owner/repo-b", id: 2, priority: WorkPriority.SECURITY),
-                CreateIssueRow("owner/repo-c", id: 3, priority: WorkPriority.URGENT),
-            ]
-        );
-
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: [], maxIssues: 1);
-
-        Assert.Equal(expected: 2, actual: result.Count);
-        Assert.Contains(result, w => w.Priority == WorkPriority.SECURITY);
-        Assert.Contains(result, w => w.Priority == WorkPriority.URGENT);
-    }
-
-    [Fact]
-    public async Task Issues_LowerPriorityFillsUpToCapAfterMandatoryItemsAsync()
-    {
-        this.SetupPullRequests([]);
-        this.SetupIssues(
-            [
-                CreateIssueRow("owner/repo-a", id: 1, priority: WorkPriority.SECURITY),
-                CreateIssueRow("owner/repo-b", id: 2, priority: WorkPriority.HIGH),
-                CreateIssueRow("owner/repo-c", id: 3, priority: WorkPriority.HIGH),
-            ]
-        );
-
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: [], maxIssues: 2);
-
-        Assert.Equal(expected: 2, actual: result.Count);
-        Assert.Contains(result, w => w.Priority == WorkPriority.SECURITY);
-    }
-
-    [Fact]
     public async Task EmptyDatabase_ReturnsEmptyListAsync()
     {
         this.SetupPullRequests([]);

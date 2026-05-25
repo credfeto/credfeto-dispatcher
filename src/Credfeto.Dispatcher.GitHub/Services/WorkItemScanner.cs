@@ -20,6 +20,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
     private readonly ILogger<WorkItemScanner> _logger;
     private readonly INotificationStateTracker _notificationStateTracker;
     private readonly GitHubOptions _options;
+    private readonly TimeProvider _timeProvider;
     private readonly IWorkItemRepository _workItemRepository;
 
     public WorkItemScanner(
@@ -28,6 +29,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
         INotificationStateTracker notificationStateTracker,
         IWorkItemRepository workItemRepository,
         IOptions<GitHubOptions> options,
+        TimeProvider timeProvider,
         ILogger<WorkItemScanner> logger
     )
     {
@@ -36,6 +38,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
         this._notificationStateTracker = notificationStateTracker;
         this._workItemRepository = workItemRepository;
         this._options = options.Value;
+        this._timeProvider = timeProvider;
         this._logger = logger;
     }
 
@@ -100,11 +103,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
         {
             string owner = GetOwner(fullName);
 
-            if (
-                !this._options.Filter.AllowedOwners.Any(o =>
-                    string.Equals(a: o, b: owner, comparisonType: StringComparison.OrdinalIgnoreCase)
-                )
-            )
+            if (!this._options.Filter.AllowedOwners.Any(o => StringComparer.OrdinalIgnoreCase.Equals(o, owner)))
             {
                 this._logger.LogRepoSkippedOwnerFilter(repo: fullName, owner: owner);
 
@@ -114,11 +113,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
         if (this._options.Filter.AllowedRepos.Count > 0)
         {
-            if (
-                !this._options.Filter.AllowedRepos.Any(r =>
-                    string.Equals(a: r, b: fullName, comparisonType: StringComparison.OrdinalIgnoreCase)
-                )
-            )
+            if (!this._options.Filter.AllowedRepos.Any(r => StringComparer.OrdinalIgnoreCase.Equals(r, fullName)))
             {
                 this._logger.LogRepoSkippedAllowedRepoFilter(repo: fullName);
 
@@ -128,11 +123,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
         if (this._options.Filter.ExcludedRepos.Count > 0)
         {
-            if (
-                this._options.Filter.ExcludedRepos.Any(r =>
-                    string.Equals(a: r, b: fullName, comparisonType: StringComparison.OrdinalIgnoreCase)
-                )
-            )
+            if (this._options.Filter.ExcludedRepos.Any(r => StringComparer.OrdinalIgnoreCase.Equals(r, fullName)))
             {
                 this._logger.LogRepoSkippedExcludedRepoFilter(repo: fullName);
 
@@ -273,7 +264,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
             return;
         }
 
-        WorkPriority priority = LabelParser.ParsePriority(labelNames);
+        WorkPriority priority = this.ApplyBotPrRules(pr: pr, priority: LabelParser.ParsePriority(labelNames));
         bool isOnHold = LabelParser.IsOnHold(labels: labelNames, noWorkFilter: this._options.Filter.NoWorkFilter);
         string status = pr.Draft ? "Draft" : "Open";
 
@@ -391,6 +382,57 @@ public sealed class WorkItemScanner : IWorkItemScanner
             ),
             Author: pr.User?.Login
         );
+    }
+
+    private WorkPriority ApplyBotPrRules(ApiPullRequest pr, WorkPriority priority)
+    {
+        if (this._options.Filter.PullRequests.AdoptionRules.Count == 0)
+        {
+            return priority;
+        }
+
+        DateTimeOffset now = this._timeProvider.GetUtcNow();
+
+        foreach (BotPrRule rule in this._options.Filter.PullRequests.AdoptionRules)
+        {
+            if (rule.TimeoutHours <= 0)
+            {
+                continue;
+            }
+
+            if (!StringComparer.OrdinalIgnoreCase.Equals(pr.User?.Login, rule.Author))
+            {
+                continue;
+            }
+
+            if (
+                !string.IsNullOrEmpty(rule.BranchPrefix)
+                && (
+                    string.IsNullOrEmpty(pr.Head.Ref)
+                    || !pr.Head.Ref.StartsWith(
+                        value: rule.BranchPrefix,
+                        comparisonType: StringComparison.OrdinalIgnoreCase
+                    )
+                )
+            )
+            {
+                continue;
+            }
+
+            if (priority < rule.DefaultPriority)
+            {
+                priority = rule.DefaultPriority;
+            }
+
+            if (now - pr.CreatedAt >= TimeSpan.FromHours(rule.TimeoutHours))
+            {
+                return rule.Priority;
+            }
+
+            return priority;
+        }
+
+        return priority;
     }
 
     private static IssueDetails BuildScannedIssueDetails(

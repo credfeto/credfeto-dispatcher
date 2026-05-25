@@ -27,4 +27,6 @@ public sealed class GitHubFilterOptions
     public int MaxIssues { get; set; } = 10;
 
     public int StuckDependabotTimeoutHours { get; set; } = 3;
+
+    public GitHubPullRequestFilterOptions PullRequests { get; set; } = new();
 }

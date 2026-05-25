@@ -60,11 +60,11 @@ public sealed class WorkItemRepository : IWorkItemRepository
         [
             .. combined
                 .OrderBy(w => FindIndex(owners, GetOwner(w.Repository)))
-                .ThenByDescending(w => (int)w.Priority)
                 .ThenBy(w => GetOwner(w.Repository), comparer: StringComparer.OrdinalIgnoreCase)
                 .ThenBy(w => IsPullRequest(w) ? 0 : 1)
                 .ThenBy(w => FindIndex(repos, w.Repository))
                 .ThenBy(w => w.Repository, comparer: StringComparer.OrdinalIgnoreCase)
+                .ThenByDescending(w => (int)w.Priority)
                 .ThenBy(w => w.FirstSeen),
         ];
 
@@ -87,10 +87,10 @@ public sealed class WorkItemRepository : IWorkItemRepository
 
         IEnumerable<WorkItem> ordered = topIssuePerRepo
             .OrderBy(w => FindIndex(owners, GetOwner(w.Repository)))
-            .ThenByDescending(w => (int)w.Priority)
             .ThenBy(w => GetOwner(w.Repository), comparer: StringComparer.OrdinalIgnoreCase)
             .ThenBy(w => FindIndex(repos, w.Repository))
             .ThenBy(w => w.Repository, comparer: StringComparer.OrdinalIgnoreCase)
+            .ThenByDescending(w => (int)w.Priority)
             .ThenBy(w => w.FirstSeen);
 
         return ApplyMaxIssuesCap(ordered, maxIssues);
@@ -98,22 +98,7 @@ public sealed class WorkItemRepository : IWorkItemRepository
 
     private static List<WorkItem> ApplyMaxIssuesCap(IEnumerable<WorkItem> ordered, int maxIssues)
     {
-        if (maxIssues <= 0)
-        {
-            return [.. ordered];
-        }
-
-        List<WorkItem> result = [];
-
-        foreach (WorkItem item in ordered)
-        {
-            if (item.Priority >= WorkPriority.URGENT || result.Count < maxIssues)
-            {
-                result.Add(item);
-            }
-        }
-
-        return result;
+        return maxIssues > 0 ? [.. ordered.Take(maxIssues)] : [.. ordered];
     }
 
     private static List<WorkItem> Deduplicate(IReadOnlyList<WorkItem> items)
@@ -127,13 +112,12 @@ public sealed class WorkItemRepository : IWorkItemRepository
         in TimeSpan stuckDependabotTimeout
     )
     {
-        WorkPriority priority = IsStuckDependabotPullRequest(
-            row: row,
-            now: now,
-            stuckDependabotTimeout: stuckDependabotTimeout
-        )
-            ? WorkPriority.SECURITY
-            : (WorkPriority)row.Priority;
+        WorkPriority priority = (WorkPriority)row.Priority;
+
+        if (IsStuckDependabotPullRequest(row: row, now: now, stuckDependabotTimeout: stuckDependabotTimeout))
+        {
+            priority = WorkPriority.SECURITY;
+        }
 
         return new WorkItem(
             Repository: row.Repository,

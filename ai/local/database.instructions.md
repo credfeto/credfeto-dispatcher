@@ -91,4 +91,6 @@ Stores ETags for GitHub notification polling endpoints to support conditional re
 
 ## Pending Refactor
 
-`PullRequests_GetActive` and `Issues_GetActive` currently return all eligible rows and leave ordering, owner/repo filtering, the per-repo top-issue selection, the SECURITY/URGENT always-include rule, and the `MaxIssues` cap to application code. This violates the architecture rule above. See the linked GitHub issue for the planned work to push all of that logic into the stored procedures as parameters.
+`PullRequests_GetActive` and `Issues_GetActive` currently return all eligible rows and leave ordering, owner/repo filtering, the per-repo top-issue selection, the SECURITY/URGENT always-include rule, and the `MaxIssues` cap to application code. This violates the architecture rule above. See [issue #140](https://github.com/credfeto/credfeto-dispatcher/issues/140) for the planned work to push all of that logic into the stored procedures as parameters.
+
+Integration tests against a real SQL Server instance are tracked in [issue #141](https://github.com/credfeto/credfeto-dispatcher/issues/141). Issue #141 should be completed before or alongside #140 so the new SP logic has meaningful test coverage.

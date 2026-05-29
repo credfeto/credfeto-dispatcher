@@ -143,6 +143,22 @@ public sealed class GitHubPollingWorker : BackgroundService
                     cancellationToken: cancellationToken
                 );
             }
+            else if (this._notificationFilter.ShouldTrackState(notification))
+            {
+                this._logger.LogTrackingStateOnlyNotification(
+                    notificationId: notification.Id,
+                    repository: notification.Repository.FullName,
+                    reason: notification.Reason
+                );
+                await this.TrackNotificationStateAsync(
+                    notification: notification,
+                    cancellationToken: cancellationToken
+                );
+                await this._pendingNotificationStore.RemoveIfPresentAsync(
+                    notification: notification,
+                    cancellationToken: cancellationToken
+                );
+            }
             else
             {
                 await this._pendingNotificationStore.RemoveIfPresentAsync(
@@ -150,6 +166,94 @@ public sealed class GitHubPollingWorker : BackgroundService
                     cancellationToken: cancellationToken
                 );
             }
+        }
+    }
+
+    private async ValueTask TrackNotificationStateAsync(
+        GitHubNotification notification,
+        CancellationToken cancellationToken
+    )
+    {
+        if (
+            string.Equals(
+                a: notification.Subject.Type,
+                b: PULL_REQUEST_TYPE,
+                comparisonType: StringComparison.OrdinalIgnoreCase
+            )
+        )
+        {
+            await this.TrackPullRequestStateAsync(notification: notification, cancellationToken: cancellationToken);
+        }
+        else if (
+            string.Equals(
+                a: notification.Subject.Type,
+                b: ISSUE_TYPE,
+                comparisonType: StringComparison.OrdinalIgnoreCase
+            )
+        )
+        {
+            await this.TrackIssueStateAsync(notification: notification, cancellationToken: cancellationToken);
+        }
+    }
+
+    [SuppressMessage(
+        "Philips.CodeAnalysis.DuplicateCodeAnalyzer",
+        "PH2071:Duplicate shape found",
+        Justification = "Structurally identical to TrackIssueStateAsync but operates on pull requests. State-only path: no Discord dispatch."
+    )]
+    private async ValueTask TrackPullRequestStateAsync(
+        GitHubNotification notification,
+        CancellationToken cancellationToken
+    )
+    {
+        PullRequestDetails? details = await this._pullRequestDetailFetcher.FetchAsync(
+            notification: notification,
+            cancellationToken: cancellationToken
+        );
+
+        if (details is not null)
+        {
+            WorkPriority priority = LabelParser.ParsePriority(details.Labels);
+            bool isOnHold = LabelParser.IsOnHold(
+                labels: details.Labels,
+                noWorkFilter: this._options.Filter.NoWorkFilter
+            );
+            await this._notificationStateTracker.UpdateStateAsync(
+                notification: notification,
+                details: details,
+                priority: priority,
+                isOnHold: isOnHold,
+                cancellationToken: cancellationToken
+            );
+        }
+    }
+
+    [SuppressMessage(
+        "Philips.CodeAnalysis.DuplicateCodeAnalyzer",
+        "PH2071:Duplicate shape found",
+        Justification = "Structurally identical to TrackPullRequestStateAsync but operates on issues. State-only path: no Discord dispatch."
+    )]
+    private async ValueTask TrackIssueStateAsync(GitHubNotification notification, CancellationToken cancellationToken)
+    {
+        IssueDetails? details = await this._issueDetailFetcher.FetchAsync(
+            notification: notification,
+            cancellationToken: cancellationToken
+        );
+
+        if (details is not null)
+        {
+            WorkPriority priority = LabelParser.ParsePriority(details.Labels);
+            bool isOnHold = LabelParser.IsOnHold(
+                labels: details.Labels,
+                noWorkFilter: this._options.Filter.NoWorkFilter
+            );
+            await this._notificationStateTracker.UpdateStateAsync(
+                notification: notification,
+                details: details,
+                priority: priority,
+                isOnHold: isOnHold,
+                cancellationToken: cancellationToken
+            );
         }
     }
 

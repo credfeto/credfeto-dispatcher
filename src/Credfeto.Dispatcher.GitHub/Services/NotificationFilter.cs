@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using Credfeto.Dispatcher.GitHub.Configuration;
 using Credfeto.Dispatcher.GitHub.DataTypes;
@@ -51,6 +51,13 @@ public sealed class NotificationFilter : INotificationFilter
         return true;
     }
 
+    public bool ShouldTrackState(GitHubNotification notification)
+    {
+        return this.PassesOwnerFilter(notification)
+            && this.PassesAllowedRepoFilter(notification)
+            && this.PassesExcludedRepoFilter(notification);
+    }
+
     private bool PassesReasonFilter(GitHubNotification notification)
     {
         if (this._options.Filter.Reasons.Count == 0)
@@ -59,19 +66,12 @@ public sealed class NotificationFilter : INotificationFilter
         }
 
         bool passes = this._options.Filter.Reasons.Any(reason =>
-            string.Equals(
-                a: notification.Reason,
-                b: reason,
-                comparisonType: StringComparison.OrdinalIgnoreCase
-            )
+            string.Equals(a: notification.Reason, b: reason, comparisonType: StringComparison.OrdinalIgnoreCase)
         );
 
         if (!passes)
         {
-            this._logger.LogNotificationDroppedReason(
-                notificationId: notification.Id,
-                reason: notification.Reason
-            );
+            this._logger.LogNotificationDroppedReason(notificationId: notification.Id, reason: notification.Reason);
         }
 
         return passes;
@@ -87,19 +87,12 @@ public sealed class NotificationFilter : INotificationFilter
         string repoOwner = GetOwner(notification.Repository.FullName);
 
         bool passes = this._options.Filter.AllowedOwners.Any(owner =>
-            string.Equals(
-                a: repoOwner,
-                b: owner,
-                comparisonType: StringComparison.OrdinalIgnoreCase
-            )
+            string.Equals(a: repoOwner, b: owner, comparisonType: StringComparison.OrdinalIgnoreCase)
         );
 
         if (!passes)
         {
-            this._logger.LogNotificationDroppedOwner(
-                notificationId: notification.Id,
-                owner: repoOwner
-            );
+            this._logger.LogNotificationDroppedOwner(notificationId: notification.Id, owner: repoOwner);
         }
 
         return passes;

@@ -269,4 +269,60 @@ public sealed class NotificationFilterTests : TestBase
         Assert.True(filter.ShouldDispatch(notificationB), userMessage: "Expected repo-b to be dispatched");
         Assert.False(filter.ShouldDispatch(notificationC), userMessage: "Expected repo-c to not be dispatched");
     }
+
+    [Fact]
+    public void ShouldTrackStateReturnsTrueWhenReasonDoesNotMatchFilterButOwnerMatches()
+    {
+        GitHubOptions options = new()
+        {
+            Filter = new GitHubFilterOptions { Reasons = ["mention"], AllowedOwners = ["owner"] },
+        };
+        INotificationFilter filter = this.BuildFilter(options);
+        GitHubNotification notification = BuildNotification(reason: "subscribed", repoFullName: "owner/repo");
+
+        bool result = filter.ShouldTrackState(notification);
+
+        Assert.True(
+            result,
+            userMessage: "Expected ShouldTrackState to return true when reason is filtered but owner/repo passes"
+        );
+    }
+
+    [Fact]
+    public void ShouldTrackStateReturnsFalseWhenOwnerNotInAllowedList()
+    {
+        GitHubOptions options = new() { Filter = new GitHubFilterOptions { AllowedOwners = ["allowed-owner"] } };
+        INotificationFilter filter = this.BuildFilter(options);
+        GitHubNotification notification = BuildNotification(repoFullName: "other-owner/repo");
+
+        bool result = filter.ShouldTrackState(notification);
+
+        Assert.False(
+            result,
+            userMessage: "Expected ShouldTrackState to return false when owner is not in allowed list"
+        );
+    }
+
+    [Fact]
+    public void ShouldTrackStateReturnsFalseWhenRepoIsExcluded()
+    {
+        GitHubOptions options = new() { Filter = new GitHubFilterOptions { ExcludedRepos = ["owner/repo"] } };
+        INotificationFilter filter = this.BuildFilter(options);
+        GitHubNotification notification = BuildNotification(repoFullName: "owner/repo");
+
+        bool result = filter.ShouldTrackState(notification);
+
+        Assert.False(result, userMessage: "Expected ShouldTrackState to return false when repo is excluded");
+    }
+
+    [Fact]
+    public void ShouldTrackStateReturnsTrueWhenNoFiltersConfigured()
+    {
+        INotificationFilter filter = this.BuildFilter(new GitHubOptions());
+        GitHubNotification notification = BuildNotification(reason: "subscribed");
+
+        bool result = filter.ShouldTrackState(notification);
+
+        Assert.True(result, userMessage: "Expected ShouldTrackState to return true when no filters are configured");
+    }
 }

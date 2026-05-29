@@ -38,22 +38,6 @@
    color: "d8bb50"
    description: "Configuration files changes"
 
- - name: "credfeto-dispatcher-discord"
-   color: "96f7d2"
-   description: "Changes in Credfeto.Dispatcher.Discord project"
-
- - name: "credfeto-dispatcher-discord-datatypes"
-   color: "96f7d2"
-   description: "Changes in Credfeto.Dispatcher.Discord.DataTypes project"
-
- - name: "credfeto-dispatcher-discord-interfaces"
-   color: "96f7d2"
-   description: "Changes in Credfeto.Dispatcher.Discord.Interfaces project"
-
- - name: "credfeto-dispatcher-discord-tests"
-   color: "0e8a16"
-   description: "Changes in Credfeto.Dispatcher.Discord.Tests project"
-
  - name: "credfeto-dispatcher-github"
    color: "96f7d2"
    description: "Changes in Credfeto.Dispatcher.GitHub project"

@@ -52,7 +52,12 @@ public sealed class WorkItemRepository : IWorkItemRepository
             .. prRows.Select(row => MapPullRequest(row: row, now: now, stuckDependabotTimeout: stuckDependabotTimeout)),
         ];
 
-        List<WorkItem> issues = BuildIssues(issueRows: issueRows, owners: owners, repos: repos, maxIssues: maxIssues);
+        IReadOnlyList<WorkItem> issues = BuildIssues(
+            issueRows: issueRows,
+            owners: owners,
+            repos: repos,
+            maxIssues: maxIssues
+        );
 
         List<WorkItem> combined = Deduplicate([.. pullRequests, .. issues]);
 
@@ -74,7 +79,7 @@ public sealed class WorkItemRepository : IWorkItemRepository
         return new PrioritiesResponse(Priorities: ordered, AsOf: asOf, LagSeconds: lagSeconds);
     }
 
-    private static List<WorkItem> BuildIssues(
+    private static IReadOnlyList<WorkItem> BuildIssues(
         IReadOnlyList<IssueRow> issueRows,
         IReadOnlyList<string> owners,
         IReadOnlyList<string> repos,
@@ -96,9 +101,19 @@ public sealed class WorkItemRepository : IWorkItemRepository
         return ApplyMaxIssuesCap(ordered, maxIssues);
     }
 
-    private static List<WorkItem> ApplyMaxIssuesCap(IEnumerable<WorkItem> ordered, int maxIssues)
+    private static IReadOnlyList<WorkItem> ApplyMaxIssuesCap(IEnumerable<WorkItem> ordered, int maxIssues)
     {
-        return maxIssues > 0 ? [.. ordered.Take(maxIssues)] : [.. ordered];
+        // maxIssues <= 0 means no cap: return everything
+        if (maxIssues <= 0)
+        {
+            return [.. ordered];
+        }
+
+        IReadOnlyList<WorkItem> all = [.. ordered];
+        IEnumerable<WorkItem> highPriority = all.Where(static w => w.Priority >= WorkPriority.URGENT);
+        IEnumerable<WorkItem> regular = all.Where(static w => w.Priority < WorkPriority.URGENT).Take(maxIssues);
+
+        return [.. highPriority, .. regular];
     }
 
     private static List<WorkItem> Deduplicate(IReadOnlyList<WorkItem> items)

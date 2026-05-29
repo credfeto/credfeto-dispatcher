@@ -62,6 +62,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Added .tsqllintignore to exclude generated build artefacts in bin/obj directories from SQL linting
 - SQL code analysis violations in stored procedures: replaced IN predicate with inequality comparison and added explicit ELSE NULL to CASE expressions
 - Suppress IL2104 trim warnings for Microsoft.Data.SqlClient and System.Configuration.ConfigurationManager by preserving them as trimmer roots
+- Urgent and security priority issues now always appear in the work item list, bypassing the maxIssues cap that was preventing them from showing when lower-priority repos filled the available slots first
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934

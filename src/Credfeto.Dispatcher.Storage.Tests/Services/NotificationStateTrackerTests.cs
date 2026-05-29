@@ -80,35 +80,7 @@ public sealed class NotificationStateTrackerTests : TestBase
     }
 
     [Fact]
-    public async Task ShouldSkip_ReturnsFalse_ForOpenPullRequestAsync()
-    {
-        PullRequestDetails details = CreatePullRequestDetails("Open");
-
-        bool result = await this._tracker.ShouldSkipAsync(
-            notification: CreateNotification(),
-            details: details,
-            cancellationToken: this.CancellationToken()
-        );
-
-        Assert.False(condition: result, userMessage: "Should not skip an open pull request");
-    }
-
-    [Fact]
-    public async Task ShouldSkip_ReturnsTrue_ForClosedPullRequestAsync()
-    {
-        PullRequestDetails details = CreatePullRequestDetails("Closed");
-
-        bool result = await this._tracker.ShouldSkipAsync(
-            notification: CreateNotification(),
-            details: details,
-            cancellationToken: this.CancellationToken()
-        );
-
-        Assert.True(condition: result, userMessage: "Should skip a closed pull request");
-    }
-
-    [Fact]
-    public async Task UpdateStateAsync_ForPullRequest_CallsDatabaseAsync()
+    public async Task UpdateStateAsyncForPullRequestCallsDatabaseAsync()
     {
         PullRequestDetails details = CreatePullRequestDetails("Open");
 
@@ -124,9 +96,41 @@ public sealed class NotificationStateTrackerTests : TestBase
     }
 
     [Fact]
-    public async Task UpdateStateAsync_ForIssue_CallsDatabaseAsync()
+    public async Task UpdateStateAsyncForClosedPullRequestCallsDatabaseAsync()
+    {
+        PullRequestDetails details = CreatePullRequestDetails("Closed");
+
+        await this._tracker.UpdateStateAsync(
+            notification: CreateNotification(),
+            details: details,
+            priority: WorkPriority.MEDIUM,
+            isOnHold: false,
+            cancellationToken: this.CancellationToken()
+        );
+
+        Assert.Equal(expected: 1, actual: this._database.VoidExecuteCallCount);
+    }
+
+    [Fact]
+    public async Task UpdateStateAsyncForIssueCallsDatabaseAsync()
     {
         IssueDetails details = CreateIssueDetails("Open");
+
+        await this._tracker.UpdateStateAsync(
+            notification: CreateNotification(),
+            details: details,
+            priority: WorkPriority.MEDIUM,
+            isOnHold: false,
+            cancellationToken: this.CancellationToken()
+        );
+
+        Assert.Equal(expected: 1, actual: this._database.VoidExecuteCallCount);
+    }
+
+    [Fact]
+    public async Task UpdateStateAsyncForClosedIssueCallsDatabaseAsync()
+    {
+        IssueDetails details = CreateIssueDetails("Closed");
 
         await this._tracker.UpdateStateAsync(
             notification: CreateNotification(),

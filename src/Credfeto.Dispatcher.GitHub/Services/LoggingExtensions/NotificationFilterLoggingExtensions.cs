@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 
 namespace Credfeto.Dispatcher.GitHub.Services.LoggingExtensions;
 
@@ -17,26 +17,11 @@ internal static partial class NotificationFilterLoggingExtensions
     );
 
     [LoggerMessage(
-        EventId = 1,
-        Level = LogLevel.Debug,
-        Message = "Notification {NotificationId} dropped by reason filter: reason={Reason} not in allowed list"
-    )]
-    public static partial void LogNotificationDroppedReason(
-        this ILogger logger,
-        string notificationId,
-        string reason
-    );
-
-    [LoggerMessage(
         EventId = 2,
         Level = LogLevel.Debug,
         Message = "Notification {NotificationId} dropped by owner filter: owner={Owner} not in allowed owners"
     )]
-    public static partial void LogNotificationDroppedOwner(
-        this ILogger logger,
-        string notificationId,
-        string owner
-    );
+    public static partial void LogNotificationDroppedOwner(this ILogger logger, string notificationId, string owner);
 
     [LoggerMessage(
         EventId = 3,

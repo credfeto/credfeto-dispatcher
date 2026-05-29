@@ -48,7 +48,6 @@
   <ItemGroup>
     <PackageReference Include="Credfeto.Database.Interfaces" Version="1.2.204.1980" />
     <PackageReference Include="Credfeto.Database.SqlServer" Version="1.2.204.1980" />
-    <PackageReference Include="Credfeto.Date.Interfaces" Version="1.1.151.1695" />
     <PackageReference Include="Credfeto.Services.Startup.Interfaces" Version="1.1.145.1592" />
     <PackageReference Include="DbUp-SqlServer" Version="7.2.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.7" />

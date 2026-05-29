@@ -3,11 +3,9 @@ using System.Diagnostics;
 
 namespace Credfeto.Dispatcher.GitHub.Configuration;
 
-[DebuggerDisplay("Reasons: {Reasons.Count}, LabelFilter: {LabelFilter.Count}, MaxIssues: {MaxIssues}")]
+[DebuggerDisplay("LabelFilter: {LabelFilter.Count}, MaxIssues: {MaxIssues}")]
 public sealed class GitHubFilterOptions
 {
-    public IReadOnlyList<string> Reasons { get; set; } = [];
-
     public IReadOnlyList<string> LabelFilter { get; set; } = [];
 
     public IReadOnlyList<string> NoWorkFilter { get; set; } = [];

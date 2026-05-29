@@ -2,15 +2,12 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Credfeto.Dispatcher.Discord.DataTypes;
-using Credfeto.Dispatcher.Discord.Interfaces;
 using Credfeto.Dispatcher.GitHub.BackgroundServices;
 using Credfeto.Dispatcher.GitHub.Configuration;
 using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Interfaces;
 using FunFair.Test.Common;
 using Microsoft.Extensions.Options;
-using Microsoft.Extensions.Time.Testing;
 using NSubstitute;
 using Xunit;
 
@@ -18,33 +15,13 @@ namespace Credfeto.Dispatcher.GitHub.Tests.BackgroundServices;
 
 public sealed class GitHubPollingWorkerTests : TestBase
 {
-    private readonly CapturingDiscordDispatcher _discord;
     private readonly INotificationFilter _filter;
     private readonly INotificationStateTracker _stateTracker;
 
     public GitHubPollingWorkerTests()
     {
-        this._discord = new CapturingDiscordDispatcher();
         this._filter = GetSubstitute<INotificationFilter>();
         this._stateTracker = GetSubstitute<INotificationStateTracker>();
-
-        SubstituteExtensions.Returns(
-            this._stateTracker.ShouldSkipAsync(
-                notification: Arg.Any<GitHubNotification>(),
-                details: Arg.Any<PullRequestDetails>(),
-                cancellationToken: Arg.Any<CancellationToken>()
-            ),
-            _ => false
-        );
-
-        SubstituteExtensions.Returns(
-            this._stateTracker.ShouldSkipAsync(
-                notification: Arg.Any<GitHubNotification>(),
-                details: Arg.Any<IssueDetails>(),
-                cancellationToken: Arg.Any<CancellationToken>()
-            ),
-            _ => false
-        );
     }
 
     private static GitHubNotification BuildPrNotification(string reason)
@@ -106,10 +83,10 @@ public sealed class GitHubPollingWorkerTests : TestBase
         return new ItemRepository(Owner: "owner", Name: "repo", Url: new Uri("https://github.com/owner/repo"));
     }
 
-    private static LastNotification BuildTestLastNotification()
+    private static LastNotification BuildTestLastNotification(string id)
     {
         return new LastNotification(
-            Id: "1",
+            Id: id,
             Timestamp: new DateTimeOffset(
                 year: 2024,
                 month: 1,
@@ -122,12 +99,12 @@ public sealed class GitHubPollingWorkerTests : TestBase
         );
     }
 
-    private static PullRequestDetails BuildPrDetails()
+    private static PullRequestDetails BuildPrDetails(string status = "Open")
     {
         return new PullRequestDetails(
             Number: 42,
             Title: "Test PR",
-            Status: "Open",
+            Status: status,
             HtmlUrl: new Uri("https://github.com/owner/repo/pull/42"),
             Assignees: [],
             Labels: [],
@@ -137,121 +114,50 @@ public sealed class GitHubPollingWorkerTests : TestBase
             Runs: [],
             LinkedItems: [],
             Repository: BuildTestRepository(),
-            LastNotification: BuildTestLastNotification(),
+            LastNotification: BuildTestLastNotification("1"),
             Author: null
         );
     }
 
-    private static PullRequestDetails BuildClosedPrDetails()
-    {
-        return new PullRequestDetails(
-            Number: 42,
-            Title: "Test PR",
-            Status: "Closed",
-            HtmlUrl: new Uri("https://github.com/owner/repo/pull/42"),
-            Assignees: [],
-            Labels: [],
-            Body: null,
-            Comments: [],
-            Reviews: [],
-            Runs: [],
-            LinkedItems: [],
-            Repository: BuildTestRepository(),
-            LastNotification: BuildTestLastNotification(),
-            Author: null
-        );
-    }
-
-    private static IssueDetails BuildOpenIssueDetails()
+    private static IssueDetails BuildIssueDetails(string status = "Open")
     {
         return new IssueDetails(
             Number: 10,
             Title: "Test Issue",
-            Status: "Open",
+            Status: status,
             HtmlUrl: new Uri("https://github.com/owner/repo/issues/10"),
             Assignees: [],
             Labels: [],
             LinkedPullRequestUrl: null,
             Repository: BuildTestRepository(),
-            LastNotification: new LastNotification(
-                Id: "2",
-                Timestamp: new DateTimeOffset(
-                    year: 2024,
-                    month: 1,
-                    day: 1,
-                    hour: 0,
-                    minute: 0,
-                    second: 0,
-                    offset: TimeSpan.Zero
-                )
-            )
-        );
-    }
-
-    private static IssueDetails BuildClosedIssueDetails()
-    {
-        return new IssueDetails(
-            Number: 10,
-            Title: "Test Issue",
-            Status: "Closed",
-            HtmlUrl: new Uri("https://github.com/owner/repo/issues/10"),
-            Assignees: [],
-            Labels: [],
-            LinkedPullRequestUrl: null,
-            Repository: BuildTestRepository(),
-            LastNotification: new LastNotification(
-                Id: "2",
-                Timestamp: new DateTimeOffset(
-                    year: 2024,
-                    month: 1,
-                    day: 1,
-                    hour: 0,
-                    minute: 0,
-                    second: 0,
-                    offset: TimeSpan.Zero
-                )
-            )
+            LastNotification: BuildTestLastNotification("2")
         );
     }
 
     private GitHubPollingWorker CreateWorker(
         INotificationPoller poller,
         IPullRequestDetailFetcher fetcher,
-        IIssueDetailFetcher? issueFetcher = null
+        IIssueDetailFetcher? issueFetcher = null,
+        IModifiedIssueMentionPoller? mentionPoller = null
     )
     {
-        FakeTimeProvider timeProvider = new(
-            startDateTime: new DateTimeOffset(
-                year: 2024,
-                month: 1,
-                day: 1,
-                hour: 0,
-                minute: 0,
-                second: 0,
-                offset: TimeSpan.Zero
-            )
-        );
-
         return new GitHubPollingWorker(
             poller: poller,
-            modifiedIssueMentionPoller: new FakeMentionPoller(),
+            modifiedIssueMentionPoller: mentionPoller ?? new FakeMentionPoller(),
             notificationFilter: this._filter,
-            discordDispatcher: this._discord,
             pullRequestDetailFetcher: fetcher,
             issueDetailFetcher: issueFetcher ?? new FakeIssueFetcher(result: null),
             notificationStateTracker: this._stateTracker,
-            pendingNotificationStore: new FakePendingNotificationStore(),
-            timeProvider: timeProvider,
             options: Options.Create(new GitHubOptions { PollIntervalSeconds = 30 }),
-            notificationQueueOptions: Options.Create(new NotificationQueueOptions { DelaySeconds = 0 }),
             logger: this.GetTypedLogger<GitHubPollingWorker>()
         );
     }
 
-    private async Task<DiscordMessage> RunAndCaptureAsync(
+    private async Task RunWorkerAsync(
         INotificationPoller poller,
         IPullRequestDetailFetcher fetcher,
-        IIssueDetailFetcher? issueFetcher = null
+        IIssueDetailFetcher? issueFetcher = null,
+        IModifiedIssueMentionPoller? mentionPoller = null
     )
     {
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -259,195 +165,168 @@ public sealed class GitHubPollingWorkerTests : TestBase
         using GitHubPollingWorker worker = this.CreateWorker(
             poller: poller,
             fetcher: fetcher,
-            issueFetcher: issueFetcher
+            issueFetcher: issueFetcher,
+            mentionPoller: mentionPoller
         );
         await worker.StartAsync(token);
-        DiscordMessage captured = await this._discord.Dispatched.WaitAsync(
-            timeout: TimeSpan.FromSeconds(5),
-            cancellationToken: token
-        );
+        await Task.Delay(millisecondsDelay: 200, cancellationToken: token);
         await worker.StopAsync(token);
-
-        return captured;
     }
 
     [Fact]
-    public async Task PullRequestMessageContentContainsNumberReasonAndUrlAsync()
+    public async Task PullRequestWhenProcessedUpdatesStateAsync()
     {
         GitHubNotification notification = BuildPrNotification("mention");
         PullRequestDetails details = BuildPrDetails();
 
-        this._filter.ShouldDispatch(notification).Returns(true);
+        this._filter.ShouldProcess(notification).Returns(true);
 
-        DiscordMessage captured = await this.RunAndCaptureAsync(
-            poller: new FakePoller([notification]),
-            fetcher: new FakeFetcher(details)
-        );
+        await this.RunWorkerAsync(poller: new FakePoller([notification]), fetcher: new FakeFetcher(details));
 
-        Assert.Equal(
-            expected: "[owner/repo] PR #42 (mention) https://github.com/owner/repo/pull/42",
-            actual: captured.Content
-        );
+        await this
+            ._stateTracker.Received(1)
+            .UpdateStateAsync(
+                notification: notification,
+                details: details,
+                priority: WorkPriority.UNKNOWN,
+                isOnHold: false,
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
     }
 
     [Fact]
-    public async Task PullRequestMessageFallsBackToBasicWhenFetcherReturnsNullAsync()
+    public async Task PullRequestWhenFetcherReturnsNullDoesNotUpdateStateAsync()
     {
         GitHubNotification notification = BuildPrNotification("mention");
 
-        this._filter.ShouldDispatch(notification).Returns(true);
+        this._filter.ShouldProcess(notification).Returns(true);
 
-        DiscordMessage captured = await this.RunAndCaptureAsync(
-            poller: new FakePoller([notification]),
-            fetcher: new FakeFetcher(result: null)
-        );
+        await this.RunWorkerAsync(poller: new FakePoller([notification]), fetcher: new FakeFetcher(result: null));
 
-        Assert.Equal(expected: "[owner/repo] PullRequest", actual: captured.Content);
+        Assert.Empty(this._stateTracker.ReceivedCalls());
     }
 
     [Fact]
-    public async Task IssueNotificationUsesRichMessageContentAsync()
+    public async Task IssueWhenProcessedUpdatesStateAsync()
     {
         GitHubNotification notification = BuildIssueNotification();
+        IssueDetails details = BuildIssueDetails();
 
-        this._filter.ShouldDispatch(notification).Returns(true);
+        this._filter.ShouldProcess(notification).Returns(true);
 
-        DiscordMessage captured = await this.RunAndCaptureAsync(
-            poller: new FakePoller([notification]),
-            fetcher: new FakeFetcher(result: null),
-            issueFetcher: new FakeIssueFetcher(BuildOpenIssueDetails())
-        );
-
-        Assert.Equal(
-            expected: "[owner/repo] Issue #10 (mention) https://github.com/owner/repo/issues/10",
-            actual: captured.Content
-        );
-    }
-
-    [Fact]
-    public async Task FilteredNotificationIsNotDispatchedAsync()
-    {
-        GitHubNotification notification = BuildPrNotification("mention");
-
-        this._filter.ShouldDispatch(notification).Returns(false);
-
-        CancellationToken token = TestContext.Current.CancellationToken;
-        using GitHubPollingWorker worker = this.CreateWorker(
-            poller: new FakePoller([notification]),
-            fetcher: new FakeFetcher(result: null)
-        );
-        await worker.StartAsync(token);
-        await Task.Delay(millisecondsDelay: 200, cancellationToken: token);
-        await worker.StopAsync(token);
-
-        Assert.False(
-            condition: this._discord.Dispatched.IsCompleted,
-            userMessage: "Expected no message to be dispatched"
-        );
-    }
-
-    [Fact]
-    public async Task ClosedPullRequestIsNotDispatchedWhenAlreadyTrackedAsClosedAsync()
-    {
-        GitHubNotification notification = BuildPrNotification("subscribed");
-        PullRequestDetails details = BuildClosedPrDetails();
-
-        this._filter.ShouldDispatch(notification).Returns(true);
-
-        SubstituteExtensions.Returns(
-            this._stateTracker.ShouldSkipAsync(
-                notification: Arg.Any<GitHubNotification>(),
-                details: Arg.Is<PullRequestDetails>(d => d.Number == 42 && d.Status == "Closed"),
-                cancellationToken: Arg.Any<CancellationToken>()
-            ),
-            _ => true
-        );
-
-        CancellationToken token = TestContext.Current.CancellationToken;
-        using GitHubPollingWorker worker = this.CreateWorker(
-            poller: new FakePoller([notification]),
-            fetcher: new FakeFetcher(details)
-        );
-        await worker.StartAsync(token);
-        await Task.Delay(millisecondsDelay: 200, cancellationToken: token);
-        await worker.StopAsync(token);
-
-        Assert.False(
-            condition: this._discord.Dispatched.IsCompleted,
-            userMessage: "Expected no message to be dispatched for already-closed PR"
-        );
-    }
-
-    [Fact]
-    public async Task ClosedIssueIsNotDispatchedWhenAlreadyTrackedAsClosedAsync()
-    {
-        GitHubNotification notification = BuildIssueNotification();
-        IssueDetails details = BuildClosedIssueDetails();
-
-        this._filter.ShouldDispatch(notification).Returns(true);
-
-        SubstituteExtensions.Returns(
-            this._stateTracker.ShouldSkipAsync(
-                notification: Arg.Any<GitHubNotification>(),
-                details: Arg.Is<IssueDetails>(d => d.Number == 10 && d.Status == "Closed"),
-                cancellationToken: Arg.Any<CancellationToken>()
-            ),
-            _ => true
-        );
-
-        CancellationToken token = TestContext.Current.CancellationToken;
-        using GitHubPollingWorker worker = this.CreateWorker(
+        await this.RunWorkerAsync(
             poller: new FakePoller([notification]),
             fetcher: new FakeFetcher(result: null),
             issueFetcher: new FakeIssueFetcher(details)
         );
-        await worker.StartAsync(token);
-        await Task.Delay(millisecondsDelay: 200, cancellationToken: token);
-        await worker.StopAsync(token);
 
-        Assert.False(
-            condition: this._discord.Dispatched.IsCompleted,
-            userMessage: "Expected no message to be dispatched for already-closed issue"
-        );
+        await this
+            ._stateTracker.Received(1)
+            .UpdateStateAsync(
+                notification: notification,
+                details: details,
+                priority: WorkPriority.UNKNOWN,
+                isOnHold: false,
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
     }
 
     [Fact]
-    public async Task ClosedPullRequestIsNeverDispatchedEvenOnFirstSeenAsync()
+    public async Task FilteredNotificationDoesNotUpdateStateAsync()
+    {
+        GitHubNotification notification = BuildPrNotification("mention");
+
+        this._filter.ShouldProcess(notification).Returns(false);
+
+        await this.RunWorkerAsync(poller: new FakePoller([notification]), fetcher: new FakeFetcher(result: null));
+
+        Assert.Empty(this._stateTracker.ReceivedCalls());
+    }
+
+    [Fact]
+    public async Task ClosedPullRequestWhenProcessedUpdatesStateAsync()
     {
         GitHubNotification notification = BuildPrNotification("subscribed");
-        PullRequestDetails details = BuildClosedPrDetails();
+        PullRequestDetails details = BuildPrDetails(status: "Closed");
 
-        this._filter.ShouldDispatch(notification).Returns(true);
+        this._filter.ShouldProcess(notification).Returns(true);
 
-        SubstituteExtensions.Returns(
-            this._stateTracker.ShouldSkipAsync(
-                notification: Arg.Any<GitHubNotification>(),
-                details: Arg.Any<PullRequestDetails>(),
+        await this.RunWorkerAsync(poller: new FakePoller([notification]), fetcher: new FakeFetcher(details));
+
+        await this
+            ._stateTracker.Received(1)
+            .UpdateStateAsync(
+                notification: notification,
+                details: details,
+                priority: WorkPriority.UNKNOWN,
+                isOnHold: false,
                 cancellationToken: Arg.Any<CancellationToken>()
-            ),
-            _ => true
-        );
+            );
+    }
 
-        CancellationToken token = TestContext.Current.CancellationToken;
-        using GitHubPollingWorker worker = this.CreateWorker(
+    [Fact]
+    public async Task ClosedIssueWhenProcessedUpdatesStateAsync()
+    {
+        GitHubNotification notification = BuildIssueNotification();
+        IssueDetails details = BuildIssueDetails(status: "Closed");
+
+        this._filter.ShouldProcess(notification).Returns(true);
+
+        await this.RunWorkerAsync(
             poller: new FakePoller([notification]),
-            fetcher: new FakeFetcher(details)
+            fetcher: new FakeFetcher(result: null),
+            issueFetcher: new FakeIssueFetcher(details)
         );
-        await worker.StartAsync(token);
-        await Task.Delay(millisecondsDelay: 200, cancellationToken: token);
-        await worker.StopAsync(token);
 
-        Assert.False(
-            condition: this._discord.Dispatched.IsCompleted,
-            userMessage: "Expected no message to be dispatched for first-seen closed PR"
+        await this
+            ._stateTracker.Received(1)
+            .UpdateStateAsync(
+                notification: notification,
+                details: details,
+                priority: WorkPriority.UNKNOWN,
+                isOnHold: false,
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task MentionNotificationsWhenEnabledUpdatesStateAsync()
+    {
+        GitHubNotification notification = BuildIssueNotification();
+        IssueDetails details = BuildIssueDetails();
+
+        this._filter.ShouldProcess(notification).Returns(true);
+
+        await this.RunWorkerAsync(
+            poller: new FakePoller([]),
+            fetcher: new FakeFetcher(result: null),
+            issueFetcher: new FakeIssueFetcher(details),
+            mentionPoller: new FakeMentionPoller([notification])
         );
+
+        await this
+            ._stateTracker.Received(1)
+            .UpdateStateAsync(
+                notification: notification,
+                details: details,
+                priority: WorkPriority.UNKNOWN,
+                isOnHold: false,
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
     }
 
     private sealed class FakeMentionPoller : IModifiedIssueMentionPoller
     {
+        private readonly IReadOnlyList<GitHubNotification> _notifications;
+
+        public FakeMentionPoller(IReadOnlyList<GitHubNotification>? notifications = null)
+        {
+            this._notifications = notifications ?? [];
+        }
+
         public ValueTask<IReadOnlyList<GitHubNotification>> PollAsync(CancellationToken cancellationToken)
         {
-            return ValueTask.FromResult<IReadOnlyList<GitHubNotification>>([]);
+            return ValueTask.FromResult(this._notifications);
         }
     }
 
@@ -496,57 +375,6 @@ public sealed class GitHubPollingWorkerTests : TestBase
         public ValueTask<IssueDetails?> FetchAsync(GitHubNotification notification, CancellationToken cancellationToken)
         {
             return ValueTask.FromResult(this._result);
-        }
-    }
-
-    private sealed class FakePendingNotificationStore : IPendingNotificationStore
-    {
-        private readonly List<GitHubNotification> _pending = [];
-
-        public Task EnqueueAsync(
-            GitHubNotification notification,
-            DateTimeOffset dispatchAfter,
-            CancellationToken cancellationToken
-        )
-        {
-            this._pending.RemoveAll(n => n.Subject.Url == notification.Subject.Url);
-            this._pending.Add(notification);
-
-            return Task.CompletedTask;
-        }
-
-        public Task RemoveIfPresentAsync(GitHubNotification notification, CancellationToken cancellationToken)
-        {
-            this._pending.RemoveAll(n => n.Subject.Url == notification.Subject.Url);
-
-            return Task.CompletedTask;
-        }
-
-        public Task<IReadOnlyList<GitHubNotification>> GetReadyItemsAsync(
-            DateTimeOffset now,
-            CancellationToken cancellationToken
-        )
-        {
-            return Task.FromResult<IReadOnlyList<GitHubNotification>>([.. this._pending]);
-        }
-
-        public Task RemoveAsync(GitHubNotification notification, CancellationToken cancellationToken)
-        {
-            return this.RemoveIfPresentAsync(notification: notification, cancellationToken: cancellationToken);
-        }
-    }
-
-    private sealed class CapturingDiscordDispatcher : IDiscordDispatcher
-    {
-        private readonly TaskCompletionSource<DiscordMessage> _tcs = new();
-
-        public Task<DiscordMessage> Dispatched => this._tcs.Task;
-
-        public ValueTask SendAsync(DiscordMessage message, CancellationToken cancellationToken)
-        {
-            this._tcs.TrySetResult(message);
-
-            return ValueTask.CompletedTask;
         }
     }
 }

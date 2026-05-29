@@ -68,10 +68,6 @@ Tracks which repositories are currently active (discovered by the scanner).
 | `LastUpdated` | `DATETIMEOFFSET` | |
 | `WhenClosed` | `DATETIMEOFFSET` | |
 
-### `dbo.NotificationQueue`
-
-Holds notifications that have been received but are not yet ready to dispatch (deliberate delay to avoid noise from rapid state changes).
-
 ### `dbo.PollingStates`
 
 Stores ETags for GitHub notification polling endpoints to support conditional requests.
@@ -86,7 +82,6 @@ Stores ETags for GitHub notification polling endpoints to support conditional re
 | `PullRequests_Upsert` / `Issues_Upsert` | Insert or update a single item |
 | `PullRequests_CloseStale` / `Issues_CloseStale` | Close items no longer present in a scan |
 | `PullRequests_RemoveForRepositories` / `Issues_RemoveForRepositories` | Hard-delete all items for given repos |
-| `NotificationQueue_Upsert` / `_Delete` / `_GetReady` | Notification queue management |
 | `PollingStates_GetByKey` / `_Upsert` | ETag persistence |
 
 ## Pending Refactor

@@ -6,9 +6,6 @@ using System.Net;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
-using Credfeto.Date;
-using Credfeto.Dispatcher.Discord;
-using Credfeto.Dispatcher.Discord.Configuration;
 using Credfeto.Dispatcher.GitHub;
 using Credfeto.Dispatcher.GitHub.Configuration;
 using Credfeto.Dispatcher.Storage;
@@ -97,20 +94,14 @@ internal static class ServerStartup
     {
         IConfigurationSection databaseSection = builder.Configuration.GetSection("Database");
         IConfigurationSection gitHubSection = builder.Configuration.GetSection("GitHub");
-        IConfigurationSection discordSection = builder.Configuration.GetSection("Discord");
-        IConfigurationSection notificationQueueSection = builder.Configuration.GetSection("NotificationQueue");
 
         builder
             .Services.Configure<DatabaseConfiguration>(databaseSection)
             .Configure<GitHubOptions>(gitHubSection)
-            .Configure<DiscordOptions>(discordSection)
-            .Configure<NotificationQueueOptions>(notificationQueueSection)
-            .AddDate()
             .AddRandomNumbers()
             .AddRunOnStartupServices()
             .AddStorage()
             .AddGitHub()
-            .AddDiscord()
             .ConfigureHttpJsonOptions(options =>
                 options.SerializerOptions.TypeInfoResolverChain.Insert(index: 0, item: AppJsonContexts.Default)
             );

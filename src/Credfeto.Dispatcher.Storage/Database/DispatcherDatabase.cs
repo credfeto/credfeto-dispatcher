@@ -61,36 +61,6 @@ internal static partial class DispatcherDatabase
         CancellationToken cancellationToken
     );
 
-    [SqlObjectMap("NotificationQueue_Upsert", SqlObjectType.STORED_PROCEDURE, SqlDialect.MICROSOFT_SQL_SERVER)]
-    public static partial ValueTask NotificationQueue_UpsertAsync(
-        DbConnection connection,
-        string subjectUrl,
-        string notificationId,
-        string repository,
-        string repositoryUrl,
-        string subjectType,
-        string subjectTitle,
-        string reason,
-        DateTimeOffset updatedAt,
-        DateTimeOffset queuedAt,
-        DateTimeOffset dispatchAfter,
-        CancellationToken cancellationToken
-    );
-
-    [SqlObjectMap("NotificationQueue_Delete", SqlObjectType.STORED_PROCEDURE, SqlDialect.MICROSOFT_SQL_SERVER)]
-    public static partial ValueTask NotificationQueue_DeleteAsync(
-        DbConnection connection,
-        string subjectUrl,
-        CancellationToken cancellationToken
-    );
-
-    [SqlObjectMap("NotificationQueue_GetReady", SqlObjectType.STORED_PROCEDURE, SqlDialect.MICROSOFT_SQL_SERVER)]
-    public static partial ValueTask<IReadOnlyList<NotificationQueueRow>> NotificationQueue_GetReadyAsync(
-        DbConnection connection,
-        DateTimeOffset now,
-        CancellationToken cancellationToken
-    );
-
     [SqlObjectMap("PollingStates_GetByKey", SqlObjectType.STORED_PROCEDURE, SqlDialect.MICROSOFT_SQL_SERVER)]
     public static partial ValueTask<PollingStateRow?> PollingStates_GetByKeyAsync(
         DbConnection connection,

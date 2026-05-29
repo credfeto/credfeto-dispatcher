@@ -43,13 +43,10 @@
     <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-xhfc-gr8f-ffwc" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Credfeto.Dispatcher.Discord.Interfaces\Credfeto.Dispatcher.Discord.Interfaces.csproj" />
     <ProjectReference Include="..\Credfeto.Dispatcher.GitHub.Interfaces\Credfeto.Dispatcher.GitHub.Interfaces.csproj" />
     <ProjectReference Include="..\Credfeto.Dispatcher.Shared\Credfeto.Dispatcher.Shared.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Credfeto.Date" Version="1.1.151.1695" />
-    <PackageReference Include="Credfeto.Date.Interfaces" Version="1.1.151.1695" />
     <PackageReference Include="Credfeto.Services.Startup.Interfaces" Version="1.1.145.1592" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.7" />

@@ -77,8 +77,12 @@ BEGIN
   IF @repositories IS NOT NULL
     BEGIN
       INSERT INTO @ActiveRepos ([Repository])
-      SELECT TRIM([value]) FROM STRING_SPLIT(@repositories, N',')
-      WHERE LEN(TRIM([value])) > 0;
+      SELECT [Source].[Repository]
+      FROM (
+        SELECT TRIM([value]) AS [Repository]
+        FROM STRING_SPLIT(@repositories, N',')
+      ) AS [Source]
+      WHERE [Source].[Repository] <> N'';
     END;
   MERGE [dbo].[Repos] AS [Target]
   USING (
@@ -299,14 +303,23 @@ CREATE OR ALTER PROCEDURE [dbo].[PullRequests_RemoveForRepositories]
 AS
 BEGIN
   SET NOCOUNT ON;
+  DECLARE @Repositories TABLE ([Repository] NVARCHAR(450) NOT NULL PRIMARY KEY);
   IF @repositories IS NULL
     BEGIN
       RETURN;
     END;
+  INSERT INTO @Repositories ([Repository])
+  SELECT [Source].[Repository]
+  FROM (
+    SELECT TRIM([value]) AS [Repository]
+    FROM STRING_SPLIT(@repositories, N',')
+  ) AS [Source]
+  WHERE [Source].[Repository] <> N'';
   DELETE FROM [dbo].[PullRequests]
-  WHERE [Repository] IN (
-      SELECT TRIM([value]) FROM STRING_SPLIT(@repositories, N',')
-      WHERE LEN(TRIM([value])) > 0
+  WHERE EXISTS (
+      SELECT 1
+      FROM @Repositories AS [Source]
+      WHERE [Source].[Repository] = [dbo].[PullRequests].[Repository]
     );
 END;
 GO
@@ -316,14 +329,23 @@ CREATE OR ALTER PROCEDURE [dbo].[Issues_RemoveForRepositories]
 AS
 BEGIN
   SET NOCOUNT ON;
+  DECLARE @Repositories TABLE ([Repository] NVARCHAR(450) NOT NULL PRIMARY KEY);
   IF @repositories IS NULL
     BEGIN
       RETURN;
     END;
+  INSERT INTO @Repositories ([Repository])
+  SELECT [Source].[Repository]
+  FROM (
+    SELECT TRIM([value]) AS [Repository]
+    FROM STRING_SPLIT(@repositories, N',')
+  ) AS [Source]
+  WHERE [Source].[Repository] <> N'';
   DELETE FROM [dbo].[Issues]
-  WHERE [Repository] IN (
-      SELECT TRIM([value]) FROM STRING_SPLIT(@repositories, N',')
-      WHERE LEN(TRIM([value])) > 0
+  WHERE EXISTS (
+      SELECT 1
+      FROM @Repositories AS [Source]
+      WHERE [Source].[Repository] = [dbo].[Issues].[Repository]
     );
 END;
 GO
@@ -335,15 +357,26 @@ CREATE OR ALTER PROCEDURE [dbo].[PullRequests_CloseStale]
 AS
 BEGIN
   SET NOCOUNT ON;
+  DECLARE @ActivePullRequests TABLE ([Id] INT NOT NULL PRIMARY KEY);
+  IF @activePrIds IS NOT NULL
+    BEGIN
+      INSERT INTO @ActivePullRequests ([Id])
+      SELECT [Source].[Id]
+      FROM (
+        SELECT TRY_CAST(TRIM([value]) AS INT) AS [Id]
+        FROM STRING_SPLIT(@activePrIds, N',')
+      ) AS [Source]
+      WHERE [Source].[Id] IS NOT NULL;
+    END;
   UPDATE [dbo].[PullRequests]
   SET [Status] = N'Closed', [WhenClosed] = @now, [LastUpdated] = @now
   WHERE [Repository] = @repository
     AND [Status] <> N'Closed'
-    AND (@activePrIds IS NULL OR [Id] NOT IN (
-      SELECT TRY_CAST(TRIM([value]) AS INT)
-      FROM STRING_SPLIT(@activePrIds, N',')
-      WHERE LEN(TRIM([value])) > 0
-    ));
+    AND NOT EXISTS (
+      SELECT 1
+      FROM @ActivePullRequests AS [Source]
+      WHERE [Source].[Id] = [dbo].[PullRequests].[Id]
+    );
 END;
 GO
 
@@ -354,14 +387,25 @@ CREATE OR ALTER PROCEDURE [dbo].[Issues_CloseStale]
 AS
 BEGIN
   SET NOCOUNT ON;
+  DECLARE @ActiveIssues TABLE ([Id] INT NOT NULL PRIMARY KEY);
+  IF @activeIssueIds IS NOT NULL
+    BEGIN
+      INSERT INTO @ActiveIssues ([Id])
+      SELECT [Source].[Id]
+      FROM (
+        SELECT TRY_CAST(TRIM([value]) AS INT) AS [Id]
+        FROM STRING_SPLIT(@activeIssueIds, N',')
+      ) AS [Source]
+      WHERE [Source].[Id] IS NOT NULL;
+    END;
   UPDATE [dbo].[Issues]
   SET [Status] = N'Closed', [WhenClosed] = @now, [LastUpdated] = @now
   WHERE [Repository] = @repository
     AND [Status] <> N'Closed'
-    AND (@activeIssueIds IS NULL OR [Id] NOT IN (
-      SELECT TRY_CAST(TRIM([value]) AS INT)
-      FROM STRING_SPLIT(@activeIssueIds, N',')
-      WHERE LEN(TRIM([value])) > 0
-    ));
+    AND NOT EXISTS (
+      SELECT 1
+      FROM @ActiveIssues AS [Source]
+      WHERE [Source].[Id] = [dbo].[Issues].[Id]
+    );
 END;
 GO

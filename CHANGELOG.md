@@ -63,6 +63,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - SQL code analysis violations in stored procedures: replaced IN predicate with inequality comparison and added explicit ELSE NULL to CASE expressions
 - Suppress IL2104 trim warnings for Microsoft.Data.SqlClient and System.Configuration.ConfigurationManager by preserving them as trimmer roots
 - Urgent and security priority issues now always appear in the work item list, bypassing the maxIssues cap that was preventing them from showing when lower-priority repos filled the available slots first
+- Closed issues and PRs now removed from the work queue within one poll cycle when the notification has a reason not in the Reasons filter (e.g. 'subscribed'). Previously these were dropped silently and could remain visible for up to the full scan interval.
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934
@@ -88,6 +89,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Removed IsUpToDate field from WorkItem and PullRequestDetails as it was never populated in production
 - Removed Docker smoke test from Dockerfile as it had too many gaps to be reliable
 - Removed tracked .idea IDE metadata files now covered by .gitignore
+- Removed Discord integration and the notification queue; matching GitHub notifications now update stored work-item state directly
 - Serilog.Enrichers.Demystifier package as it is not AOT-compatible
 ### Deployment Changes
 - Removed Priorities configuration section; StuckDependabotTimeoutHours is now set under GitHub:Filter:StuckDependabotTimeoutHours and MaxIssues under GitHub:Filter:MaxIssues

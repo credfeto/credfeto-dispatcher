@@ -25,12 +25,6 @@
     <Project Path="Credfeto.Dispatcher.GitHub.Tests/Credfeto.Dispatcher.GitHub.Tests.csproj" />
     <Project Path="Credfeto.Dispatcher.GitHub/Credfeto.Dispatcher.GitHub.csproj" />
   </Folder>
-  <Folder Name="/Services/Discord/">
-    <Project Path="Credfeto.Dispatcher.Discord.DataTypes/Credfeto.Dispatcher.Discord.DataTypes.csproj" />
-    <Project Path="Credfeto.Dispatcher.Discord.Interfaces/Credfeto.Dispatcher.Discord.Interfaces.csproj" />
-    <Project Path="Credfeto.Dispatcher.Discord.Tests/Credfeto.Dispatcher.Discord.Tests.csproj" />
-    <Project Path="Credfeto.Dispatcher.Discord/Credfeto.Dispatcher.Discord.csproj" />
-  </Folder>
   <Folder Name="/Shared/">
     <Project Path="Credfeto.Dispatcher.Shared.Tests/Credfeto.Dispatcher.Shared.Tests.csproj" />
     <Project Path="Credfeto.Dispatcher.Shared/Credfeto.Dispatcher.Shared.csproj" />

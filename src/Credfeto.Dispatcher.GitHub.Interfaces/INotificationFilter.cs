@@ -4,5 +4,5 @@ namespace Credfeto.Dispatcher.GitHub.Interfaces;
 
 public interface INotificationFilter
 {
-    bool ShouldDispatch(GitHubNotification notification);
+    bool ShouldProcess(GitHubNotification notification);
 }

@@ -81,9 +81,8 @@ dotnet reportgenerator \
 
 The per-assembly reports remain the authoritative measure of test quality for each project.
 
-### Specifics Coverage rules (MANDATORY)
-
-- If a source generator is used then its because we _WANT_ the source generated version. Don't turn it off to get 100% code coverage
+### Specifics Coverage rules (MANDATGORY)
+* If a source generator is used then its because we _WANT_ the source generated version. Don't turn it off to get 100% code coverage
 
 ## Source-Generated Logging
 
@@ -167,24 +166,6 @@ Use `AddMockedService<T>()` in tests deriving from `DependencyInjectionTestsBase
 
 - One type per file — class, record, struct, interface, or enum.
 - File name must match the type name exactly (e.g. `FooBar.cs` for `class FooBar`).
-
-## Collection Types
-
-Prefer the narrowest useful collection interface to avoid unnecessary allocations and to communicate intent clearly:
-
-| Situation | Prefer |
-| --------- | ------ |
-| Intermediate pipeline step, not yet materialised | `IEnumerable<T>` — defer allocation until consumed |
-| Caller must not mutate, order is stable | `IReadOnlyList<T>` — communicates immutability, allows index access |
-| Caller must not mutate, order is irrelevant | `IReadOnlyCollection<T>` |
-| Internal local that is only spread/concatenated into a final collection | `IEnumerable<T>` — no need to materialise a `List<T>` first |
-| Method return value that is a stable, ordered result | `IReadOnlyList<T>` — never `List<T>` unless the caller needs to mutate it |
-
-**Rules:**
-
-- Do **not** use `List<T>` as a return type unless the caller needs to add/remove items.
-- Do **not** materialise a temporary `List<T>` purely to pass it into a spread (`[.. a, .. b]`) or `Concat` — keep it as `IEnumerable<T>` and let the final spread materialise once.
-- When combining multiple `IEnumerable<T>` sequences into a final `IReadOnlyList<T>`, use a single spread: `return [.. seq1, .. seq2];` — no intermediate `List` needed.
 
 ## Value Types (struct / record struct)
 

@@ -40,8 +40,26 @@ public sealed class NotificationStateTracker : INotificationStateTracker
     )
     {
         DateTimeOffset now = this._timeProvider.GetUtcNow();
+        return this.UpdatePullRequestAndLinkedIssuesAsync(
+            notification: notification,
+            details: details,
+            priority: priority,
+            isOnHold: isOnHold,
+            now: now,
+            cancellationToken: cancellationToken
+        );
+    }
 
-        return this._database.ExecuteAsync(
+    private async ValueTask UpdatePullRequestAndLinkedIssuesAsync(
+        GitHubNotification notification,
+        PullRequestDetails details,
+        WorkPriority priority,
+        bool isOnHold,
+        DateTimeOffset now,
+        CancellationToken cancellationToken
+    )
+    {
+        await this._database.ExecuteAsync(
             action: (c, ct) =>
                 DispatcherDatabase.PullRequests_UpsertAsync(
                     connection: c,
@@ -61,6 +79,24 @@ public sealed class NotificationStateTracker : INotificationStateTracker
                 ),
             cancellationToken: cancellationToken
         );
+
+        IReadOnlyList<int> linkedIssueNumbers = [.. details.LinkedItems.Select(static item => item.Number).Distinct()];
+
+        foreach (int linkedIssueNumber in linkedIssueNumbers)
+        {
+            await this._database.ExecuteAsync(
+                action: (c, ct) =>
+                    DispatcherDatabase.Issues_LinkPullRequestAsync(
+                        connection: c,
+                        repository: notification.Repository.FullName,
+                        id: linkedIssueNumber,
+                        linkedPrNumber: details.Number,
+                        now: now,
+                        cancellationToken: ct
+                    ),
+                cancellationToken: cancellationToken
+            );
+        }
     }
 
     public ValueTask UpdateStateAsync(

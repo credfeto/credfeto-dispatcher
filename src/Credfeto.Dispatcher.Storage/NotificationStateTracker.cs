@@ -1,6 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,8 +14,6 @@ namespace Credfeto.Dispatcher.Storage;
 
 public sealed class NotificationStateTracker : INotificationStateTracker
 {
-    private const string CLOSED_STATUS = "Closed";
-
     private static readonly ImmutableHashSet<string> FailedConclusions = ImmutableHashSet.Create(
         StringComparer.OrdinalIgnoreCase,
         "failure",
@@ -30,15 +29,6 @@ public sealed class NotificationStateTracker : INotificationStateTracker
     {
         this._database = database;
         this._timeProvider = timeProvider;
-    }
-
-    public ValueTask<bool> ShouldSkipAsync(
-        GitHubNotification notification,
-        PullRequestDetails details,
-        CancellationToken cancellationToken
-    )
-    {
-        return ValueTask.FromResult(IsClosedStatus(details.Status));
     }
 
     public ValueTask UpdateStateAsync(
@@ -73,15 +63,6 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         );
     }
 
-    public ValueTask<bool> ShouldSkipAsync(
-        GitHubNotification notification,
-        IssueDetails details,
-        CancellationToken cancellationToken
-    )
-    {
-        return ValueTask.FromResult(IsClosedStatus(details.Status));
-    }
-
     public ValueTask UpdateStateAsync(
         GitHubNotification notification,
         IssueDetails details,
@@ -109,11 +90,6 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         );
     }
 
-    private static bool IsClosedStatus(string status)
-    {
-        return string.Equals(a: status, b: CLOSED_STATUS, comparisonType: StringComparison.OrdinalIgnoreCase);
-    }
-
     private static int? ExtractPrNumber(Uri? linkedPullRequestUrl)
     {
         if (linkedPullRequestUrl is null)
@@ -125,8 +101,8 @@ public sealed class NotificationStateTracker : INotificationStateTracker
 
         return int.TryParse(
             segments[^1],
-            style: System.Globalization.NumberStyles.Integer,
-            provider: System.Globalization.CultureInfo.InvariantCulture,
+            style: NumberStyles.Integer,
+            provider: CultureInfo.InvariantCulture,
             out int number
         )
             ? number

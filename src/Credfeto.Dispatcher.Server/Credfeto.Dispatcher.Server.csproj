@@ -71,13 +71,11 @@
     <IlcArg Include="--nowarn:IL3053" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Credfeto.Dispatcher.Discord\Credfeto.Dispatcher.Discord.csproj" />
     <ProjectReference Include="..\Credfeto.Dispatcher.GitHub\Credfeto.Dispatcher.GitHub.csproj" />
     <ProjectReference Include="..\Credfeto.Dispatcher.Shared\Credfeto.Dispatcher.Shared.csproj" />
     <ProjectReference Include="..\Credfeto.Dispatcher.Storage\Credfeto.Dispatcher.Storage.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Credfeto.Date" Version="1.1.151.1695" />
     <PackageReference Include="Credfeto.Random" Version="1.0.150.1663" />
     <PackageReference Include="Credfeto.Services.Startup" Version="1.1.145.1592" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Systemd" Version="10.0.7" />

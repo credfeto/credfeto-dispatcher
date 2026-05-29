@@ -89,6 +89,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Removed IsUpToDate field from WorkItem and PullRequestDetails as it was never populated in production
 - Removed Docker smoke test from Dockerfile as it had too many gaps to be reliable
 - Removed tracked .idea IDE metadata files now covered by .gitignore
+- Removed Discord integration and the notification queue; matching GitHub notifications now update stored work-item state directly
 - Serilog.Enrichers.Demystifier package as it is not AOT-compatible
 ### Deployment Changes
 - Removed Priorities configuration section; StuckDependabotTimeoutHours is now set under GitHub:Filter:StuckDependabotTimeoutHours and MaxIssues under GitHub:Filter:MaxIssues

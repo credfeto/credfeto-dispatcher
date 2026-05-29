@@ -132,6 +132,18 @@ public sealed class GitHubPollingWorker : BackgroundService
         }
     }
 
+    private bool PassesLabelFilter(IReadOnlyList<string> labelNames)
+    {
+        if (this._options.Filter.LabelFilter.Count == 0)
+        {
+            return true;
+        }
+
+        return labelNames.Any(label =>
+            this._options.Filter.LabelFilter.Any(filter => LabelParser.FuzzyEquals(label, filter))
+        );
+    }
+
     [SuppressMessage(
         "Philips.CodeAnalysis.DuplicateCodeAnalyzer",
         "PH2071:Duplicate shape found",
@@ -147,7 +159,7 @@ public sealed class GitHubPollingWorker : BackgroundService
             cancellationToken: cancellationToken
         );
 
-        if (details is not null)
+        if (details is not null && this.PassesLabelFilter(details.Labels))
         {
             WorkPriority priority = LabelParser.ParsePriority(details.Labels);
             bool isOnHold = LabelParser.IsOnHold(
@@ -176,7 +188,7 @@ public sealed class GitHubPollingWorker : BackgroundService
             cancellationToken: cancellationToken
         );
 
-        if (details is not null)
+        if (details is not null && this.PassesLabelFilter(details.Labels))
         {
             WorkPriority priority = LabelParser.ParsePriority(details.Labels);
             bool isOnHold = LabelParser.IsOnHold(

@@ -98,7 +98,16 @@ public sealed class WorkItemRepository : IWorkItemRepository
 
     private static List<WorkItem> ApplyMaxIssuesCap(IEnumerable<WorkItem> ordered, int maxIssues)
     {
-        return maxIssues > 0 ? [.. ordered.Take(maxIssues)] : [.. ordered];
+        if (maxIssues <= 0)
+        {
+            return [.. ordered];
+        }
+
+        List<WorkItem> all = [.. ordered];
+        List<WorkItem> highPriority = [.. all.Where(static w => w.Priority >= WorkPriority.URGENT)];
+        List<WorkItem> regular = [.. all.Where(static w => w.Priority < WorkPriority.URGENT).Take(maxIssues)];
+
+        return [.. highPriority, .. regular];
     }
 
     private static List<WorkItem> Deduplicate(IReadOnlyList<WorkItem> items)

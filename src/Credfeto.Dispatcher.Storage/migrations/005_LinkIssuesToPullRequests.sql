@@ -1,4 +1,4 @@
-CREATE PROCEDURE [dbo].[Issues_Upsert]
+CREATE OR ALTER PROCEDURE [dbo].[Issues_Upsert]
   @repository NVARCHAR(450),
   @id INT,
   @status NVARCHAR(MAX),
@@ -38,3 +38,22 @@ BEGIN
       CASE WHEN @status = N'Closed' THEN @now END
     );
 END;
+GO
+
+CREATE OR ALTER PROCEDURE [dbo].[Issues_LinkPullRequest]
+  @repository NVARCHAR(450),
+  @id INT,
+  @linkedPrNumber INT,
+  @now DATETIMEOFFSET
+AS
+BEGIN
+  SET NOCOUNT ON;
+  UPDATE [dbo].[Issues]
+  SET
+    [LinkedPrNumber] = @linkedPrNumber,
+    [LastUpdated] = @now
+  WHERE [Repository] = @repository
+    AND [Id] = @id
+    AND [Status] = N'Open';
+END;
+GO

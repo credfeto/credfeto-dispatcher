@@ -61,6 +61,16 @@ internal static partial class DispatcherDatabase
         CancellationToken cancellationToken
     );
 
+    [SqlObjectMap("Issues_LinkPullRequest", SqlObjectType.STORED_PROCEDURE, SqlDialect.MICROSOFT_SQL_SERVER)]
+    public static partial ValueTask Issues_LinkPullRequestAsync(
+        DbConnection connection,
+        string repository,
+        int id,
+        int linkedPrNumber,
+        DateTimeOffset now,
+        CancellationToken cancellationToken
+    );
+
     [SqlObjectMap("PollingStates_GetByKey", SqlObjectType.STORED_PROCEDURE, SqlDialect.MICROSOFT_SQL_SERVER)]
     public static partial ValueTask<PollingStateRow?> PollingStates_GetByKeyAsync(
         DbConnection connection,

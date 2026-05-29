@@ -62,6 +62,36 @@ public sealed class NotificationStateTrackerTests : TestBase
         );
     }
 
+    private static PullRequestDetails CreatePullRequestDetailsWithLinkedIssue(string status, int linkedIssueNumber)
+    {
+        Uri repoUri = new("https://github.com/owner/repo");
+
+        return new PullRequestDetails(
+            Number: 1,
+            Title: "Test PR",
+            Status: status,
+            HtmlUrl: new Uri("https://github.com/owner/repo/pull/1"),
+            Assignees: [],
+            Labels: [],
+            Body: null,
+            Comments: [],
+            Reviews: [],
+            Runs: [],
+            LinkedItems:
+            [
+                new LinkedItem(
+                    Number: linkedIssueNumber,
+                    Title: string.Empty,
+                    State: string.Empty,
+                    Url: new Uri($"https://github.com/owner/repo/issues/{linkedIssueNumber}")
+                ),
+            ],
+            Repository: new ItemRepository(Owner: "owner", Name: "repo", Url: repoUri),
+            LastNotification: new LastNotification(Id: "notif-1", Timestamp: BaseTime),
+            Author: null
+        );
+    }
+
     private static IssueDetails CreateIssueDetails(string status)
     {
         Uri repoUri = new("https://github.com/owner/repo");
@@ -109,6 +139,22 @@ public sealed class NotificationStateTrackerTests : TestBase
         );
 
         Assert.Equal(expected: 1, actual: this._database.VoidExecuteCallCount);
+    }
+
+    [Fact]
+    public async Task UpdateStateAsyncForPullRequestWithLinkedIssueUpdatesIssueLinkAsync()
+    {
+        PullRequestDetails details = CreatePullRequestDetailsWithLinkedIssue(status: "Open", linkedIssueNumber: 13);
+
+        await this._tracker.UpdateStateAsync(
+            notification: CreateNotification(),
+            details: details,
+            priority: WorkPriority.MEDIUM,
+            isOnHold: false,
+            cancellationToken: this.CancellationToken()
+        );
+
+        Assert.Equal(expected: 2, actual: this._database.VoidExecuteCallCount);
     }
 
     [Fact]

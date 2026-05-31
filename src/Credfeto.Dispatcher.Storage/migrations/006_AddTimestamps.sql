@@ -1,55 +1,60 @@
-IF NOT EXISTS (
-  SELECT 1
-  FROM [sys].[columns]
-  WHERE [object_id] = OBJECT_ID(N'[dbo].[PollingStates]') AND [name] = N'DateCreated'
-)
+IF
+  NOT EXISTS (
+    SELECT 1
+    FROM [sys].[columns]
+    WHERE [object_id] = OBJECT_ID(N'[dbo].[PollingStates]') AND [name] = N'DateCreated'
+  )
   BEGIN
     ALTER TABLE [dbo].[PollingStates]
-      ADD [DateCreated] DATETIMEOFFSET NOT NULL DEFAULT GETUTCDATE();
+    ADD [DateCreated] DATETIMEOFFSET NOT NULL DEFAULT GETUTCDATE();
   END;
 GO
 
-IF NOT EXISTS (
-  SELECT 1
-  FROM [sys].[columns]
-  WHERE [object_id] = OBJECT_ID(N'[dbo].[PollingStates]') AND [name] = N'DateUpdated'
-)
+IF
+  NOT EXISTS (
+    SELECT 1
+    FROM [sys].[columns]
+    WHERE [object_id] = OBJECT_ID(N'[dbo].[PollingStates]') AND [name] = N'DateUpdated'
+  )
   BEGIN
     ALTER TABLE [dbo].[PollingStates]
-      ADD [DateUpdated] DATETIMEOFFSET NOT NULL DEFAULT GETUTCDATE();
+    ADD [DateUpdated] DATETIMEOFFSET NOT NULL DEFAULT GETUTCDATE();
   END;
 GO
 
-IF NOT EXISTS (
-  SELECT 1
-  FROM [sys].[columns]
-  WHERE [object_id] = OBJECT_ID(N'[dbo].[PollingStates]') AND [name] = N'DateStateChanged'
-)
+IF
+  NOT EXISTS (
+    SELECT 1
+    FROM [sys].[columns]
+    WHERE [object_id] = OBJECT_ID(N'[dbo].[PollingStates]') AND [name] = N'DateStateChanged'
+  )
   BEGIN
     ALTER TABLE [dbo].[PollingStates]
-      ADD [DateStateChanged] DATETIMEOFFSET NOT NULL DEFAULT GETUTCDATE();
+    ADD [DateStateChanged] DATETIMEOFFSET NOT NULL DEFAULT GETUTCDATE();
   END;
 GO
 
-IF NOT EXISTS (
-  SELECT 1
-  FROM [sys].[columns]
-  WHERE [object_id] = OBJECT_ID(N'[dbo].[PullRequests]') AND [name] = N'DateStatusChanged'
-)
+IF
+  NOT EXISTS (
+    SELECT 1
+    FROM [sys].[columns]
+    WHERE [object_id] = OBJECT_ID(N'[dbo].[PullRequests]') AND [name] = N'DateStatusChanged'
+  )
   BEGIN
     ALTER TABLE [dbo].[PullRequests]
-      ADD [DateStatusChanged] DATETIMEOFFSET NULL;
+    ADD [DateStatusChanged] DATETIMEOFFSET NULL;
   END;
 GO
 
-IF NOT EXISTS (
-  SELECT 1
-  FROM [sys].[columns]
-  WHERE [object_id] = OBJECT_ID(N'[dbo].[Issues]') AND [name] = N'DateStatusChanged'
-)
+IF
+  NOT EXISTS (
+    SELECT 1
+    FROM [sys].[columns]
+    WHERE [object_id] = OBJECT_ID(N'[dbo].[Issues]') AND [name] = N'DateStatusChanged'
+  )
   BEGIN
     ALTER TABLE [dbo].[Issues]
-      ADD [DateStatusChanged] DATETIMEOFFSET NULL;
+    ADD [DateStatusChanged] DATETIMEOFFSET NULL;
   END;
 GO
 
@@ -66,11 +71,13 @@ BEGIN
   DECLARE @now DATETIMEOFFSET = GETUTCDATE();
   MERGE [dbo].[PollingStates] AS [Target]
   USING (SELECT @key AS [Key]) AS [Source] ON [Target].[Key] = [Source].[Key]
-  WHEN MATCHED THEN UPDATE SET
-    [ETag] = @eTag,
-    [DateUpdated] = @now,
-    [DateStateChanged] = CASE WHEN [Target].[ETag] <> @eTag THEN @now ELSE [Target].[DateStateChanged] END
-  WHEN NOT MATCHED THEN INSERT ([Key], [ETag], [DateCreated], [DateUpdated], [DateStateChanged])
+  WHEN MATCHED
+    THEN UPDATE SET
+      [ETag] = @eTag,
+      [DateUpdated] = @now,
+      [DateStateChanged] = CASE WHEN [Target].[ETag] <> @eTag THEN @now ELSE [Target].[DateStateChanged] END
+  WHEN NOT MATCHED
+    THEN INSERT ([Key], [ETag], [DateCreated], [DateUpdated], [DateStateChanged])
     VALUES (@key, @eTag, @now, @now, @now);
 END;
 GO

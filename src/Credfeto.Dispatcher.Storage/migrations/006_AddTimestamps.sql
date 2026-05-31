@@ -59,7 +59,9 @@ IF
 GO
 
 IF OBJECT_ID(N'[dbo].[PollingStates_Upsert]', N'P') IS NOT NULL
-  DROP PROCEDURE [dbo].[PollingStates_Upsert];
+  BEGIN
+    DROP PROCEDURE [dbo].[PollingStates_Upsert];
+  END;
 GO
 
 CREATE PROCEDURE [dbo].[PollingStates_Upsert]
@@ -83,7 +85,9 @@ END;
 GO
 
 IF OBJECT_ID(N'[dbo].[PullRequests_Upsert]', N'P') IS NOT NULL
-  DROP PROCEDURE [dbo].[PullRequests_Upsert];
+  BEGIN
+    DROP PROCEDURE [dbo].[PullRequests_Upsert];
+  END;
 GO
 
 CREATE PROCEDURE [dbo].[PullRequests_Upsert]
@@ -143,7 +147,9 @@ END;
 GO
 
 IF OBJECT_ID(N'[dbo].[PullRequests_CloseStale]', N'P') IS NOT NULL
-  DROP PROCEDURE [dbo].[PullRequests_CloseStale];
+  BEGIN
+    DROP PROCEDURE [dbo].[PullRequests_CloseStale];
+  END;
 GO
 
 CREATE PROCEDURE [dbo].[PullRequests_CloseStale]
@@ -176,7 +182,9 @@ END;
 GO
 
 IF OBJECT_ID(N'[dbo].[Issues_Upsert]', N'P') IS NOT NULL
-  DROP PROCEDURE [dbo].[Issues_Upsert];
+  BEGIN
+    DROP PROCEDURE [dbo].[Issues_Upsert];
+  END;
 GO
 
 CREATE PROCEDURE [dbo].[Issues_Upsert]
@@ -224,7 +232,9 @@ END;
 GO
 
 IF OBJECT_ID(N'[dbo].[Issues_CloseStale]', N'P') IS NOT NULL
-  DROP PROCEDURE [dbo].[Issues_CloseStale];
+  BEGIN
+    DROP PROCEDURE [dbo].[Issues_CloseStale];
+  END;
 GO
 
 CREATE PROCEDURE [dbo].[Issues_CloseStale]

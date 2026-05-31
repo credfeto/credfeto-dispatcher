@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Data.Common;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,7 +25,6 @@ internal static partial class DispatcherDatabase
     public static partial ValueTask Repos_SetActiveAsync(
         DbConnection connection,
         string repositories,
-        DateTimeOffset lastUpdated,
         CancellationToken cancellationToken
     );
 
@@ -44,7 +42,6 @@ internal static partial class DispatcherDatabase
         string? failedCheckNames,
         string? failedCheckSha,
         string? author,
-        DateTimeOffset now,
         CancellationToken cancellationToken
     );
 
@@ -57,7 +54,6 @@ internal static partial class DispatcherDatabase
         int priority,
         bool isOnHold,
         int? linkedPrNumber,
-        DateTimeOffset now,
         CancellationToken cancellationToken
     );
 
@@ -67,7 +63,6 @@ internal static partial class DispatcherDatabase
         string repository,
         int id,
         int linkedPrNumber,
-        DateTimeOffset now,
         CancellationToken cancellationToken
     );
 
@@ -109,7 +104,6 @@ internal static partial class DispatcherDatabase
         DbConnection connection,
         string repository,
         string? activePrIds,
-        DateTimeOffset now,
         CancellationToken cancellationToken
     );
 
@@ -118,7 +112,6 @@ internal static partial class DispatcherDatabase
         DbConnection connection,
         string repository,
         string? activeIssueIds,
-        DateTimeOffset now,
         CancellationToken cancellationToken
     );
 }

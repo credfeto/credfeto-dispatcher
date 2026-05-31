@@ -23,12 +23,10 @@ public sealed class NotificationStateTracker : INotificationStateTracker
     );
 
     private readonly IDatabase _database;
-    private readonly TimeProvider _timeProvider;
 
-    public NotificationStateTracker(IDatabase database, TimeProvider timeProvider)
+    public NotificationStateTracker(IDatabase database)
     {
         this._database = database;
-        this._timeProvider = timeProvider;
     }
 
     public ValueTask UpdateStateAsync(
@@ -39,13 +37,11 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         CancellationToken cancellationToken
     )
     {
-        DateTimeOffset now = this._timeProvider.GetUtcNow();
         return this.UpdatePullRequestAndLinkedIssuesAsync(
             notification: notification,
             details: details,
             priority: priority,
             isOnHold: isOnHold,
-            now: now,
             cancellationToken: cancellationToken
         );
     }
@@ -55,7 +51,6 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         PullRequestDetails details,
         WorkPriority priority,
         bool isOnHold,
-        DateTimeOffset now,
         CancellationToken cancellationToken
     )
     {
@@ -74,7 +69,6 @@ public sealed class NotificationStateTracker : INotificationStateTracker
                     failedCheckNames: BuildFailedCheckNames(details.Runs),
                     failedCheckSha: BuildFailedCheckSha(details.Runs),
                     author: details.Author,
-                    now: now,
                     cancellationToken: ct
                 ),
             cancellationToken: cancellationToken
@@ -91,7 +85,6 @@ public sealed class NotificationStateTracker : INotificationStateTracker
                         repository: notification.Repository.FullName,
                         id: linkedIssueNumber,
                         linkedPrNumber: details.Number,
-                        now: now,
                         cancellationToken: ct
                     ),
                 cancellationToken: cancellationToken
@@ -107,8 +100,6 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         CancellationToken cancellationToken
     )
     {
-        DateTimeOffset now = this._timeProvider.GetUtcNow();
-
         return this._database.ExecuteAsync(
             action: (c, ct) =>
                 DispatcherDatabase.Issues_UpsertAsync(
@@ -119,7 +110,6 @@ public sealed class NotificationStateTracker : INotificationStateTracker
                     priority: (int)priority,
                     isOnHold: isOnHold,
                     linkedPrNumber: ExtractPrNumber(details.LinkedPullRequestUrl),
-                    now: now,
                     cancellationToken: ct
                 ),
             cancellationToken: cancellationToken

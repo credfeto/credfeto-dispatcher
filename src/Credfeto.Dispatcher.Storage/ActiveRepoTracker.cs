@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Database;
@@ -11,17 +10,14 @@ namespace Credfeto.Dispatcher.Storage;
 public sealed class ActiveRepoTracker : IActiveRepoTracker
 {
     private readonly IDatabase _database;
-    private readonly TimeProvider _timeProvider;
 
-    public ActiveRepoTracker(IDatabase database, TimeProvider timeProvider)
+    public ActiveRepoTracker(IDatabase database)
     {
         this._database = database;
-        this._timeProvider = timeProvider;
     }
 
     public ValueTask UpdateActiveReposAsync(IReadOnlyList<string> activeRepos, CancellationToken cancellationToken)
     {
-        DateTimeOffset now = this._timeProvider.GetUtcNow();
         string repositories = string.Join(separator: ',', activeRepos);
 
         return this._database.ExecuteAsync(
@@ -29,7 +25,6 @@ public sealed class ActiveRepoTracker : IActiveRepoTracker
                 DispatcherDatabase.Repos_SetActiveAsync(
                     connection: c,
                     repositories: repositories,
-                    lastUpdated: now,
                     cancellationToken: ct
                 ),
             cancellationToken: cancellationToken

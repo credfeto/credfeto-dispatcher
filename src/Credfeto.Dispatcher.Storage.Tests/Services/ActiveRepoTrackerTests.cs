@@ -14,7 +14,7 @@ public sealed class ActiveRepoTrackerTests : TestBase
     public ActiveRepoTrackerTests()
     {
         this._database = new TestDatabaseStub();
-        this._tracker = new ActiveRepoTracker(this._database, MockDateTimeSources.Past);
+        this._tracker = new ActiveRepoTracker(this._database);
     }
 
     [Fact]

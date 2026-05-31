@@ -1,9 +1,9 @@
 CREATE PROCEDURE [dbo].[Repos_SetActive]
-  @repositories NVARCHAR(MAX),
-  @lastUpdated DATETIMEOFFSET
+  @repositories NVARCHAR(MAX)
 AS
 BEGIN
   SET NOCOUNT ON;
+  DECLARE @now DATETIMEOFFSET = GETUTCDATE();
   DECLARE @ActiveRepos TABLE ([Repository] NVARCHAR(450) NOT NULL);
   IF @repositories IS NOT NULL
     BEGIN
@@ -27,12 +27,12 @@ BEGIN
   ON [Target].[Repository] = [Source].[Repository]
   WHEN MATCHED
     THEN
-    UPDATE SET [IsActive] = 1, [LastUpdated] = @lastUpdated
+    UPDATE SET [IsActive] = 1, [LastUpdated] = @now
   WHEN NOT MATCHED BY TARGET
     THEN
     INSERT ([Repository], [IsActive], [LastUpdated])
-    VALUES ([Source].[Repository], 1, @lastUpdated)
+    VALUES ([Source].[Repository], 1, @now)
   WHEN NOT MATCHED BY SOURCE
     THEN
-    UPDATE SET [IsActive] = 0, [LastUpdated] = @lastUpdated;
+    UPDATE SET [IsActive] = 0, [LastUpdated] = @now;
 END;

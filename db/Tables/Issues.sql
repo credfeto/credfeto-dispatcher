@@ -8,5 +8,6 @@ CREATE TABLE [dbo].[Issues] (
   [Priority] INT NOT NULL DEFAULT 0,
   [IsOnHold] BIT NOT NULL DEFAULT 0,
   [LinkedPrNumber] INT NULL,
+  [DateStatusChanged] DATETIMEOFFSET NULL,
   CONSTRAINT [PK_Issues] PRIMARY KEY ([Repository], [Id])
 );

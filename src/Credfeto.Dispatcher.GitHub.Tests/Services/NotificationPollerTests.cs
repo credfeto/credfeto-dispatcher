@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Interfaces;
@@ -271,6 +272,53 @@ public sealed class NotificationPollerTests : TestBase
         await this
             ._eTagStore.Received(1)
             .GetETagAsync(key: "github.notifications", cancellationToken: this.CancellationToken());
+    }
+
+    [Fact]
+    public async Task PollAsyncDoesNotSendIfNoneMatchWhenStoredETagIsEmptyTagAsync()
+    {
+        this._eTagStore.GetETagAsync(key: "github.notifications", cancellationToken: this.CancellationToken())
+            .Returns("\"\"");
+
+        using CapturingResponseHandler handler = new(statusCode: HttpStatusCode.OK, content: NOTIFICATION_JSON);
+        using HttpClient httpClient = new(handler) { BaseAddress = new Uri("https://api.github.com/") };
+        this._httpClientFactory.CreateClient("GitHub").Returns(httpClient);
+
+        await this._poller.PollAsync(this.CancellationToken());
+
+        Assert.NotNull(handler.CapturedRequest);
+        Assert.Empty(handler.CapturedRequest.Headers.IfNoneMatch);
+    }
+
+    [Fact]
+    public async Task PollAsyncDoesNotSaveEmptyTagETagAsync()
+    {
+        using CapturingResponseHandler handler = new(statusCode: HttpStatusCode.OK, content: NOTIFICATION_JSON, eTag: "\"\"");
+        using HttpClient httpClient = new(handler) { BaseAddress = new Uri("https://api.github.com/") };
+        this._httpClientFactory.CreateClient("GitHub").Returns(httpClient);
+
+        await this._poller.PollAsync(TestContext.Current.CancellationToken);
+
+        await this._eTagStore.DidNotReceive().SaveETagAsync(
+            key: Arg.Any<string>(),
+            eTag: Arg.Any<string>(),
+            cancellationToken: Arg.Any<CancellationToken>()
+        );
+    }
+
+    [Fact]
+    public async Task PollAsyncReturnsNotificationsWhenStoredETagIsEmptyTagAsync()
+    {
+        this._eTagStore.GetETagAsync(key: "github.notifications", cancellationToken: this.CancellationToken())
+            .Returns("\"\"");
+
+        using CapturingResponseHandler handler = new(statusCode: HttpStatusCode.OK, content: NOTIFICATION_JSON);
+        using HttpClient httpClient = new(handler) { BaseAddress = new Uri("https://api.github.com/") };
+        this._httpClientFactory.CreateClient("GitHub").Returns(httpClient);
+
+        IReadOnlyList<GitHubNotification> result = await this._poller.PollAsync(this.CancellationToken());
+
+        Assert.NotEmpty(result);
     }
 
     [Fact]

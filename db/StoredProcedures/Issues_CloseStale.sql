@@ -1,10 +1,10 @@
 CREATE PROCEDURE [dbo].[Issues_CloseStale]
   @repository NVARCHAR(450),
-  @activeIssueIds NVARCHAR(MAX),
-  @now DATETIMEOFFSET
+  @activeIssueIds NVARCHAR(MAX)
 AS
 BEGIN
   SET NOCOUNT ON;
+  DECLARE @now DATETIMEOFFSET = GETUTCDATE();
   WITH
     [ActiveIds] AS (
       SELECT TRIM([value]) AS [CleanValue]
@@ -12,7 +12,7 @@ BEGIN
     )
 
   UPDATE [dbo].[Issues]
-  SET [Status] = N'Closed', [WhenClosed] = @now, [LastUpdated] = @now
+  SET [Status] = N'Closed', [WhenClosed] = @now, [LastUpdated] = @now, [DateStatusChanged] = @now
   WHERE [Repository] = @repository
     AND [Status] = N'Open'
     AND (

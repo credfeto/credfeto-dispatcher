@@ -13,5 +13,6 @@ CREATE TABLE [dbo].[PullRequests] (
   [FailedCheckNames] NVARCHAR(MAX) NULL,
   [FailedCheckSha] NVARCHAR(MAX) NULL,
   [Author] NVARCHAR(MAX) NULL,
+  [DateStatusChanged] DATETIMEOFFSET NULL,
   CONSTRAINT [PK_PullRequests] PRIMARY KEY ([Repository], [Id])
 );

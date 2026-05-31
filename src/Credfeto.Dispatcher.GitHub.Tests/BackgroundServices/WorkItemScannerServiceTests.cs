@@ -79,6 +79,29 @@ public sealed class WorkItemScannerServiceTests : TestBase
     }
 
     [Fact]
+    public async Task CallsScannerWhenScanIntervalSecondsIsZeroAsync()
+    {
+        TaskCompletionSource scanStarted = new();
+
+        this._scanner.ScanAsync(Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                scanStarted.TrySetResult();
+
+                return Task.CompletedTask;
+            });
+
+        CancellationToken token = TestContext.Current.CancellationToken;
+
+        using WorkItemScannerService service = this.CreateService(new GitHubOptions { Scan = new GitHubScanOptions { ScanIntervalSeconds = 0 } });
+        await service.StartAsync(token);
+        await scanStarted.Task.WaitAsync(timeout: TimeSpan.FromSeconds(5), cancellationToken: token);
+        await service.StopAsync(token);
+
+        await this._scanner.Received(1).ScanAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task HandlesExceptionFromScannerWithoutCrashingAsync()
     {
         TaskCompletionSource exceptionThrown = new();

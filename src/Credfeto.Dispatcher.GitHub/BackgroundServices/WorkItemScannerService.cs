@@ -49,7 +49,7 @@ public sealed class WorkItemScannerService : BackgroundService
             int intervalSeconds =
                 this._scanOptions.ScanIntervalSeconds > 0
                     ? this._scanOptions.ScanIntervalSeconds
-                    : 3600;
+                    : 1800;
 
             await Task.Delay(
                 millisecondsDelay: intervalSeconds * 1000,

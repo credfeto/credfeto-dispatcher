@@ -65,6 +65,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Urgent and security priority issues now always appear in the work item list, bypassing the maxIssues cap that was preventing them from showing when lower-priority repos filled the available slots first
 - Closed issues and PRs now removed from the work queue within one poll cycle when the notification has a reason not in the Reasons filter (e.g. 'subscribed'). Previously these were dropped silently and could remain visible for up to the full scan interval.
 - Link issues to open pull requests from PR-linked references so /priorities returns the PR instead of the linked issue
+- Notification poller stuck on empty ETag now forces a fresh poll; scan interval reduced to 30 minutes; DB timestamp columns added to PollingStates, PullRequests, and Issues; stored procedures now own their own timestamps via GETUTCDATE()
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934

@@ -288,7 +288,6 @@ public sealed class WorkItemRepository : IWorkItemRepository
         CancellationToken cancellationToken
     )
     {
-        DateTimeOffset now = this._timeProvider.GetUtcNow();
         string? activePrIds =
             activePullRequestNumbers.Count > 0 ? string.Join(separator: ',', activePullRequestNumbers) : null;
         string? activeIssueIds = activeIssueNumbers.Count > 0 ? string.Join(separator: ',', activeIssueNumbers) : null;
@@ -299,7 +298,6 @@ public sealed class WorkItemRepository : IWorkItemRepository
                     connection: c,
                     repository: repository,
                     activePrIds: activePrIds,
-                    now: now,
                     cancellationToken: ct
                 ),
             cancellationToken: cancellationToken
@@ -311,7 +309,6 @@ public sealed class WorkItemRepository : IWorkItemRepository
                     connection: c,
                     repository: repository,
                     activeIssueIds: activeIssueIds,
-                    now: now,
                     cancellationToken: ct
                 ),
             cancellationToken: cancellationToken

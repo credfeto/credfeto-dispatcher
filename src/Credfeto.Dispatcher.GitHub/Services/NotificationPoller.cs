@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -58,11 +59,16 @@ public sealed class NotificationPoller : INotificationPoller
         return await this.ProcessResponseAsync(response: response, cancellationToken: cancellationToken);
     }
 
+    private static bool IsUsableETag([NotNullWhen(returnValue: true)] string? eTag)
+    {
+        return !string.IsNullOrEmpty(eTag) && !string.Equals(eTag, "\"\"", StringComparison.Ordinal);
+    }
+
     private static HttpRequestMessage BuildRequest(string? eTag)
     {
         HttpRequestMessage request = new(method: HttpMethod.Get, requestUri: NotificationsRelativeUri);
 
-        if (eTag is not null)
+        if (IsUsableETag(eTag))
         {
             request.Headers.IfNoneMatch.Add(new EntityTagHeaderValue(eTag));
         }
@@ -84,7 +90,7 @@ public sealed class NotificationPoller : INotificationPoller
 
         _ = response.EnsureSuccessStatusCode();
 
-        if (response.Headers.ETag is not null)
+        if (response.Headers.ETag is not null && IsUsableETag(response.Headers.ETag.Tag))
         {
             await this._eTagStore.SaveETagAsync(
                 key: E_TAG_KEY,

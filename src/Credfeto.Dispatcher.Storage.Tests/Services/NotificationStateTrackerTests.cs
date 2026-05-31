@@ -18,7 +18,7 @@ public sealed class NotificationStateTrackerTests : TestBase
     public NotificationStateTrackerTests()
     {
         this._database = new TestDatabaseStub();
-        this._tracker = new NotificationStateTracker(this._database, MockDateTimeSources.Past);
+        this._tracker = new NotificationStateTracker(this._database);
     }
 
     private static GitHubNotification CreateNotification(string repo = "owner/repo")

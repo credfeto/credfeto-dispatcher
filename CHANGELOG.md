@@ -94,6 +94,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Removed tracked .idea IDE metadata files now covered by .gitignore
 - Removed Discord integration and the notification queue; matching GitHub notifications now update stored work-item state directly
 - Serilog.Enrichers.Demystifier package as it is not AOT-compatible
+- Ben.Demystifier dependency (transitive via Serilog.Enrichers.Demystifier) as it uses reflection and is not AOT-compatible
 ### Deployment Changes
 - Removed Priorities configuration section; StuckDependabotTimeoutHours is now set under GitHub:Filter:StuckDependabotTimeoutHours and MaxIssues under GitHub:Filter:MaxIssues
 <!--

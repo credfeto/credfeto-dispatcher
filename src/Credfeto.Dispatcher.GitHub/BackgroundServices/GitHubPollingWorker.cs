@@ -70,7 +70,14 @@ public sealed class GitHubPollingWorker : BackgroundService
 
             int pollIntervalSeconds = this._options.PollIntervalSeconds > 0 ? this._options.PollIntervalSeconds : 60;
 
-            await Task.Delay(millisecondsDelay: pollIntervalSeconds * 1000, cancellationToken: stoppingToken);
+            try
+            {
+                await Task.Delay(millisecondsDelay: pollIntervalSeconds * 1000, cancellationToken: stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
         }
 
         this._logger.LogWorkerStopping();

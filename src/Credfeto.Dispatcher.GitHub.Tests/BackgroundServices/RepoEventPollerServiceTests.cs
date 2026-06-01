@@ -32,6 +32,7 @@ public sealed class RepoEventPollerServiceTests : TestBase
         using RepoEventPollerService service = this.CreateService(poller);
         await service.StartAsync(token);
         await pollStarted.Task.WaitAsync(timeout: TimeSpan.FromSeconds(5), cancellationToken: token);
+        await Task.Delay(millisecondsDelay: 200, cancellationToken: token);
         await service.StopAsync(token);
 
         Assert.True(poller.PollCount >= 1, "Expected poller to have been called at least once");
@@ -50,7 +51,10 @@ public sealed class RepoEventPollerServiceTests : TestBase
         await pollCalled.Task.WaitAsync(timeout: TimeSpan.FromSeconds(5), cancellationToken: token);
         await service.StopAsync(token);
 
-        Assert.True(poller.PollCount >= 1, "Expected poller to have been called at least once");
+        Assert.True(
+            poller.PollCount == 1,
+            "Expected poller to have been called exactly once before stopping due to OperationCanceledException"
+        );
     }
 
     [Fact]

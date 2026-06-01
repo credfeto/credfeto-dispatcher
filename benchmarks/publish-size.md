@@ -54,4 +54,4 @@ Going from 391 → 195 files, trimming removes:
 - All unused types, methods, and fields within kept assemblies
 - Most of the BCL that this app doesn't use
 
-The `TrimmerRootAssembly` entries in the `.csproj` preserve: EF Core + SQLite assemblies (for reflection-based migration discovery), `Ben.Demystifier` (for Serilog stack formatting), and core BCL types.
+The `TrimmerRootAssembly` entries in the `.csproj` preserve: `Credfeto.Dispatcher.Storage` (for DbUp migration discovery), `Microsoft.Data.SqlClient` and `System.Configuration.ConfigurationManager` (SQL client preservation), and core BCL types (`System.Web.HttpUtility`, `System.Diagnostics.FileVersionInfo`, `System.Resources.Writer`, `System.Runtime`).

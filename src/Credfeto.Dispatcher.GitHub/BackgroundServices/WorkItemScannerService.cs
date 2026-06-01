@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.BackgroundServices.LoggingExtensions;
@@ -47,14 +47,16 @@ public sealed class WorkItemScannerService : BackgroundService
             }
 
             int intervalSeconds =
-                this._scanOptions.ScanIntervalSeconds > 0
-                    ? this._scanOptions.ScanIntervalSeconds
-                    : 1800;
+                this._scanOptions.ScanIntervalSeconds > 0 ? this._scanOptions.ScanIntervalSeconds : 1800;
 
-            await Task.Delay(
-                millisecondsDelay: intervalSeconds * 1000,
-                cancellationToken: stoppingToken
-            );
+            try
+            {
+                await Task.Delay(millisecondsDelay: intervalSeconds * 1000, cancellationToken: stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
         }
 
         this._logger.LogScannerStopping();

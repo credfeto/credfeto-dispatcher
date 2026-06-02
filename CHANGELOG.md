@@ -34,6 +34,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Added X-Version response header middleware to expose server version on all HTTP responses
 - Configurable rules for upgrading bot-authored pull requests to a baseline and/or security priority based on author login, branch prefix, and inactivity timeout
 - DefaultPriority property on BotPrRule assigns a baseline priority on first rule match, with escalation to a higher priority after the configured timeout
+- Add X-Server response header containing the hostname of the machine serving the request
 ### Fixed
 - EF Core change-tracking comparers trimmed away at publish time causing MissingMethodException at startup; preserve EF Core and Ben.Demystifier assemblies as trimmer roots
 - preserve EF Core migration types as trimmer roots to prevent missing-table errors at runtime on trimmed binaries

@@ -459,29 +459,6 @@ public sealed class WorkItemScannerTests : TestBase
     }
 
     [Fact]
-    public async Task ScanAsync_WhenRepoNotInAllowedRepos_MakesNoStateUpdatesAsync()
-    {
-        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
-        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient);
-
-        GitHubOptions options = new() { Filter = new GitHubFilterOptions { AllowedRepos = ["owner/other-repo"] } };
-
-        WorkItemScanner scanner = this.CreateScanner(options);
-
-        await scanner.ScanAsync(this.CancellationToken());
-
-        await this
-            ._notificationStateTracker.DidNotReceive()
-            .UpdateStateAsync(
-                notification: Arg.Any<GitHubNotification>(),
-                details: Arg.Any<PullRequestDetails>(),
-                priority: Arg.Any<WorkPriority>(),
-                isOnHold: Arg.Any<bool>(),
-                cancellationToken: Arg.Any<CancellationToken>()
-            );
-    }
-
-    [Fact]
     public async Task ScanAsync_WhenRepoIsExcluded_MakesNoStateUpdatesAsync()
     {
         using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);

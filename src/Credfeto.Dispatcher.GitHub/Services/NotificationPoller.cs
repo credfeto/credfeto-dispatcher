@@ -138,7 +138,7 @@ public sealed class NotificationPoller : INotificationPoller
             Reason: n.Reason,
             Subject: new NotificationSubject(
                 Title: n.Subject.Title,
-                Url: new Uri(n.Subject.Url ?? "about:blank"),
+                Url: n.Subject.Url is not null ? new Uri(n.Subject.Url) : null,
                 Type: n.Subject.Type
             ),
             Repository: new NotificationRepository(FullName: n.Repository.FullName, Url: new Uri(n.Repository.HtmlUrl)),

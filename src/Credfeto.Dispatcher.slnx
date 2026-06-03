@@ -17,6 +17,7 @@
   <Folder Name="/Storage/">
     <Project Path="Credfeto.Dispatcher.Storage.Database/Credfeto.Dispatcher.Storage.Database.csproj" />
     <Project Path="Credfeto.Dispatcher.Storage/Credfeto.Dispatcher.Storage.csproj" />
+    <Project Path="Credfeto.Dispatcher.Storage.Integration.Tests/Credfeto.Dispatcher.Storage.Integration.Tests.csproj" />
     <Project Path="Credfeto.Dispatcher.Storage.Tests/Credfeto.Dispatcher.Storage.Tests.csproj" />
   </Folder>
   <Folder Name="/Services/GitHub/">

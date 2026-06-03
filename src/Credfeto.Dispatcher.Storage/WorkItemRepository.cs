@@ -16,7 +16,6 @@ public sealed class WorkItemRepository : IWorkItemRepository
 {
     private const string PULL_REQUEST_TYPE = "PullRequest";
     private const string ISSUE_TYPE = "Issue";
-    private const string DEPENDABOT_LOGIN = "dependabot[bot]";
 
     private readonly IDatabase _database;
     private readonly TimeProvider _timeProvider;
@@ -29,8 +28,6 @@ public sealed class WorkItemRepository : IWorkItemRepository
 
     public async Task<PrioritiesResponse> GetPrioritisedWorkItemsAsync(
         IReadOnlyList<string> owners,
-        IReadOnlyList<string> repos,
-        TimeSpan stuckDependabotTimeout,
         int maxIssues,
         CancellationToken cancellationToken
     )
@@ -47,17 +44,9 @@ public sealed class WorkItemRepository : IWorkItemRepository
 
         DateTimeOffset now = this._timeProvider.GetUtcNow();
 
-        List<WorkItem> pullRequests =
-        [
-            .. prRows.Select(row => MapPullRequest(row: row, now: now, stuckDependabotTimeout: stuckDependabotTimeout)),
-        ];
+        List<WorkItem> pullRequests = [.. prRows.Select(MapPullRequest)];
 
-        IReadOnlyList<WorkItem> issues = BuildIssues(
-            issueRows: issueRows,
-            owners: owners,
-            repos: repos,
-            maxIssues: maxIssues
-        );
+        IReadOnlyList<WorkItem> issues = BuildIssues(issueRows: issueRows, owners: owners, maxIssues: maxIssues);
 
         List<WorkItem> combined = Deduplicate([.. pullRequests, .. issues]);
 
@@ -67,8 +56,6 @@ public sealed class WorkItemRepository : IWorkItemRepository
                 .OrderBy(w => FindIndex(owners, GetOwner(w.Repository)))
                 .ThenBy(w => GetOwner(w.Repository), comparer: StringComparer.OrdinalIgnoreCase)
                 .ThenBy(w => IsPullRequest(w) ? 0 : 1)
-                .ThenBy(w => FindIndex(repos, w.Repository))
-                .ThenBy(w => w.Repository, comparer: StringComparer.OrdinalIgnoreCase)
                 .ThenByDescending(w => (int)w.Priority)
                 .ThenBy(w => w.FirstSeen),
         ];
@@ -82,7 +69,6 @@ public sealed class WorkItemRepository : IWorkItemRepository
     private static IReadOnlyList<WorkItem> BuildIssues(
         IReadOnlyList<IssueRow> issueRows,
         IReadOnlyList<string> owners,
-        IReadOnlyList<string> repos,
         int maxIssues
     )
     {
@@ -93,8 +79,6 @@ public sealed class WorkItemRepository : IWorkItemRepository
         IEnumerable<WorkItem> ordered = topIssuePerRepo
             .OrderBy(w => FindIndex(owners, GetOwner(w.Repository)))
             .ThenBy(w => GetOwner(w.Repository), comparer: StringComparer.OrdinalIgnoreCase)
-            .ThenBy(w => FindIndex(repos, w.Repository))
-            .ThenBy(w => w.Repository, comparer: StringComparer.OrdinalIgnoreCase)
             .ThenByDescending(w => (int)w.Priority)
             .ThenBy(w => w.FirstSeen);
 
@@ -121,24 +105,13 @@ public sealed class WorkItemRepository : IWorkItemRepository
         return [.. items.DistinctBy(static w => (w.Repository, w.Id))];
     }
 
-    private static WorkItem MapPullRequest(
-        PullRequestRow row,
-        in DateTimeOffset now,
-        in TimeSpan stuckDependabotTimeout
-    )
+    private static WorkItem MapPullRequest(PullRequestRow row)
     {
-        WorkPriority priority = (WorkPriority)row.Priority;
-
-        if (IsStuckDependabotPullRequest(row: row, now: now, stuckDependabotTimeout: stuckDependabotTimeout))
-        {
-            priority = WorkPriority.SECURITY;
-        }
-
         return new WorkItem(
             Repository: row.Repository,
             Id: row.Id,
             ItemType: PULL_REQUEST_TYPE,
-            Priority: priority,
+            Priority: (WorkPriority)row.Priority,
             FirstSeen: row.FirstSeen,
             LastUpdated: row.LastUpdated,
             Status: row.Status,
@@ -152,25 +125,6 @@ public sealed class WorkItemRepository : IWorkItemRepository
             FailedCheckSha: row.FailedCheckSha,
             Author: row.Author
         );
-    }
-
-    private static bool IsStuckDependabotPullRequest(
-        PullRequestRow row,
-        in DateTimeOffset now,
-        in TimeSpan stuckDependabotTimeout
-    )
-    {
-        if (stuckDependabotTimeout <= TimeSpan.Zero)
-        {
-            return false;
-        }
-
-        if (!string.Equals(a: row.Author, b: DEPENDABOT_LOGIN, comparisonType: StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        return now - row.FirstSeen >= stuckDependabotTimeout;
     }
 
     private static WorkItem MapIssue(IssueRow row)

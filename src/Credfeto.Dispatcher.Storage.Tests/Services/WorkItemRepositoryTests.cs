@@ -43,17 +43,10 @@ public sealed class WorkItemRepositoryTests : TestBase
         this._database.SetReturn(rows);
     }
 
-    private async Task<IReadOnlyList<WorkItem>> GetItemsAsync(
-        IReadOnlyList<string> owners,
-        IReadOnlyList<string> repos,
-        TimeSpan stuckDependabotTimeout = default,
-        int maxIssues = 0
-    )
+    private async Task<IReadOnlyList<WorkItem>> GetItemsAsync(IReadOnlyList<string> owners, int maxIssues = 0)
     {
         PrioritiesResponse response = await this._repository.GetPrioritisedWorkItemsAsync(
             owners: owners,
-            repos: repos,
-            stuckDependabotTimeout: stuckDependabotTimeout,
             maxIssues: maxIssues,
             cancellationToken: this.CancellationToken()
         );
@@ -117,7 +110,7 @@ public sealed class WorkItemRepositoryTests : TestBase
         this.SetupPullRequests([CreatePrRow("zz-owner/repo", id: 1), CreatePrRow("aa-owner/repo", id: 2)]);
         this.SetupIssues([]);
 
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: []);
 
         Assert.Equal(expected: 2, actual: result.Count);
         Assert.Equal(expected: "aa-owner/repo", actual: result[0].Repository);
@@ -130,40 +123,11 @@ public sealed class WorkItemRepositoryTests : TestBase
         this.SetupPullRequests([CreatePrRow("aa-owner/repo", id: 1), CreatePrRow("zz-owner/repo", id: 2)]);
         this.SetupIssues([]);
 
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: ["zz-owner", "aa-owner"], repos: []);
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: ["zz-owner", "aa-owner"]);
 
         Assert.Equal(expected: 2, actual: result.Count);
         Assert.Equal(expected: "zz-owner/repo", actual: result[0].Repository);
         Assert.Equal(expected: "aa-owner/repo", actual: result[1].Repository);
-    }
-
-    [Fact]
-    public async Task WithNoConfig_ReposAreOrderedAlphabeticallyAsync()
-    {
-        this.SetupPullRequests([CreatePrRow("owner/zz-repo", id: 1), CreatePrRow("owner/aa-repo", id: 2)]);
-        this.SetupIssues([]);
-
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
-
-        Assert.Equal(expected: 2, actual: result.Count);
-        Assert.Equal(expected: "owner/aa-repo", actual: result[0].Repository);
-        Assert.Equal(expected: "owner/zz-repo", actual: result[1].Repository);
-    }
-
-    [Fact]
-    public async Task WithReposConfigured_ReposAreOrderedByConfigAsync()
-    {
-        this.SetupPullRequests([CreatePrRow("owner/aa-repo", id: 1), CreatePrRow("owner/zz-repo", id: 2)]);
-        this.SetupIssues([]);
-
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(
-            owners: [],
-            repos: ["owner/zz-repo", "owner/aa-repo"]
-        );
-
-        Assert.Equal(expected: 2, actual: result.Count);
-        Assert.Equal(expected: "owner/zz-repo", actual: result[0].Repository);
-        Assert.Equal(expected: "owner/aa-repo", actual: result[1].Repository);
     }
 
     [Fact]
@@ -172,7 +136,7 @@ public sealed class WorkItemRepositoryTests : TestBase
         this.SetupPullRequests([CreatePrRow("owner/bb-repo", id: 1)]);
         this.SetupIssues([CreateIssueRow("owner/aa-repo", id: 1)]);
 
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: []);
 
         Assert.Equal(expected: 2, actual: result.Count);
         Assert.Equal(expected: "PullRequest", actual: result[0].ItemType);
@@ -191,7 +155,7 @@ public sealed class WorkItemRepositoryTests : TestBase
             ]
         );
 
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: []);
 
         WorkItem item = Assert.Single(result);
         Assert.Equal(expected: 2, actual: item.Id);
@@ -209,7 +173,7 @@ public sealed class WorkItemRepositoryTests : TestBase
             ]
         );
 
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: []);
 
         WorkItem item = Assert.Single(result);
         Assert.Equal(expected: 1, actual: item.Id);
@@ -226,7 +190,7 @@ public sealed class WorkItemRepositoryTests : TestBase
             ]
         );
 
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: []);
 
         _ = Assert.Single(result);
     }
@@ -243,7 +207,7 @@ public sealed class WorkItemRepositoryTests : TestBase
             ]
         );
 
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: [], maxIssues: 2);
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], maxIssues: 2);
 
         Assert.Equal(expected: 2, actual: result.Count);
     }
@@ -260,7 +224,7 @@ public sealed class WorkItemRepositoryTests : TestBase
             ]
         );
 
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: [], maxIssues: 2);
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], maxIssues: 2);
 
         Assert.Equal(expected: 3, actual: result.Count);
         Assert.Contains(
@@ -283,7 +247,7 @@ public sealed class WorkItemRepositoryTests : TestBase
             ]
         );
 
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: [], maxIssues: 2);
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], maxIssues: 2);
 
         Assert.Equal(expected: 3, actual: result.Count);
         Assert.Contains(
@@ -306,7 +270,7 @@ public sealed class WorkItemRepositoryTests : TestBase
             ]
         );
 
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: [], maxIssues: 2);
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], maxIssues: 2);
 
         Assert.Contains(result, w => string.Equals(w.Repository, "owner/cc-repo", StringComparison.Ordinal));
     }
@@ -317,7 +281,7 @@ public sealed class WorkItemRepositoryTests : TestBase
         this.SetupPullRequests([CreatePrRow("owner/repo-a", id: 1), CreatePrRow("owner/repo-b", id: 2)]);
         this.SetupIssues([CreateIssueRow("owner/repo-c", id: 1)]);
 
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: [], maxIssues: 0);
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], maxIssues: 0);
 
         Assert.Equal(expected: 3, actual: result.Count);
     }
@@ -328,7 +292,7 @@ public sealed class WorkItemRepositoryTests : TestBase
         this.SetupPullRequests([]);
         this.SetupIssues([CreateIssueRow("owner/repo-a", id: 1), CreateIssueRow("owner/repo-b", id: 2)]);
 
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: [], maxIssues: 5);
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], maxIssues: 5);
 
         Assert.Equal(expected: 2, actual: result.Count);
     }
@@ -339,7 +303,7 @@ public sealed class WorkItemRepositoryTests : TestBase
         this.SetupPullRequests([CreatePrRow("owner/repo", id: 1, status: "Open")]);
         this.SetupIssues([]);
 
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: []);
 
         WorkItem item = Assert.Single(result);
         Assert.Equal(expected: "Open", actual: item.Status);
@@ -351,92 +315,10 @@ public sealed class WorkItemRepositoryTests : TestBase
         this.SetupPullRequests([CreatePrRow("owner/repo", id: 1)]);
         this.SetupIssues([]);
 
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: []);
 
         WorkItem item = Assert.Single(result);
         Assert.Empty(item.LinkedPrNumbers);
-    }
-
-    [Fact]
-    public async Task StuckDependabot_IsUpgradedToSecurityPriorityAsync()
-    {
-        DateTimeOffset oldFirstSeen = BaseTime.AddDays(-10);
-        this.SetupPullRequests(
-            [
-                CreatePrRow(
-                    "owner/repo",
-                    id: 1,
-                    priority: WorkPriority.LOW,
-                    author: "dependabot[bot]",
-                    firstSeen: oldFirstSeen
-                ),
-            ]
-        );
-        this.SetupIssues([]);
-
-        TimeSpan stuckTimeout = TimeSpan.FromDays(7);
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(
-            owners: [],
-            repos: [],
-            stuckDependabotTimeout: stuckTimeout
-        );
-
-        WorkItem item = Assert.Single(result);
-        Assert.Equal(expected: WorkPriority.SECURITY, actual: item.Priority);
-    }
-
-    [Fact]
-    public async Task RecentDependabot_IsNotUpgradedToSecurityPriorityAsync()
-    {
-        this.SetupPullRequests(
-            [
-                CreatePrRow(
-                    "owner/repo",
-                    id: 1,
-                    priority: WorkPriority.LOW,
-                    author: "dependabot[bot]",
-                    firstSeen: BaseTime.AddDays(-1)
-                ),
-            ]
-        );
-        this.SetupIssues([]);
-
-        TimeSpan stuckTimeout = TimeSpan.FromDays(7);
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(
-            owners: [],
-            repos: [],
-            stuckDependabotTimeout: stuckTimeout
-        );
-
-        WorkItem item = Assert.Single(result);
-        Assert.Equal(expected: WorkPriority.LOW, actual: item.Priority);
-    }
-
-    [Fact]
-    public async Task NonDependabotPr_IsNotUpgradedToSecurityPriorityAsync()
-    {
-        this.SetupPullRequests(
-            [
-                CreatePrRow(
-                    "owner/repo",
-                    id: 1,
-                    priority: WorkPriority.LOW,
-                    author: "some-dev",
-                    firstSeen: BaseTime.AddDays(-10)
-                ),
-            ]
-        );
-        this.SetupIssues([]);
-
-        TimeSpan stuckTimeout = TimeSpan.FromDays(7);
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(
-            owners: [],
-            repos: [],
-            stuckDependabotTimeout: stuckTimeout
-        );
-
-        WorkItem item = Assert.Single(result);
-        Assert.Equal(expected: WorkPriority.LOW, actual: item.Priority);
     }
 
     [Fact]
@@ -445,7 +327,7 @@ public sealed class WorkItemRepositoryTests : TestBase
         this.SetupPullRequests([]);
         this.SetupIssues([CreateIssueRow("owner/repo", id: 5, linkedPrNumber: 42)]);
 
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: []);
 
         WorkItem item = Assert.Single(result);
         int linkedPr = Assert.Single(item.LinkedPrNumbers);
@@ -458,7 +340,7 @@ public sealed class WorkItemRepositoryTests : TestBase
         this.SetupPullRequests([]);
         this.SetupIssues([]);
 
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], repos: []);
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: []);
 
         Assert.Empty(result);
     }

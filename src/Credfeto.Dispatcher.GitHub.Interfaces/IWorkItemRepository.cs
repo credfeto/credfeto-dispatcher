@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,8 +9,6 @@ public interface IWorkItemRepository
 {
     Task<PrioritiesResponse> GetPrioritisedWorkItemsAsync(
         IReadOnlyList<string> owners,
-        IReadOnlyList<string> repos,
-        TimeSpan stuckDependabotTimeout,
         int maxIssues,
         CancellationToken cancellationToken
     );

@@ -12,8 +12,6 @@ public sealed class GitHubFilterOptions
 
     public IReadOnlyList<string> AllowedOwners { get; set; } = [];
 
-    public IReadOnlyList<string> AllowedRepos { get; set; } = [];
-
     public IReadOnlyList<string> ExcludedRepos { get; set; } = [];
 
     public bool PollIssueEdits { get; set; } = true;
@@ -23,8 +21,6 @@ public sealed class GitHubFilterOptions
     public string MentionedUser { get; set; } = string.Empty;
 
     public int MaxIssues { get; set; } = 10;
-
-    public int StuckDependabotTimeoutHours { get; set; } = 3;
 
     public GitHubPullRequestFilterOptions PullRequests { get; set; } = new();
 }

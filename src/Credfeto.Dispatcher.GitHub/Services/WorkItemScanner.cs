@@ -111,16 +111,6 @@ public sealed class WorkItemScanner : IWorkItemScanner
             }
         }
 
-        if (this._options.Filter.AllowedRepos.Count > 0)
-        {
-            if (!this._options.Filter.AllowedRepos.Any(r => StringComparer.OrdinalIgnoreCase.Equals(r, fullName)))
-            {
-                this._logger.LogRepoSkippedAllowedRepoFilter(repo: fullName);
-
-                return false;
-            }
-        }
-
         if (this._options.Filter.ExcludedRepos.Count > 0)
         {
             if (this._options.Filter.ExcludedRepos.Any(r => StringComparer.OrdinalIgnoreCase.Equals(r, fullName)))

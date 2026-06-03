@@ -101,6 +101,11 @@ public sealed partial class PullRequestDetailFetcher : IPullRequestDetailFetcher
             return null;
         }
 
+        if (notification.Subject.Url is null)
+        {
+            return null;
+        }
+
         GraphQlPullRequestData? pr = await this.FetchPullRequestViaGraphQlAsync(
             subjectUrl: notification.Subject.Url,
             cancellationToken: cancellationToken

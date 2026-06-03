@@ -38,6 +38,11 @@ public sealed class IssueDetailFetcher : IIssueDetailFetcher
             return null;
         }
 
+        if (notification.Subject.Url is null)
+        {
+            return null;
+        }
+
         string apiUrl = notification.Subject.Url.ToString();
         ApiIssue? issue = await this.GetAsync<ApiIssue>(
             url: apiUrl,

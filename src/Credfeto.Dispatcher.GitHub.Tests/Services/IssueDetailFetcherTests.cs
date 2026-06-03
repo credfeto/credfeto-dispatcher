@@ -63,12 +63,18 @@ public sealed class IssueDetailFetcherTests : TestBase
         }
     }
 
-    private static GitHubNotification BuildNotification(string type)
+    private static GitHubNotification BuildNotification(string type) =>
+        CreateNotification(type: type, subjectUrl: new Uri(ISSUE_API_URL));
+
+    private static GitHubNotification BuildNotificationWithNullUrl(string type) =>
+        CreateNotification(type: type, subjectUrl: null);
+
+    private static GitHubNotification CreateNotification(string type, Uri? subjectUrl)
     {
         return new GitHubNotification(
             Id: "1",
             Reason: "mention",
-            Subject: new NotificationSubject(Title: "Test Issue", Url: new Uri(ISSUE_API_URL), Type: type),
+            Subject: new NotificationSubject(Title: "Test Issue", Url: subjectUrl, Type: type),
             Repository: new NotificationRepository(
                 FullName: "owner/repo",
                 Url: new Uri("https://github.com/owner/repo")
@@ -84,6 +90,19 @@ public sealed class IssueDetailFetcherTests : TestBase
             ),
             Unread: true
         );
+    }
+
+    [Fact]
+    public async Task ReturnsNullWhenSubjectUrlIsNullAsync()
+    {
+        GitHubNotification notification = BuildNotificationWithNullUrl(type: "Issue");
+
+        IssueDetails? result = await this._fetcher.FetchAsync(
+            notification: notification,
+            cancellationToken: this.CancellationToken()
+        );
+
+        Assert.Null(result);
     }
 
     [Fact]

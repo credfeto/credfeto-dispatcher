@@ -69,6 +69,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Notification poller stuck on empty ETag now forces a fresh poll; scan interval reduced to 30 minutes; DB timestamp columns added to PollingStates, PullRequests, and Issues; stored procedures now own their own timestamps via GETUTCDATE()
 - Issues_LinkPullRequest stored procedure now computes @now internally, fixing runtime error when linking issues to pull requests
 - Suppress Polly HTTP resilience telemetry noise and fix Task.Delay unhandled cancellation in background services during shutdown
+- Handle missing URL in RepoEventPoller notifications without throwing ArgumentNullException
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934

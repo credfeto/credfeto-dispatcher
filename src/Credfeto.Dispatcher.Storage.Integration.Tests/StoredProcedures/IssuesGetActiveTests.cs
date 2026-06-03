@@ -33,27 +33,6 @@ public sealed class IssuesGetActiveTests : SqlServerIntegrationTestBase
             cancellationToken: cancellationToken
         );
 
-    private ValueTask InsertOpenPullRequestAsync(int id, in CancellationToken cancellationToken = default) =>
-        this.Database.ExecuteAsync(
-            action: (c, ct) =>
-                DispatcherDatabase.PullRequests_UpsertAsync(
-                    connection: c,
-                    repository: this.TestRepository,
-                    id: id,
-                    status: "Open",
-                    priority: 2,
-                    isOnHold: false,
-                    commentCount: 0,
-                    reviewDecision: null,
-                    failedCheckCount: 0,
-                    failedCheckNames: null,
-                    failedCheckSha: null,
-                    author: null,
-                    cancellationToken: ct
-                ),
-            cancellationToken: cancellationToken
-        );
-
     [Fact]
     public async Task OpenIssue_IsReturnedAsync()
     {
@@ -112,12 +91,13 @@ public sealed class IssuesGetActiveTests : SqlServerIntegrationTestBase
     }
 
     [Fact]
-    public async Task UrgentIssueLinkedToOpenPullRequest_IsAlwaysIncludedAsync()
+    public async Task UrgentIssueInRepoWithOpenPullRequest_IsAlwaysIncludedAsync()
     {
         const int URGENT_PRIORITY = 4;
         CancellationToken ct = this.CancellationToken();
+
         await this.InsertOpenPullRequestAsync(id: 99, cancellationToken: ct);
-        await this.InsertIssueAsync(id: 5, priority: URGENT_PRIORITY, linkedPrNumber: 99, cancellationToken: ct);
+        await this.InsertIssueAsync(id: 5, priority: URGENT_PRIORITY, cancellationToken: ct);
 
         IReadOnlyList<IssueRow> rows = await this.Database.ExecuteAsync(
             action: DispatcherDatabase.Issues_GetActiveAsync,

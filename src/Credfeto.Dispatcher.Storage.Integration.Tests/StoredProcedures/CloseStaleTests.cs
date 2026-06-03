@@ -9,63 +9,6 @@ namespace Credfeto.Dispatcher.Storage.Integration.Tests.StoredProcedures;
 
 public sealed class CloseStaleTests : SqlServerIntegrationTestBase
 {
-    private ValueTask InsertOpenPullRequestAsync(int id, in CancellationToken cancellationToken = default) =>
-        this.Database.ExecuteAsync(
-            action: (c, ct) =>
-                DispatcherDatabase.PullRequests_UpsertAsync(
-                    connection: c,
-                    repository: this.TestRepository,
-                    id: id,
-                    status: "Open",
-                    priority: 2,
-                    isOnHold: false,
-                    commentCount: 0,
-                    reviewDecision: null,
-                    failedCheckCount: 0,
-                    failedCheckNames: null,
-                    failedCheckSha: null,
-                    author: null,
-                    cancellationToken: ct
-                ),
-            cancellationToken: cancellationToken
-        );
-
-    private ValueTask InsertOpenIssueAsync(int id, in CancellationToken cancellationToken = default) =>
-        this.Database.ExecuteAsync(
-            action: (c, ct) =>
-                DispatcherDatabase.Issues_UpsertAsync(
-                    connection: c,
-                    repository: this.TestRepository,
-                    id: id,
-                    status: "Open",
-                    priority: 2,
-                    isOnHold: false,
-                    linkedPrNumber: null,
-                    cancellationToken: ct
-                ),
-            cancellationToken: cancellationToken
-        );
-
-    private async ValueTask<IReadOnlyList<PullRequestRow>> GetActivePullRequestsForTestRepoAsync()
-    {
-        IReadOnlyList<PullRequestRow> all = await this.Database.ExecuteAsync(
-            action: DispatcherDatabase.PullRequests_GetActiveAsync,
-            cancellationToken: this.CancellationToken()
-        );
-
-        return this.ForTestRepo(all);
-    }
-
-    private async ValueTask<IReadOnlyList<IssueRow>> GetActiveIssuesForTestRepoAsync()
-    {
-        IReadOnlyList<IssueRow> all = await this.Database.ExecuteAsync(
-            action: DispatcherDatabase.Issues_GetActiveAsync,
-            cancellationToken: this.CancellationToken()
-        );
-
-        return this.ForTestRepo(all);
-    }
-
     [Fact]
     public async Task PullRequests_CloseStale_ClosesItemsNotInActiveListAsync()
     {

@@ -32,16 +32,6 @@ public sealed class IssuesUpsertTests : SqlServerIntegrationTestBase
             cancellationToken: cancellationToken
         );
 
-    private async ValueTask<IReadOnlyList<IssueRow>> GetActiveForTestRepoAsync()
-    {
-        IReadOnlyList<IssueRow> all = await this.Database.ExecuteAsync(
-            action: DispatcherDatabase.Issues_GetActiveAsync,
-            cancellationToken: this.CancellationToken()
-        );
-
-        return this.ForTestRepo(all);
-    }
-
     [Fact]
     public async Task Insert_CreatesRowAsync()
     {
@@ -52,7 +42,7 @@ public sealed class IssuesUpsertTests : SqlServerIntegrationTestBase
             cancellationToken: this.CancellationToken()
         );
 
-        IssueRow row = Assert.Single(await this.GetActiveForTestRepoAsync());
+        IssueRow row = Assert.Single(await this.GetActiveIssuesForTestRepoAsync());
         Assert.Equal(expected: 20, actual: row.Id);
         Assert.Equal(expected: "Open", actual: row.Status);
         Assert.Equal(expected: 3, actual: row.Priority);
@@ -68,7 +58,7 @@ public sealed class IssuesUpsertTests : SqlServerIntegrationTestBase
         await this.UpsertIssueAsync(id: 21, priority: 1, cancellationToken: ct);
         await this.UpsertIssueAsync(id: 21, priority: 4, linkedPrNumber: 77, cancellationToken: ct);
 
-        IssueRow row = Assert.Single(await this.GetActiveForTestRepoAsync());
+        IssueRow row = Assert.Single(await this.GetActiveIssuesForTestRepoAsync());
         Assert.Equal(expected: 21, actual: row.Id);
         Assert.Equal(expected: 4, actual: row.Priority);
         Assert.Equal(expected: 77, actual: row.LinkedPrNumber);
@@ -81,11 +71,11 @@ public sealed class IssuesUpsertTests : SqlServerIntegrationTestBase
 
         await this.UpsertIssueAsync(id: 22, priority: 2, cancellationToken: ct);
 
-        IssueRow firstRow = Assert.Single(await this.GetActiveForTestRepoAsync());
+        IssueRow firstRow = Assert.Single(await this.GetActiveIssuesForTestRepoAsync());
 
         await this.UpsertIssueAsync(id: 22, priority: 5, cancellationToken: ct);
 
-        IssueRow updatedRow = Assert.Single(await this.GetActiveForTestRepoAsync());
+        IssueRow updatedRow = Assert.Single(await this.GetActiveIssuesForTestRepoAsync());
 
         Assert.Equal(expected: firstRow.FirstSeen, actual: updatedRow.FirstSeen);
         Assert.Equal(expected: 5, actual: updatedRow.Priority);
@@ -99,7 +89,7 @@ public sealed class IssuesUpsertTests : SqlServerIntegrationTestBase
         await this.UpsertIssueAsync(id: 23, priority: 2, linkedPrNumber: 42, cancellationToken: ct);
         await this.UpsertIssueAsync(id: 23, priority: 3, linkedPrNumber: null, cancellationToken: ct);
 
-        IssueRow row = Assert.Single(await this.GetActiveForTestRepoAsync());
+        IssueRow row = Assert.Single(await this.GetActiveIssuesForTestRepoAsync());
         Assert.Equal(expected: 42, actual: row.LinkedPrNumber);
     }
 }

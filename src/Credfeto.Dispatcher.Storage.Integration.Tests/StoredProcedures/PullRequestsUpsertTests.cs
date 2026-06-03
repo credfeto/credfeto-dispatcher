@@ -42,16 +42,6 @@ public sealed class PullRequestsUpsertTests : SqlServerIntegrationTestBase
             cancellationToken: cancellationToken
         );
 
-    private async ValueTask<IReadOnlyList<PullRequestRow>> GetActiveForTestRepoAsync()
-    {
-        IReadOnlyList<PullRequestRow> all = await this.Database.ExecuteAsync(
-            action: DispatcherDatabase.PullRequests_GetActiveAsync,
-            cancellationToken: this.CancellationToken()
-        );
-
-        return this.ForTestRepo(all);
-    }
-
     [Fact]
     public async Task Insert_CreatesRowAsync()
     {
@@ -68,7 +58,7 @@ public sealed class PullRequestsUpsertTests : SqlServerIntegrationTestBase
             cancellationToken: this.CancellationToken()
         );
 
-        PullRequestRow row = Assert.Single(await this.GetActiveForTestRepoAsync());
+        PullRequestRow row = Assert.Single(await this.GetActivePullRequestsForTestRepoAsync());
         Assert.Equal(expected: 10, actual: row.Id);
         Assert.Equal(expected: "Open", actual: row.Status);
         Assert.Equal(expected: 3, actual: row.Priority);
@@ -97,7 +87,7 @@ public sealed class PullRequestsUpsertTests : SqlServerIntegrationTestBase
             cancellationToken: ct
         );
 
-        PullRequestRow row = Assert.Single(await this.GetActiveForTestRepoAsync());
+        PullRequestRow row = Assert.Single(await this.GetActivePullRequestsForTestRepoAsync());
         Assert.Equal(expected: 11, actual: row.Id);
         Assert.Equal(expected: 3, actual: row.Priority);
         Assert.Equal(expected: 7, actual: row.CommentCount);
@@ -112,11 +102,11 @@ public sealed class PullRequestsUpsertTests : SqlServerIntegrationTestBase
 
         await this.UpsertPullRequestAsync(id: 12, priority: 2, cancellationToken: ct);
 
-        PullRequestRow firstRow = Assert.Single(await this.GetActiveForTestRepoAsync());
+        PullRequestRow firstRow = Assert.Single(await this.GetActivePullRequestsForTestRepoAsync());
 
         await this.UpsertPullRequestAsync(id: 12, priority: 4, commentCount: 3, cancellationToken: ct);
 
-        PullRequestRow updatedRow = Assert.Single(await this.GetActiveForTestRepoAsync());
+        PullRequestRow updatedRow = Assert.Single(await this.GetActivePullRequestsForTestRepoAsync());
 
         Assert.Equal(expected: firstRow.FirstSeen, actual: updatedRow.FirstSeen);
         Assert.Equal(expected: 4, actual: updatedRow.Priority);

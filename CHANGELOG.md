@@ -70,6 +70,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Issues_LinkPullRequest stored procedure now computes @now internally, fixing runtime error when linking issues to pull requests
 - Suppress Polly HTTP resilience telemetry noise and fix Task.Delay unhandled cancellation in background services during shutdown
 - Handle missing URL in RepoEventPoller notifications without throwing ArgumentNullException
+- Adopted bot PRs now bypass the label filter when an adoption rule matches, so they are surfaced for adoption regardless of their labels
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934

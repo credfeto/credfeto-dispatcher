@@ -244,7 +244,11 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
         IReadOnlyList<string> labelNames = [.. pr.Labels.Select(l => l.Name)];
 
-        if (!this.PassesLabelFilter(labelNames))
+        // Adoption rules take precedence over the label filter: a bot PR that matches an
+        // adoption rule must reach the work-item repository even if it carries no managed labels.
+        bool isAdopted = this.IsAdoptedBotPr(pr);
+
+        if (!isAdopted && !this.PassesLabelFilter(labelNames))
         {
             return;
         }
@@ -254,7 +258,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
             return;
         }
 
-        WorkPriority priority = this.ApplyBotPrRules(pr: pr, priority: LabelParser.ParsePriority(labelNames));
+        WorkPriority priority = this.CalculatePullRequestPriority(pr: pr, labelNames: labelNames);
         bool isOnHold = LabelParser.IsOnHold(labels: labelNames, noWorkFilter: this._options.Filter.NoWorkFilter);
         string status = pr.Draft ? "Draft" : "Open";
 
@@ -273,6 +277,51 @@ public sealed class WorkItemScanner : IWorkItemScanner
         );
 
         this._logger.LogScannedPullRequest(repo: repo, number: pr.Number, status: status);
+    }
+
+    private bool IsAdoptedBotPr(ApiPullRequest pr)
+    {
+        return this._options.Filter.PullRequests.AdoptionRules.Any(rule => MatchesAdoptionRule(pr: pr, rule: rule));
+    }
+
+    private WorkPriority CalculatePullRequestPriority(ApiPullRequest pr, IReadOnlyList<string> labelNames)
+    {
+        WorkPriority labelPriority = LabelParser.ParsePriority(labelNames);
+
+        BotPrRule? matchingRule = this._options.Filter.PullRequests.AdoptionRules.FirstOrDefault(rule =>
+            MatchesAdoptionRule(pr: pr, rule: rule)
+        );
+
+        if (matchingRule is null)
+        {
+            return labelPriority;
+        }
+
+        WorkPriority effectivePriority =
+            labelPriority < matchingRule.DefaultPriority ? matchingRule.DefaultPriority : labelPriority;
+
+        DateTimeOffset now = this._timeProvider.GetUtcNow();
+
+        return now - pr.CreatedAt >= TimeSpan.FromHours(matchingRule.TimeoutHours)
+            ? matchingRule.Priority
+            : effectivePriority;
+    }
+
+    private static bool MatchesAdoptionRule(ApiPullRequest pr, BotPrRule rule)
+    {
+        if (rule.TimeoutHours <= 0)
+        {
+            return false;
+        }
+
+        if (!StringComparer.OrdinalIgnoreCase.Equals(pr.User?.Login, rule.Author))
+        {
+            return false;
+        }
+
+        return string.IsNullOrEmpty(rule.BranchPrefix)
+            || !string.IsNullOrEmpty(pr.Head.Ref)
+                && pr.Head.Ref.StartsWith(value: rule.BranchPrefix, comparisonType: StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task ProcessFilteredIssueAsync(ApiIssue issue, string repo, CancellationToken cancellationToken)
@@ -372,57 +421,6 @@ public sealed class WorkItemScanner : IWorkItemScanner
             ),
             Author: pr.User?.Login
         );
-    }
-
-    private WorkPriority ApplyBotPrRules(ApiPullRequest pr, WorkPriority priority)
-    {
-        if (this._options.Filter.PullRequests.AdoptionRules.Count == 0)
-        {
-            return priority;
-        }
-
-        DateTimeOffset now = this._timeProvider.GetUtcNow();
-
-        foreach (BotPrRule rule in this._options.Filter.PullRequests.AdoptionRules)
-        {
-            if (rule.TimeoutHours <= 0)
-            {
-                continue;
-            }
-
-            if (!StringComparer.OrdinalIgnoreCase.Equals(pr.User?.Login, rule.Author))
-            {
-                continue;
-            }
-
-            if (
-                !string.IsNullOrEmpty(rule.BranchPrefix)
-                && (
-                    string.IsNullOrEmpty(pr.Head.Ref)
-                    || !pr.Head.Ref.StartsWith(
-                        value: rule.BranchPrefix,
-                        comparisonType: StringComparison.OrdinalIgnoreCase
-                    )
-                )
-            )
-            {
-                continue;
-            }
-
-            if (priority < rule.DefaultPriority)
-            {
-                priority = rule.DefaultPriority;
-            }
-
-            if (now - pr.CreatedAt >= TimeSpan.FromHours(rule.TimeoutHours))
-            {
-                return rule.Priority;
-            }
-
-            return priority;
-        }
-
-        return priority;
     }
 
     private static IssueDetails BuildScannedIssueDetails(

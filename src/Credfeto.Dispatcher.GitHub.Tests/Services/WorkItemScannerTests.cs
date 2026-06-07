@@ -291,6 +291,51 @@ public sealed class WorkItemScannerTests : TestBase
         }]
         """;
 
+    private const string BOT_PR_STUCK_NO_LABELS_JSON = """
+        [{
+          "number": 33,
+          "title": "Bot Stuck PR (no managed labels)",
+          "state": "open",
+          "draft": false,
+          "html_url": "https://github.com/owner/repo/pull/33",
+          "assignees": [],
+          "labels": [],
+          "head": {"sha": "ddd444", "ref": "depends/update-thing"},
+          "user": {"login": "app/github-actions[bot]"},
+          "created_at": "1975-01-01T00:00:00Z"
+        }]
+        """;
+
+    private const string BOT_PR_RECENT_NO_LABELS_JSON = """
+        [{
+          "number": 34,
+          "title": "Bot Recent PR (no managed labels)",
+          "state": "open",
+          "draft": false,
+          "html_url": "https://github.com/owner/repo/pull/34",
+          "assignees": [],
+          "labels": [],
+          "head": {"sha": "eee555", "ref": "depends/update-thing"},
+          "user": {"login": "app/github-actions[bot]"},
+          "created_at": "1975-03-15T12:00:00Z"
+        }]
+        """;
+
+    private const string UNRELATED_BOT_PR_STUCK_NO_LABELS_JSON = """
+        [{
+          "number": 35,
+          "title": "Unrelated Bot Stuck PR (no managed labels)",
+          "state": "open",
+          "draft": false,
+          "html_url": "https://github.com/owner/repo/pull/35",
+          "assignees": [],
+          "labels": [],
+          "head": {"sha": "fff666", "ref": "feature/something"},
+          "user": {"login": "some-other-bot[bot]"},
+          "created_at": "1975-01-01T00:00:00Z"
+        }]
+        """;
+
     private const string EMPTY_JSON = "[]";
 
     private readonly IActiveRepoTracker _activeRepoTracker;
@@ -1244,6 +1289,121 @@ public sealed class WorkItemScannerTests : TestBase
                 repository: REPO,
                 activePullRequestNumbers: Arg.Is<IReadOnlyList<int>>(l => l.Count == 1 && l[0] == 6),
                 activeIssueNumbers: Arg.Is<IReadOnlyList<int>>(l => l.Count == 0),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WithStuckBotPrAndActiveLabelFilter_CallsUpdateBypassingLabelFilterAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, BOT_PR_STUCK_NO_LABELS_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        BotPrRule rule = new()
+        {
+            Author = "app/github-actions[bot]",
+            BranchPrefix = "depends/",
+            TimeoutHours = 24,
+        };
+        GitHubOptions options = new()
+        {
+            Filter = new GitHubFilterOptions
+            {
+                LabelFilter = ["AI-Work"],
+                PullRequests = new() { AdoptionRules = [rule] },
+            },
+        };
+
+        WorkItemScanner scanner = this.CreateScanner(options: options, timeProvider: MockDateTimeSources.Past);
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._notificationStateTracker.Received(1)
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Is<PullRequestDetails>(d => d.Number == 33),
+                priority: WorkPriority.SECURITY,
+                isOnHold: Arg.Any<bool>(),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WithRecentBotPrAndActiveLabelFilter_CallsUpdateWithDefaultPriorityBypassingLabelFilterAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, BOT_PR_RECENT_NO_LABELS_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        BotPrRule rule = new()
+        {
+            Author = "app/github-actions[bot]",
+            BranchPrefix = "depends/",
+            TimeoutHours = 24,
+            DefaultPriority = WorkPriority.LOW,
+        };
+        GitHubOptions options = new()
+        {
+            Filter = new GitHubFilterOptions
+            {
+                LabelFilter = ["AI-Work"],
+                PullRequests = new() { AdoptionRules = [rule] },
+            },
+        };
+
+        WorkItemScanner scanner = this.CreateScanner(options: options, timeProvider: MockDateTimeSources.Past);
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._notificationStateTracker.Received(1)
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Is<PullRequestDetails>(d => d.Number == 34),
+                priority: WorkPriority.LOW,
+                isOnHold: Arg.Any<bool>(),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WithNonAdoptedBotPrAndActiveLabelFilter_DoesNotCallUpdateAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, UNRELATED_BOT_PR_STUCK_NO_LABELS_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        BotPrRule rule = new()
+        {
+            Author = "app/github-actions[bot]",
+            BranchPrefix = "depends/",
+            TimeoutHours = 24,
+        };
+        GitHubOptions options = new()
+        {
+            Filter = new GitHubFilterOptions
+            {
+                LabelFilter = ["AI-Work"],
+                PullRequests = new() { AdoptionRules = [rule] },
+            },
+        };
+
+        WorkItemScanner scanner = this.CreateScanner(options: options, timeProvider: MockDateTimeSources.Past);
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._notificationStateTracker.DidNotReceive()
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Any<PullRequestDetails>(),
+                priority: Arg.Any<WorkPriority>(),
+                isOnHold: Arg.Any<bool>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }

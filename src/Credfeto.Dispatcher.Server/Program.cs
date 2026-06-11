@@ -1,6 +1,8 @@
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.Server.Helpers;
+using Credfeto.Docker.HealthCheck.Http.Client;
 using Microsoft.AspNetCore.Builder;
 
 namespace Credfeto.Dispatcher.Server;
@@ -10,6 +12,13 @@ internal static class Program
     private const int MIN_THREADS = 32;
 
     public static async Task<int> Main(string[] args)
+    {
+        return HealthCheckClient.IsHealthCheck(args: args, out string? checkUrl)
+            ? await HealthCheckClient.ExecuteAsync(targetUrl: checkUrl, cancellationToken: CancellationToken.None)
+            : await RunServerAsync(args);
+    }
+
+    private static async Task<int> RunServerAsync(string[] args)
     {
         StartupBanner.Show();
         ServerStartup.SetThreads(MIN_THREADS);

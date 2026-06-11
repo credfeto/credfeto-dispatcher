@@ -7,8 +7,14 @@ Load when acting as a named agent. Routing table and model selection: [task-work
 ## Orchestrator
 
 - Prioritise `CHANGES_REQUESTED` PRs over new issues.
+- When selecting the next issue to work on, order by priority label (highest first): `Security` → `Urgent` → `High` → `Medium` → `Low` → untagged — see [task-workflow.instructions.md](task-workflow.instructions.md) for label definitions.
+- Skip issues labelled `On-Hold` or `Blocked`; if all remaining issues carry these labels, report this to the user and wait.
 - Determine work type and route via the routing table. Never implement directly.
 - If a delegated role escalates a task as infeasible (Coding Researcher **Not possible** result), do not re-route it unchanged. Record the finding on the issue/PR and surface it to the user for a decision — re-scope, accept the suggested alternative, or drop.
+
+### On-Hold Label
+
+An issue labelled `On-Hold` is not ready to be worked on — it needs further thought or cannot be implemented at this time. Do not pick up or assign yourself to an `On-Hold` issue. If the label is removed, re-evaluate priority and proceed normally.
 
 ### Blocked Label
 
@@ -26,6 +32,21 @@ Reply to every PR or issue comment that prompted an action:
 - Code change made: reply with `Fixed in <commit-sha> — <one sentence describing what changed and why>`.
 - Question answered inline (no code change): reply with the full answer.
 - No reply means no acknowledgement — always close the loop.
+
+### CI Checks (MANDATORY)
+
+When working on a PR, check CI state **once**:
+
+```bash
+gh pr checks <number> --repo <owner/repo>
+```
+
+Then act immediately — do **not** loop, sleep, or use `--watch`:
+
+- All required checks passed → proceed with the next step.
+- Any check pending or in_progress → post a brief status comment on the PR and stop. The orchestrator re-invokes the session automatically when the PR state changes (checks complete, review arrives, etc.).
+- Any check failed → investigate, fix, push, post a status comment, and stop. Do not wait for the new run to complete.
+- CI consistently failing and cannot be fixed → mark the PR blocked: `gh pr edit <number> --repo <owner/repo> --add-label "Blocked"`
 
 ## Coding Researcher
 

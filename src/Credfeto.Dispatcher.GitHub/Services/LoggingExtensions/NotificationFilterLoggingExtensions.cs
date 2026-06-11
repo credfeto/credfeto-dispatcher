@@ -33,15 +33,4 @@ internal static partial class NotificationFilterLoggingExtensions
         string notificationId,
         string repository
     );
-
-    [LoggerMessage(
-        EventId = 4,
-        Level = LogLevel.Debug,
-        Message = "Notification {NotificationId} dropped by allowed repo filter: repo={Repository} not in allowed repos"
-    )]
-    public static partial void LogNotificationDroppedAllowedRepo(
-        this ILogger logger,
-        string notificationId,
-        string repository
-    );
 }

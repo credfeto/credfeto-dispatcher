@@ -1,4 +1,5 @@
 --- # Build and deploy packages
+# Maintain in repo: funfair-server-template
 name: 'Build using NPM'
 description: 'Builds using NPM'
 inputs:
@@ -70,7 +71,7 @@ runs:
     #      run: echo "dir=$(npm config get cache)" >> ${GITHUB_OUTPUT}
     #
     #    - name: "Restore npm cache"
-    #      uses: actions/cache@v4.0.0
+    #      uses: actions/cache@v5.0.5
     #      id: npm-cache # use this to check for `cache-hit` ==> if: steps.npm-cache.outputs.cache-hit != 'true'
     #      with:
     #        path: ${{ steps.npm-cache-dir.outputs.dir }}
@@ -78,7 +79,7 @@ runs:
     #        restore-keys: |
     #          ${{ runner.os }}-node-
     #    - name: "Npm Cache Status"
-    #      uses: actions/github-script@v8.0.0
+    #      uses: actions/github-script@v9.0.0
     #      with:
     #        script: |
     #          core.info('Cache Hit: \u001b[38;5;6m$${{steps.npm-cache.outputs.cache-hit}}');
@@ -130,8 +131,8 @@ runs:
         sed -i "s|https://npm.local:5555/|${{inputs.NPM_REGISTRY}}|g" package-lock.json
 
 # Note that NPM will gladly tell you to add --use-system-ca to use the certs in the system store
-#, but it doesn't actually work...  So instead we have to add the cert to the npm config above
-#   --use-system-ca sia deprecated setting!
+# but it doesn't actually work...  So instead we have to add the cert to the npm config above
+# --use-system-ca is a deprecated setting!
     - name: "NPM: Install dependencies"
       working-directory: ${{steps.build_context.outputs.WORK_DIR}}
       shell: bash

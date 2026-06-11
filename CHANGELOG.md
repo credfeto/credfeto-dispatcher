@@ -34,6 +34,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Added X-Version response header middleware to expose server version on all HTTP responses
 - Configurable rules for upgrading bot-authored pull requests to a baseline and/or security priority based on author login, branch prefix, and inactivity timeout
 - DefaultPriority property on BotPrRule assigns a baseline priority on first rule match, with escalation to a higher priority after the configured timeout
+- Add X-Server response header containing the hostname of the machine serving the request
 - Healthcheck entrypoint support in server binary
 ### Fixed
 - EF Core change-tracking comparers trimmed away at publish time causing MissingMethodException at startup; preserve EF Core and Ben.Demystifier assemblies as trimmer roots
@@ -69,6 +70,8 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Notification poller stuck on empty ETag now forces a fresh poll; scan interval reduced to 30 minutes; DB timestamp columns added to PollingStates, PullRequests, and Issues; stored procedures now own their own timestamps via GETUTCDATE()
 - Issues_LinkPullRequest stored procedure now computes @now internally, fixing runtime error when linking issues to pull requests
 - Suppress Polly HTTP resilience telemetry noise and fix Task.Delay unhandled cancellation in background services during shutdown
+- Handle missing URL in RepoEventPoller notifications without throwing ArgumentNullException
+- Adopted bot PRs now bypass the label filter when an adoption rule matches, so they are surfaced for adoption regardless of their labels
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934

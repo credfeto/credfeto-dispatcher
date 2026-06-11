@@ -11,25 +11,25 @@
 "Config Change":
  - any: [ 'src/**/*.json', '!src/global.json' ]
 "credfeto-dispatcher-github":
- - any: [ 'src/$Credfeto.Dispatcher.GitHub/**/*' ]
+ - any: [ 'src/Credfeto.Dispatcher.GitHub/**/*' ]
 "credfeto-dispatcher-github-datatypes":
- - any: [ 'src/$Credfeto.Dispatcher.GitHub.DataTypes/**/*' ]
+ - any: [ 'src/Credfeto.Dispatcher.GitHub.DataTypes/**/*' ]
 "credfeto-dispatcher-github-interfaces":
- - any: [ 'src/$Credfeto.Dispatcher.GitHub.Interfaces/**/*' ]
+ - any: [ 'src/Credfeto.Dispatcher.GitHub.Interfaces/**/*' ]
 "credfeto-dispatcher-github-tests":
- - any: [ 'src/$Credfeto.Dispatcher.GitHub.Tests/**/*' ]
+ - any: [ 'src/Credfeto.Dispatcher.GitHub.Tests/**/*' ]
 "credfeto-dispatcher-server":
- - any: [ 'src/$Credfeto.Dispatcher.Server/**/*' ]
+ - any: [ 'src/Credfeto.Dispatcher.Server/**/*' ]
 "credfeto-dispatcher-shared":
- - any: [ 'src/$Credfeto.Dispatcher.Shared/**/*' ]
+ - any: [ 'src/Credfeto.Dispatcher.Shared/**/*' ]
 "credfeto-dispatcher-shared-tests":
- - any: [ 'src/$Credfeto.Dispatcher.Shared.Tests/**/*' ]
+ - any: [ 'src/Credfeto.Dispatcher.Shared.Tests/**/*' ]
 "credfeto-dispatcher-storage":
- - any: [ 'src/$Credfeto.Dispatcher.Storage/**/*' ]
+ - any: [ 'src/Credfeto.Dispatcher.Storage/**/*' ]
 "credfeto-dispatcher-storage-database":
- - any: [ 'src/$Credfeto.Dispatcher.Storage.Database/**/*' ]
+ - any: [ 'src/Credfeto.Dispatcher.Storage.Database/**/*' ]
 "credfeto-dispatcher-storage-tests":
- - any: [ 'src/$Credfeto.Dispatcher.Storage.Tests/**/*' ]
+ - any: [ 'src/Credfeto.Dispatcher.Storage.Tests/**/*' ]
 "dotnet":
  - any: [ 'src/**/*.csproj' ]
 "Editorconfig":

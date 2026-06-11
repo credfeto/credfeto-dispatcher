@@ -18,7 +18,7 @@ internal static partial class WorkItemScannerLoggingExtensions
     [LoggerMessage(
         EventId = 6,
         Level = LogLevel.Warning,
-        Message = "No repos with write access discovered. Check the token permissions and AllowedOwners/AllowedRepos/ExcludedRepos filter configuration."
+        Message = "No repos with write access discovered. Check the token permissions and AllowedOwners/ExcludedRepos filter configuration."
     )]
     public static partial void LogNoReposDiscovered(this ILogger logger);
 
@@ -56,14 +56,6 @@ internal static partial class WorkItemScannerLoggingExtensions
         Message = "Repo {Repo} skipped during discovery: owner '{Owner}' not in AllowedOwners"
     )]
     public static partial void LogRepoSkippedOwnerFilter(this ILogger logger, string repo, string owner);
-
-    [Conditional("DEBUG")]
-    [LoggerMessage(
-        EventId = 10,
-        Level = LogLevel.Debug,
-        Message = "Repo {Repo} skipped during discovery: not in AllowedRepos list"
-    )]
-    public static partial void LogRepoSkippedAllowedRepoFilter(this ILogger logger, string repo);
 
     [Conditional("DEBUG")]
     [LoggerMessage(

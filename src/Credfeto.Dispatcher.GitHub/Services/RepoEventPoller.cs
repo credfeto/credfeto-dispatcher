@@ -394,18 +394,6 @@ public sealed class RepoEventPoller : IRepoEventPoller
             }
         }
 
-        if (this._options.Filter.AllowedRepos.Count > 0)
-        {
-            if (
-                !this._options.Filter.AllowedRepos.Any(r =>
-                    string.Equals(a: r, b: fullName, comparisonType: StringComparison.OrdinalIgnoreCase)
-                )
-            )
-            {
-                return false;
-            }
-        }
-
         if (this._options.Filter.ExcludedRepos.Count > 0)
         {
             if (

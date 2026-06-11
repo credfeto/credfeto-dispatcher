@@ -1,4 +1,5 @@
 ---  # Create a new branch for the latest (released) dotnet version if there's an update
+# Maintain in repo: funfair-server-template
 name: "Repo: Update Dotnet Version to latest released version"
 on:
   push:
@@ -14,8 +15,6 @@ on:
 concurrency:
   group: ${{github.workflow}}-${{github.ref}}
   cancel-in-progress: false
-
-
 
 jobs:
   bump-dotnet-sdk-version:
@@ -49,7 +48,7 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: "Checkout Source"
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6.0.3
         with:
           ref: ${{ github.head_ref }}
           clean: true

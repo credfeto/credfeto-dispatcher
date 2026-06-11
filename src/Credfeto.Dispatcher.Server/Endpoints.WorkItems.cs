@@ -30,8 +30,6 @@ internal static partial class Endpoints
             GitHubFilterOptions filter = options.Value.Filter;
             PrioritiesResponse response = await workItemRepository.GetPrioritisedWorkItemsAsync(
                 owners: filter.AllowedOwners,
-                repos: filter.AllowedRepos,
-                stuckDependabotTimeout: TimeSpan.FromHours(filter.StuckDependabotTimeoutHours),
                 maxIssues: filter.MaxIssues,
                 cancellationToken: cancellationToken
             );

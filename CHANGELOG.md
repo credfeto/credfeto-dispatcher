@@ -92,6 +92,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Replaced Entity Framework Core with Credfeto.Database.SourceGenerator and DbUp for all database access in storage layer
 - Added 'blocked' label to default NoWorkFilter so blocked items are excluded from work queues
 - Consolidated GitHub filtering configuration: removed PrioritiesOptions class; MaxIssues and StuckDependabotTimeoutHours are now configured under GitHub:Filter
+- SDK - Updated DotNet SDK to 10.0.301
 ### Deprecated
 ### Removed
 - Removed IsUpToDate field from WorkItem and PullRequestDetails as it was never populated in production

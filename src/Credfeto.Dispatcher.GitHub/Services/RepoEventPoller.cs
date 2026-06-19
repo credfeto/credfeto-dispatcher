@@ -20,6 +20,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
     private const string PULL_REQUEST_EVENT_TYPE = "PullRequestEvent";
     private const string ISSUES_EVENT_TYPE = "IssuesEvent";
 
+    private readonly IActiveRepoTracker _activeRepoTracker;
     private readonly IETagStore _eTagStore;
     private readonly GitHubRepoHelper _helper;
     private readonly ILogger<RepoEventPoller> _logger;
@@ -28,6 +29,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
 
     public RepoEventPoller(
         GitHubRepoHelper helper,
+        IActiveRepoTracker activeRepoTracker,
         IETagStore eTagStore,
         INotificationStateTracker notificationStateTracker,
         IOptions<GitHubOptions> options,
@@ -35,6 +37,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
     )
     {
         this._helper = helper;
+        this._activeRepoTracker = activeRepoTracker;
         this._eTagStore = eTagStore;
         this._notificationStateTracker = notificationStateTracker;
         this._options = options.Value;
@@ -48,10 +51,15 @@ public sealed class RepoEventPoller : IRepoEventPoller
             return;
         }
 
-        (_, IReadOnlyList<string> repos, _) = await this._helper.DiscoverReposAsync(
-            shouldInclude: this.ShouldIncludeRepo,
-            cancellationToken: cancellationToken
-        );
+        IReadOnlyList<string> repos = await this._activeRepoTracker.GetActiveReposAsync(cancellationToken);
+
+        if (repos.Count == 0)
+        {
+            (_, repos, _) = await this._helper.DiscoverReposAsync(
+                shouldInclude: this.ShouldIncludeRepo,
+                cancellationToken: cancellationToken
+            );
+        }
 
         if (repos.Count == 0)
         {

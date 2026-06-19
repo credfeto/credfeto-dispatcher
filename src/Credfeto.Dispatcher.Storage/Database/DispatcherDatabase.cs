@@ -21,6 +21,12 @@ internal static partial class DispatcherDatabase
         CancellationToken cancellationToken
     );
 
+    [SqlObjectMap("Repos_GetActive", SqlObjectType.STORED_PROCEDURE, SqlDialect.MICROSOFT_SQL_SERVER)]
+    public static partial ValueTask<IReadOnlyList<RepoRow>> Repos_GetActiveAsync(
+        DbConnection connection,
+        CancellationToken cancellationToken
+    );
+
     [SqlObjectMap("Repos_SetActive", SqlObjectType.STORED_PROCEDURE, SqlDialect.MICROSOFT_SQL_SERVER)]
     public static partial ValueTask Repos_SetActiveAsync(
         DbConnection connection,

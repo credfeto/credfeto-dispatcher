@@ -16,6 +16,7 @@ namespace Credfeto.Dispatcher.GitHub.Services;
 
 public sealed class ModifiedIssueMentionPoller : IModifiedIssueMentionPoller
 {
+    private readonly IActiveRepoTracker _activeRepoTracker;
     private readonly IETagStore _eTagStore;
     private readonly GitHubRepoHelper _helper;
     private readonly ILogger<ModifiedIssueMentionPoller> _logger;
@@ -24,6 +25,7 @@ public sealed class ModifiedIssueMentionPoller : IModifiedIssueMentionPoller
 
     public ModifiedIssueMentionPoller(
         GitHubRepoHelper helper,
+        IActiveRepoTracker activeRepoTracker,
         IETagStore eTagStore,
         TimeProvider timeProvider,
         IOptions<GitHubOptions> options,
@@ -31,6 +33,7 @@ public sealed class ModifiedIssueMentionPoller : IModifiedIssueMentionPoller
     )
     {
         this._helper = helper;
+        this._activeRepoTracker = activeRepoTracker;
         this._eTagStore = eTagStore;
         this._timeProvider = timeProvider;
         this._options = options.Value;
@@ -44,10 +47,15 @@ public sealed class ModifiedIssueMentionPoller : IModifiedIssueMentionPoller
             return [];
         }
 
-        (_, IReadOnlyList<string> repos, _) = await this._helper.DiscoverReposAsync(
-            shouldInclude: this.ShouldIncludeRepo,
-            cancellationToken: cancellationToken
-        );
+        IReadOnlyList<string> repos = await this._activeRepoTracker.GetActiveReposAsync(cancellationToken);
+
+        if (repos.Count == 0)
+        {
+            (_, repos, _) = await this._helper.DiscoverReposAsync(
+                shouldInclude: this.ShouldIncludeRepo,
+                cancellationToken: cancellationToken
+            );
+        }
 
         if (repos.Count == 0)
         {

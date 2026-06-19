@@ -20,9 +20,6 @@
     <IsTrimmable>true</IsTrimmable>
     <LangVersion>latest</LangVersion>
     <NoWarn />
-    <!-- IL2104: third-party assemblies (SqlClient, ASP.NET Core, Azure SDKs) are not yet fully
-         trim-annotated; downgrade aggregate trim warning to non-fatal for ILLink (non-AOT) builds. -->
-    <WarningsNotAsErrors>IL2104</WarningsNotAsErrors>
     <NuGetAudit>true</NuGetAudit>
     <NuGetAuditLevel>low</NuGetAuditLevel>
     <NuGetAuditMode>direct</NuGetAuditMode>
@@ -66,7 +63,9 @@
   </ItemGroup>
   <ItemGroup>
     <!-- IL2104/IL3053: Microsoft.Data.SqlClient and System.Configuration.ConfigurationManager
-         are not yet fully trim/AOT-annotated; suppress per-assembly aggregate warnings. -->
+         are not yet fully AOT-annotated; suppress per-assembly aggregate warnings for NativeAOT
+         (ILC) builds. Trimmed non-AOT builds are only run in the pre-commit hook which passes
+         ILLinkTreatWarningsAsErrors=False to avoid these third-party aggregate warnings. -->
     <IlcArg Include="--nowarn:IL2104" />
     <IlcArg Include="--nowarn:IL3053" />
   </ItemGroup>

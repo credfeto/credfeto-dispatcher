@@ -95,7 +95,7 @@ internal static class ServerStartup
 
     private static WebApplicationBuilder ConfigureServices(this WebApplicationBuilder builder)
     {
-        IConfigurationSection databaseSection = builder.Configuration.GetSection("Database");
+        IConfigurationSection databaseSection = builder.Configuration.GetSection("DatabaseConfiguration");
         IConfigurationSection gitHubSection = builder.Configuration.GetSection("GitHub");
 
         builder

@@ -34,6 +34,7 @@ Set the following in `appsettings.json` or environment variables:
 {
   "GitHub": {
     "Token": "[GitHub personal access token with notifications scope]",
+    "ApiBaseUrl": "https://api.github.com/",
     "PollIntervalSeconds": 60,
     "Filter": {
       "LabelFilter": ["AI-Work"],
@@ -49,6 +50,7 @@ Set the following in `appsettings.json` or environment variables:
 | Setting | Type | Description |
 | --- | --- | --- |
 | `GitHub:Token` | string | GitHub personal access token used to poll notifications. |
+| `GitHub:ApiBaseUrl` | string | Base URL for the GitHub API. Defaults to `https://api.github.com/`. Set to a proxy URL to route API calls through an intermediary. Must be a valid absolute URI. |
 | `GitHub:PollIntervalSeconds` | integer | Poll interval for the notifications API. |
 | `GitHub:Filter:LabelFilter` | string[] | Labels used by prioritisation logic. |
 | `GitHub:Filter:NoWorkFilter` | string[] | Labels that mark a work item as on hold. |

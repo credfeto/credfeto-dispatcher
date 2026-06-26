@@ -13,7 +13,6 @@ namespace Credfeto.Dispatcher.GitHub;
 
 public static class GitHubSetup
 {
-    private const string GIT_HUB_API_BASE = "https://api.github.com/";
     private const string USER_AGENT = "credfeto-dispatcher";
     private const string GIT_HUB_API_VERSION_HEADER_NAME = "X-GitHub-Api-Version";
     private const string GIT_HUB_API_VERSION = "2026-03-10";
@@ -42,14 +41,14 @@ public static class GitHubSetup
 
     private static void ConfigureGitHubHttpClient(IServiceProvider serviceProvider, HttpClient client)
     {
-        client.BaseAddress = new Uri(GIT_HUB_API_BASE);
+        GitHubOptions options = serviceProvider.GetRequiredService<IOptions<GitHubOptions>>().Value;
+
+        client.BaseAddress = options.ApiBaseUrl;
         client.DefaultRequestHeaders.UserAgent.Add(
             new ProductInfoHeaderValue(productName: USER_AGENT, productVersion: null)
         );
         client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
         client.DefaultRequestHeaders.Add(name: GIT_HUB_API_VERSION_HEADER_NAME, value: GIT_HUB_API_VERSION);
-
-        GitHubOptions options = serviceProvider.GetRequiredService<IOptions<GitHubOptions>>().Value;
 
         if (!string.IsNullOrWhiteSpace(options.Token))
         {

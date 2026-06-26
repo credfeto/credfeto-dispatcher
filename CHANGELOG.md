@@ -36,6 +36,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - DefaultPriority property on BotPrRule assigns a baseline priority on first rule match, with escalation to a higher priority after the configured timeout
 - Add X-Server response header containing the hostname of the machine serving the request
 - Healthcheck entrypoint support in server binary
+- GitHub API base URL is now configurable via GitHub:ApiBaseUrl, allowing calls to be routed through a proxy rather than directly to api.github.com
 ### Fixed
 - EF Core change-tracking comparers trimmed away at publish time causing MissingMethodException at startup; preserve EF Core and Ben.Demystifier assemblies as trimmer roots
 - preserve EF Core migration types as trimmer roots to prevent missing-table errors at runtime on trimmed binaries

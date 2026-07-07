@@ -5,15 +5,19 @@ using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.Configuration;
 using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Interfaces;
+using Credfeto.Dispatcher.Server.LoggingExtensions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Credfeto.Dispatcher.Server;
 
 internal static partial class Endpoints
 {
+    private const string ENDPOINTS_LOG_CATEGORY = "Credfeto.Dispatcher.Server.Endpoints";
+
     public static void MapWorkItemEndpoints(this WebApplication app)
     {
         app.MapGet(pattern: "/priorities", handler: GetPrioritiesAsync);
@@ -22,6 +26,7 @@ internal static partial class Endpoints
     private static async Task<IResult> GetPrioritiesAsync(
         [FromServices] IWorkItemRepository workItemRepository,
         [FromServices] IOptions<GitHubOptions> options,
+        [FromServices] ILoggerFactory loggerFactory,
         CancellationToken cancellationToken
     )
     {
@@ -38,9 +43,16 @@ internal static partial class Endpoints
 
             return Results.Content(content: json, contentType: "application/json");
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
-            return Results.Problem(detail: ex.ToString(), statusCode: 500);
+            ILogger logger = loggerFactory.CreateLogger(ENDPOINTS_LOG_CATEGORY);
+            logger.LogUnhandledException(ex);
+
+            return Results.Problem(statusCode: 500);
         }
     }
 }

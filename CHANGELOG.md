@@ -10,6 +10,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 
 ## [Unreleased]
 ### Security
+- Prevent raw exception details (including SQL connection info) leaking to unauthenticated clients from the /priorities handler; log exceptions server-side instead
 ### Added
 - Enable Native AOT publishing for the server project
 - Work item scanner background service that polls configured GitHub repositories for open pull requests and issues, updating notification state with priority, hold status, and linked PR information
@@ -74,6 +75,8 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Handle missing URL in RepoEventPoller notifications without throwing ArgumentNullException
 - Adopted bot PRs now bypass the label filter when an adoption rule matches, so they are surfaced for adoption regardless of their labels
 - Pollers no longer call DiscoverReposAsync on every poll cycle; they read the cached active repo list from the database, halving GitHub API usage
+- Return a generic 500 ProblemDetails from /priorities on unhandled exceptions instead of exception stack traces
+- Rethrow OperationCanceledException from /priorities handler so ASP.NET Core can abort the response cleanly instead of returning a 500
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934

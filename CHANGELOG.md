@@ -77,6 +77,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Pollers no longer call DiscoverReposAsync on every poll cycle; they read the cached active repo list from the database, halving GitHub API usage
 - Return a generic 500 ProblemDetails from /priorities on unhandled exceptions instead of exception stack traces
 - Rethrow OperationCanceledException from /priorities handler so ASP.NET Core can abort the response cleanly instead of returning a 500
+- Updated MSBuild.Sdk.SqlProj from 4.2.0 to 4.3.0 to fix a --warnaserror build failure caused by the SQLPROJ0002 outdated-SDK warning
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934
@@ -97,8 +98,8 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Replaced Entity Framework Core with Credfeto.Database.SourceGenerator and DbUp for all database access in storage layer
 - Added 'blocked' label to default NoWorkFilter so blocked items are excluded from work queues
 - Consolidated GitHub filtering configuration: removed PrioritiesOptions class; MaxIssues and StuckDependabotTimeoutHours are now configured under GitHub:Filter
-- SDK - Updated DotNet SDK to 10.0.301
 - Renamed Database config section to DatabaseConfiguration
+- SDK - Updated DotNet SDK to 10.0.302
 ### Deprecated
 ### Removed
 - Removed IsUpToDate field from WorkItem and PullRequestDetails as it was never populated in production

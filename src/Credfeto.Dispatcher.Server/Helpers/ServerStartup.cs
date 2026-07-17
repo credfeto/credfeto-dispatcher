@@ -97,13 +97,14 @@ internal static class ServerStartup
     {
         IConfigurationSection databaseSection = builder.Configuration.GetSection("DatabaseConfiguration");
         IConfigurationSection gitHubSection = builder.Configuration.GetSection("GitHub");
+        DatabaseConfiguration databaseConfiguration = databaseSection.Get<DatabaseConfiguration>() ?? new();
 
         builder
             .Services.Configure<DatabaseConfiguration>(databaseSection)
             .Configure<GitHubOptions>(gitHubSection)
             .AddRandomNumbers()
             .AddRunOnStartupServices()
-            .AddStorage()
+            .AddStorage(databaseConfiguration)
             .AddGitHub()
             .AddResources()
             .ConfigureHttpJsonOptions(options =>

@@ -38,6 +38,8 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Add X-Server response header containing the hostname of the machine serving the request
 - Healthcheck entrypoint support in server binary
 - GitHub API base URL is now configurable via GitHub:ApiBaseUrl, allowing calls to be routed through a proxy rather than directly to api.github.com
+- Add in-memory implementations of the storage repositories (active repo tracker, ETag store, notification state tracker, work item repository) as an alternative to the SQL Server backend
+- Add DatabaseConfiguration.Provider (SqlServer or InMemory) to select the storage backend at startup
 ### Fixed
 - EF Core change-tracking comparers trimmed away at publish time causing MissingMethodException at startup; preserve EF Core and Ben.Demystifier assemblies as trimmer roots
 - preserve EF Core migration types as trimmer roots to prevent missing-table errors at runtime on trimmed binaries
@@ -100,6 +102,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Consolidated GitHub filtering configuration: removed PrioritiesOptions class; MaxIssues and StuckDependabotTimeoutHours are now configured under GitHub:Filter
 - Renamed Database config section to DatabaseConfiguration
 - SDK - Updated DotNet SDK to 10.0.302
+- Rename StorageSetup.AddStorage to AddSqlServerStorage; AddStorage now dispatches to the SQL Server or in-memory backend based on DatabaseConfiguration.Provider
 ### Deprecated
 ### Removed
 - Removed IsUpToDate field from WorkItem and PullRequestDetails as it was never populated in production

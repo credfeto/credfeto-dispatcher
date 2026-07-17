@@ -1,7 +1,4 @@
-using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
-using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,14 +11,6 @@ namespace Credfeto.Dispatcher.Storage;
 
 public sealed class NotificationStateTracker : INotificationStateTracker
 {
-    private static readonly ImmutableHashSet<string> FailedConclusions = ImmutableHashSet.Create(
-        StringComparer.OrdinalIgnoreCase,
-        "failure",
-        "error",
-        "timed_out",
-        "action_required"
-    );
-
     private readonly IDatabase _database;
 
     public NotificationStateTracker(IDatabase database)
@@ -64,10 +53,10 @@ public sealed class NotificationStateTracker : INotificationStateTracker
                     priority: (int)priority,
                     isOnHold: isOnHold,
                     commentCount: details.Comments.Count,
-                    reviewDecision: ComputeReviewDecision(details.Reviews),
-                    failedCheckCount: CountFailedChecks(details.Runs),
-                    failedCheckNames: BuildFailedCheckNames(details.Runs),
-                    failedCheckSha: BuildFailedCheckSha(details.Runs),
+                    reviewDecision: NotificationDetailMapping.ComputeReviewDecision(details.Reviews),
+                    failedCheckCount: NotificationDetailMapping.CountFailedChecks(details.Runs),
+                    failedCheckNames: NotificationDetailMapping.BuildFailedCheckNames(details.Runs),
+                    failedCheckSha: NotificationDetailMapping.BuildFailedCheckSha(details.Runs),
                     author: details.Author,
                     cancellationToken: ct
                 ),
@@ -109,72 +98,10 @@ public sealed class NotificationStateTracker : INotificationStateTracker
                     status: details.Status,
                     priority: (int)priority,
                     isOnHold: isOnHold,
-                    linkedPrNumber: ExtractPrNumber(details.LinkedPullRequestUrl),
+                    linkedPrNumber: NotificationDetailMapping.ExtractPrNumber(details.LinkedPullRequestUrl),
                     cancellationToken: ct
                 ),
             cancellationToken: cancellationToken
         );
-    }
-
-    private static int? ExtractPrNumber(Uri? linkedPullRequestUrl)
-    {
-        if (linkedPullRequestUrl is null)
-        {
-            return null;
-        }
-
-        string[] segments = linkedPullRequestUrl.AbsolutePath.TrimEnd('/').Split('/');
-
-        return int.TryParse(
-            segments[^1],
-            style: NumberStyles.Integer,
-            provider: CultureInfo.InvariantCulture,
-            out int number
-        )
-            ? number
-            : null;
-    }
-
-    private static string? ComputeReviewDecision(IReadOnlyList<PullRequestReview> reviews)
-    {
-        if (reviews.Any(r => string.Equals(r.State, "CHANGES_REQUESTED", StringComparison.OrdinalIgnoreCase)))
-        {
-            return "ChangesRequested";
-        }
-
-        if (reviews.Any(r => string.Equals(r.State, "APPROVED", StringComparison.OrdinalIgnoreCase)))
-        {
-            return "Approved";
-        }
-
-        return null;
-    }
-
-    private static int CountFailedChecks(IReadOnlyList<PullRequestRun> runs)
-    {
-        return runs.Count(r => r.Conclusion is not null && FailedConclusions.Contains(r.Conclusion));
-    }
-
-    private static string? BuildFailedCheckNames(IReadOnlyList<PullRequestRun> runs)
-    {
-        string[] failed =
-        [
-            .. runs.Where(r => r.Conclusion is not null && FailedConclusions.Contains(r.Conclusion))
-                .Select(r => r.Name),
-        ];
-
-        return failed.Length > 0 ? string.Join(separator: ',', failed) : null;
-    }
-
-    private static string? BuildFailedCheckSha(IReadOnlyList<PullRequestRun> runs)
-    {
-        string[] shas =
-        [
-            .. runs.Where(r => r.Conclusion is not null && FailedConclusions.Contains(r.Conclusion))
-                .Select(r => r.HeadSha)
-                .Distinct(StringComparer.OrdinalIgnoreCase),
-        ];
-
-        return shas.Length > 0 ? shas[0] : null;
     }
 }

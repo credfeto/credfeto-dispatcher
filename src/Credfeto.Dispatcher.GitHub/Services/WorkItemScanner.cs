@@ -20,6 +20,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
     private readonly ILogger<WorkItemScanner> _logger;
     private readonly INotificationStateTracker _notificationStateTracker;
     private readonly GitHubOptions _options;
+    private readonly IPullRequestDetailFetcher _pullRequestDetailFetcher;
     private readonly TimeProvider _timeProvider;
     private readonly IWorkItemRepository _workItemRepository;
 
@@ -28,6 +29,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
         IActiveRepoTracker activeRepoTracker,
         INotificationStateTracker notificationStateTracker,
         IWorkItemRepository workItemRepository,
+        IPullRequestDetailFetcher pullRequestDetailFetcher,
         IOptions<GitHubOptions> options,
         TimeProvider timeProvider,
         ILogger<WorkItemScanner> logger
@@ -37,6 +39,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
         this._activeRepoTracker = activeRepoTracker;
         this._notificationStateTracker = notificationStateTracker;
         this._workItemRepository = workItemRepository;
+        this._pullRequestDetailFetcher = pullRequestDetailFetcher;
         this._options = options.Value;
         this._timeProvider = timeProvider;
         this._logger = logger;
@@ -244,21 +247,24 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
         IReadOnlyList<string> labelNames = [.. pr.Labels.Select(l => l.Name)];
 
-        // Adoption rules take precedence over the label filter: a bot PR that matches an
-        // adoption rule must reach the work-item repository even if it carries no managed labels.
-        bool isAdopted = this.IsAdoptedBotPr(pr);
+        (bool allowed, IReadOnlyList<LinkedItem> linkedItems, LinkedItem? trustedLinkedIssue) =
+            await this.ResolvePullRequestEligibilityAsync(
+                pr: pr,
+                repo: repo,
+                labelNames: labelNames,
+                cancellationToken: cancellationToken
+            );
 
-        if (!isAdopted && !this.PassesLabelFilter(labelNames))
+        if (!allowed || pr.HtmlUrl is not { } prHtmlUrl)
         {
             return;
         }
 
-        if (pr.HtmlUrl is not { } prHtmlUrl)
-        {
-            return;
-        }
+        WorkPriority priority = LinkedIssueTrust.ElevatePriority(
+            this.CalculatePullRequestPriority(pr: pr, labelNames: labelNames),
+            trustedLinkedIssue
+        );
 
-        WorkPriority priority = this.CalculatePullRequestPriority(pr: pr, labelNames: labelNames);
         bool isOnHold = LabelParser.IsOnHold(labels: labelNames, noWorkFilter: this._options.Filter.NoWorkFilter);
         string status = pr.Draft ? "Draft" : "Open";
 
@@ -269,7 +275,8 @@ public sealed class WorkItemScanner : IWorkItemScanner
                 repo: repo,
                 labelNames: labelNames,
                 status: status,
-                htmlUrl: new Uri(prHtmlUrl)
+                htmlUrl: new Uri(prHtmlUrl),
+                linkedItems: linkedItems
             ),
             priority: priority,
             isOnHold: isOnHold,
@@ -277,6 +284,64 @@ public sealed class WorkItemScanner : IWorkItemScanner
         );
 
         this._logger.LogScannedPullRequest(repo: repo, number: pr.Number, status: status);
+    }
+
+    // Adoption rules take precedence over the label filter: a bot PR that matches an adoption rule must
+    // reach the work-item repository even if it carries no managed labels. Failing both, the PR is still
+    // trusted when it unambiguously resolves the author's own assigned, label-passing issue.
+    private async Task<(
+        bool allowed,
+        IReadOnlyList<LinkedItem> linkedItems,
+        LinkedItem? trustedLinkedIssue
+    )> ResolvePullRequestEligibilityAsync(
+        ApiPullRequest pr,
+        string repo,
+        IReadOnlyList<string> labelNames,
+        CancellationToken cancellationToken
+    )
+    {
+        if (this.IsAdoptedBotPr(pr) || this.PassesLabelFilter(labelNames))
+        {
+            return (true, [], null);
+        }
+
+        PullRequestDetails? enriched = await this.FetchEnrichedDetailsAsync(
+            repo: repo,
+            number: pr.Number,
+            cancellationToken: cancellationToken
+        );
+
+        if (enriched is null)
+        {
+            return (false, [], null);
+        }
+
+        LinkedItem? trustedLinkedIssue = LinkedIssueTrust.FindTrustedLinkedIssue(
+            author: enriched.Author,
+            commitAuthors: enriched.CommitAuthors,
+            linkedItems: enriched.LinkedItems,
+            labelFilter: this._options.Filter.LabelFilter
+        );
+
+        return trustedLinkedIssue is null ? (false, [], null) : (true, enriched.LinkedItems, trustedLinkedIssue);
+    }
+
+    private async Task<PullRequestDetails?> FetchEnrichedDetailsAsync(
+        string repo,
+        int number,
+        CancellationToken cancellationToken
+    )
+    {
+        GitHubNotification notification = SyntheticNotifications.BuildPullRequestApiNotification(
+            idPrefix: "scan",
+            repo: repo,
+            number: number
+        );
+
+        return await this._pullRequestDetailFetcher.FetchAsync(
+            notification: notification,
+            cancellationToken: cancellationToken
+        );
     }
 
     private bool IsAdoptedBotPr(ApiPullRequest pr)
@@ -359,14 +424,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
     private bool PassesLabelFilter(IReadOnlyList<string> labelNames)
     {
-        List<string> filters = [.. this._options.Filter.LabelFilter.Where(static f => !string.IsNullOrWhiteSpace(f))];
-
-        if (filters.Count == 0)
-        {
-            return true;
-        }
-
-        return labelNames.Any(label => filters.Exists(filter => LabelParser.FuzzyEquals(label, filter)));
+        return LinkedIssueTrust.PassesLabelFilter(labelNames, this._options.Filter.LabelFilter);
     }
 
     private static string GetRepoName(string fullName)
@@ -395,32 +453,19 @@ public sealed class WorkItemScanner : IWorkItemScanner
         string repo,
         IReadOnlyList<string> labelNames,
         string status,
-        Uri htmlUrl
+        Uri htmlUrl,
+        IReadOnlyList<LinkedItem> linkedItems
     )
     {
-        string owner = GetOwner(repo);
-        string name = GetRepoName(repo);
-        Uri repoUri = new($"https://github.com/{repo}");
-
-        return new PullRequestDetails(
-            Number: pr.Number,
-            Title: pr.Title,
-            Status: status,
-            HtmlUrl: htmlUrl,
-            Assignees: [.. pr.Assignees.Select(a => a.Login)],
-            Labels: labelNames,
-            Body: null,
-            Comments: [],
-            Reviews: [],
-            Runs: [],
-            LinkedItems: [],
-            Repository: new ItemRepository(Owner: owner, Name: name, Url: repoUri),
-            LastNotification: new LastNotification(
-                Id: $"scan:{repo}:pr:{pr.Number}",
-                Timestamp: DateTimeOffset.MinValue
-            ),
-            Author: pr.User?.Login,
-            CommitAuthors: []
+        return PullRequestDetailsFactory.Build(
+            pr: pr,
+            repo: repo,
+            labelNames: labelNames,
+            status: status,
+            htmlUrl: htmlUrl,
+            linkedItems: linkedItems,
+            lastNotificationId: $"scan:{repo}:pr:{pr.Number}",
+            lastNotificationTimestamp: DateTimeOffset.MinValue
         );
     }
 

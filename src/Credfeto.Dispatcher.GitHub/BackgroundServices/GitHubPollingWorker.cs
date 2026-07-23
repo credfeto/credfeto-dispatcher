@@ -140,14 +140,7 @@ public sealed class GitHubPollingWorker : BackgroundService
 
     private bool PassesLabelFilter(IReadOnlyList<string> labelNames)
     {
-        if (this._options.Filter.LabelFilter.Count == 0)
-        {
-            return true;
-        }
-
-        return labelNames.Any(label =>
-            this._options.Filter.LabelFilter.Any(filter => LabelParser.FuzzyEquals(label, filter))
-        );
+        return LinkedIssueTrust.PassesLabelFilter(labelNames, this._options.Filter.LabelFilter);
     }
 
     private async ValueTask TrackPullRequestStateAsync(
@@ -173,17 +166,10 @@ public sealed class GitHubPollingWorker : BackgroundService
             return;
         }
 
-        WorkPriority priority = LabelParser.ParsePriority(details.Labels);
-
-        if (trustedLinkedIssue is not null)
-        {
-            WorkPriority linkedIssuePriority = LabelParser.ParsePriority(trustedLinkedIssue.Labels);
-
-            if (linkedIssuePriority > priority)
-            {
-                priority = linkedIssuePriority;
-            }
-        }
+        WorkPriority priority = LinkedIssueTrust.ElevatePriority(
+            LabelParser.ParsePriority(details.Labels),
+            trustedLinkedIssue
+        );
 
         bool isOnHold = LabelParser.IsOnHold(labels: details.Labels, noWorkFilter: this._options.Filter.NoWorkFilter);
         await this._notificationStateTracker.UpdateStateAsync(
@@ -195,29 +181,13 @@ public sealed class GitHubPollingWorker : BackgroundService
         );
     }
 
-    // A PR that fails its own label filter is still tracked when it is unambiguously "the author's own
-    // branch resolving the author's own issue": the author wrote every commit on the branch, the author
-    // is assigned to a closing-referenced issue, and that issue itself passes the label filter.
     private LinkedItem? FindTrustedLinkedIssue(PullRequestDetails details)
     {
-        if (string.IsNullOrEmpty(details.Author) || details.CommitAuthors.Count == 0)
-        {
-            return null;
-        }
-
-        if (
-            !details.CommitAuthors.All(commitAuthor =>
-                string.Equals(a: commitAuthor, b: details.Author, comparisonType: StringComparison.OrdinalIgnoreCase)
-            )
-        )
-        {
-            return null;
-        }
-
-        return details.LinkedItems.FirstOrDefault(issue =>
-            issue.Assignees.Any(assignee =>
-                string.Equals(a: assignee, b: details.Author, comparisonType: StringComparison.OrdinalIgnoreCase)
-            ) && this.PassesLabelFilter(issue.Labels)
+        return LinkedIssueTrust.FindTrustedLinkedIssue(
+            author: details.Author,
+            commitAuthors: details.CommitAuthors,
+            linkedItems: details.LinkedItems,
+            labelFilter: this._options.Filter.LabelFilter
         );
     }
 

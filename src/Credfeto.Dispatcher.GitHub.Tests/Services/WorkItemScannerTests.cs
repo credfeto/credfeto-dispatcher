@@ -336,6 +336,19 @@ public sealed class WorkItemScannerTests : TestBase
         }]
         """;
 
+    private const string PR_RESOLVING_OWN_ISSUE_JSON = """
+        [{
+          "number": 40,
+          "title": "Resolves own issue",
+          "state": "open",
+          "draft": false,
+          "html_url": "https://github.com/owner/repo/pull/40",
+          "assignees": [],
+          "labels": [{"name": "auto-pr"}],
+          "head": {"sha": "aaa999"}
+        }]
+        """;
+
     private const string EMPTY_JSON = "[]";
 
     private readonly IActiveRepoTracker _activeRepoTracker;
@@ -351,7 +364,11 @@ public sealed class WorkItemScannerTests : TestBase
         this._workItemRepository = GetSubstitute<IWorkItemRepository>();
     }
 
-    private WorkItemScanner CreateScanner(GitHubOptions? options = null, TimeProvider? timeProvider = null)
+    private WorkItemScanner CreateScanner(
+        GitHubOptions? options = null,
+        TimeProvider? timeProvider = null,
+        IPullRequestDetailFetcher? pullRequestDetailFetcher = null
+    )
     {
         GitHubRepoHelper helper = new(
             httpClientFactory: this._httpClientFactory,
@@ -363,9 +380,53 @@ public sealed class WorkItemScannerTests : TestBase
             activeRepoTracker: this._activeRepoTracker,
             notificationStateTracker: this._notificationStateTracker,
             workItemRepository: this._workItemRepository,
+            pullRequestDetailFetcher: pullRequestDetailFetcher ?? new FakePullRequestDetailFetcher(result: null),
             options: Options.Create(options ?? new GitHubOptions()),
             timeProvider: timeProvider ?? MockDateTimeSources.Past,
             logger: this.GetTypedLogger<WorkItemScanner>()
+        );
+    }
+
+    private sealed class FakePullRequestDetailFetcher : IPullRequestDetailFetcher
+    {
+        private readonly PullRequestDetails? _result;
+
+        public FakePullRequestDetailFetcher(PullRequestDetails? result)
+        {
+            this._result = result;
+        }
+
+        public ValueTask<PullRequestDetails?> FetchAsync(
+            GitHubNotification notification,
+            CancellationToken cancellationToken
+        )
+        {
+            return ValueTask.FromResult(this._result);
+        }
+    }
+
+    private static PullRequestDetails BuildEnrichedDetails(
+        string? author,
+        IReadOnlyList<string> commitAuthors,
+        IReadOnlyList<LinkedItem> linkedItems
+    )
+    {
+        return new PullRequestDetails(
+            Number: 40,
+            Title: "Enriched PR",
+            Status: "Open",
+            HtmlUrl: new Uri("https://github.com/owner/repo/pull/40"),
+            Assignees: [],
+            Labels: [],
+            Body: null,
+            Comments: [],
+            Reviews: [],
+            Runs: [],
+            LinkedItems: linkedItems,
+            Repository: new ItemRepository(Owner: "owner", Name: "repo", Url: new Uri("https://github.com/owner/repo")),
+            LastNotification: new LastNotification(Id: "scan:owner/repo:pr:40", Timestamp: DateTimeOffset.MinValue),
+            Author: author,
+            CommitAuthors: commitAuthors
         );
     }
 
@@ -679,6 +740,72 @@ public sealed class WorkItemScannerTests : TestBase
         GitHubOptions options = new() { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } };
 
         WorkItemScanner scanner = this.CreateScanner(options);
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._notificationStateTracker.DidNotReceive()
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Any<PullRequestDetails>(),
+                priority: Arg.Any<WorkPriority>(),
+                isOnHold: Arg.Any<bool>(),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WithPrFailingLabelFilterButResolvingOwnAssignedIssue_CallsUpdateWithElevatedPriorityAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, PR_RESOLVING_OWN_ISSUE_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        LinkedItem linkedIssue = new(Number: 442, Labels: ["AI-Work", "urgent"], Assignees: ["dnyw4l3n13"]);
+        PullRequestDetails enriched = BuildEnrichedDetails(
+            author: "dnyw4l3n13",
+            commitAuthors: ["dnyw4l3n13"],
+            linkedItems: [linkedIssue]
+        );
+        FakePullRequestDetailFetcher fetcher = new(enriched);
+
+        GitHubOptions options = new() { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } };
+
+        WorkItemScanner scanner = this.CreateScanner(options: options, pullRequestDetailFetcher: fetcher);
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._notificationStateTracker.Received(1)
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Is<PullRequestDetails>(d => d.Number == 40),
+                priority: WorkPriority.URGENT,
+                isOnHold: Arg.Any<bool>(),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WithPrFailingLabelFilterAndLinkedIssueAssignedToSomeoneElse_DoesNotCallUpdateAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, PR_RESOLVING_OWN_ISSUE_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        LinkedItem linkedIssue = new(Number: 442, Labels: ["AI-Work"], Assignees: ["someone-else"]);
+        PullRequestDetails enriched = BuildEnrichedDetails(
+            author: "dnyw4l3n13",
+            commitAuthors: ["dnyw4l3n13"],
+            linkedItems: [linkedIssue]
+        );
+        FakePullRequestDetailFetcher fetcher = new(enriched);
+
+        GitHubOptions options = new() { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } };
+
+        WorkItemScanner scanner = this.CreateScanner(options: options, pullRequestDetailFetcher: fetcher);
 
         await scanner.ScanAsync(this.CancellationToken());
 

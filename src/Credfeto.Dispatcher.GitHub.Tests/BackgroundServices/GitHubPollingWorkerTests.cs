@@ -99,7 +99,13 @@ public sealed class GitHubPollingWorkerTests : TestBase
         );
     }
 
-    private static PullRequestDetails BuildPrDetails(string status = "Open")
+    private static PullRequestDetails BuildPrDetails(
+        string status = "Open",
+        IReadOnlyList<string>? labels = null,
+        string? author = null,
+        IReadOnlyList<string>? commitAuthors = null,
+        IReadOnlyList<LinkedItem>? linkedItems = null
+    )
     {
         return new PullRequestDetails(
             Number: 42,
@@ -107,15 +113,16 @@ public sealed class GitHubPollingWorkerTests : TestBase
             Status: status,
             HtmlUrl: new Uri("https://github.com/owner/repo/pull/42"),
             Assignees: [],
-            Labels: [],
+            Labels: labels ?? [],
             Body: null,
             Comments: [],
             Reviews: [],
             Runs: [],
-            LinkedItems: [],
+            LinkedItems: linkedItems ?? [],
             Repository: BuildTestRepository(),
             LastNotification: BuildTestLastNotification("1"),
-            Author: null
+            Author: author,
+            CommitAuthors: commitAuthors ?? []
         );
     }
 
@@ -138,7 +145,8 @@ public sealed class GitHubPollingWorkerTests : TestBase
         INotificationPoller poller,
         IPullRequestDetailFetcher fetcher,
         IIssueDetailFetcher? issueFetcher = null,
-        IModifiedIssueMentionPoller? mentionPoller = null
+        IModifiedIssueMentionPoller? mentionPoller = null,
+        GitHubOptions? options = null
     )
     {
         return new GitHubPollingWorker(
@@ -148,7 +156,7 @@ public sealed class GitHubPollingWorkerTests : TestBase
             pullRequestDetailFetcher: fetcher,
             issueDetailFetcher: issueFetcher ?? new FakeIssueFetcher(result: null),
             notificationStateTracker: this._stateTracker,
-            options: Options.Create(new GitHubOptions { PollIntervalSeconds = 30 }),
+            options: Options.Create(options ?? new GitHubOptions { PollIntervalSeconds = 30 }),
             logger: this.GetTypedLogger<GitHubPollingWorker>()
         );
     }
@@ -157,7 +165,8 @@ public sealed class GitHubPollingWorkerTests : TestBase
         INotificationPoller poller,
         IPullRequestDetailFetcher fetcher,
         IIssueDetailFetcher? issueFetcher = null,
-        IModifiedIssueMentionPoller? mentionPoller = null
+        IModifiedIssueMentionPoller? mentionPoller = null,
+        GitHubOptions? options = null
     )
     {
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -166,7 +175,8 @@ public sealed class GitHubPollingWorkerTests : TestBase
             poller: poller,
             fetcher: fetcher,
             issueFetcher: issueFetcher,
-            mentionPoller: mentionPoller
+            mentionPoller: mentionPoller,
+            options: options
         );
         await worker.StartAsync(token);
         await Task.Delay(millisecondsDelay: 200, cancellationToken: token);
@@ -239,6 +249,106 @@ public sealed class GitHubPollingWorkerTests : TestBase
         this._filter.ShouldProcess(notification).Returns(false);
 
         await this.RunWorkerAsync(poller: new FakePoller([notification]), fetcher: new FakeFetcher(result: null));
+
+        Assert.Empty(this._stateTracker.ReceivedCalls());
+    }
+
+    [Fact]
+    public async Task PullRequestFailingOwnLabelFilterButResolvingOwnAssignedIssueUpdatesStateAsync()
+    {
+        GitHubNotification notification = BuildPrNotification("mention");
+        LinkedItem linkedIssue = new(Number: 442, Labels: ["AI-Work"], Assignees: ["dnyw4l3n13"]);
+        PullRequestDetails details = BuildPrDetails(
+            labels: ["auto-pr"],
+            author: "dnyw4l3n13",
+            commitAuthors: ["dnyw4l3n13"],
+            linkedItems: [linkedIssue]
+        );
+
+        this._filter.ShouldProcess(notification).Returns(true);
+
+        await this.RunWorkerAsync(
+            poller: new FakePoller([notification]),
+            fetcher: new FakeFetcher(details),
+            options: new GitHubOptions { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } }
+        );
+
+        await this
+            ._stateTracker.Received(1)
+            .UpdateStateAsync(
+                notification: notification,
+                details: details,
+                priority: WorkPriority.UNKNOWN,
+                isOnHold: false,
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task PullRequestWithLinkedIssueAssignedToSomeoneElseDoesNotUpdateStateAsync()
+    {
+        GitHubNotification notification = BuildPrNotification("mention");
+        LinkedItem linkedIssue = new(Number: 442, Labels: ["AI-Work"], Assignees: ["someone-else"]);
+        PullRequestDetails details = BuildPrDetails(
+            labels: ["auto-pr"],
+            author: "dnyw4l3n13",
+            commitAuthors: ["dnyw4l3n13"],
+            linkedItems: [linkedIssue]
+        );
+
+        this._filter.ShouldProcess(notification).Returns(true);
+
+        await this.RunWorkerAsync(
+            poller: new FakePoller([notification]),
+            fetcher: new FakeFetcher(details),
+            options: new GitHubOptions { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } }
+        );
+
+        Assert.Empty(this._stateTracker.ReceivedCalls());
+    }
+
+    [Fact]
+    public async Task PullRequestWithCommitsFromSomeoneElseDoesNotUpdateStateAsync()
+    {
+        GitHubNotification notification = BuildPrNotification("mention");
+        LinkedItem linkedIssue = new(Number: 442, Labels: ["AI-Work"], Assignees: ["dnyw4l3n13"]);
+        PullRequestDetails details = BuildPrDetails(
+            labels: ["auto-pr"],
+            author: "dnyw4l3n13",
+            commitAuthors: ["dnyw4l3n13", "someone-else"],
+            linkedItems: [linkedIssue]
+        );
+
+        this._filter.ShouldProcess(notification).Returns(true);
+
+        await this.RunWorkerAsync(
+            poller: new FakePoller([notification]),
+            fetcher: new FakeFetcher(details),
+            options: new GitHubOptions { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } }
+        );
+
+        Assert.Empty(this._stateTracker.ReceivedCalls());
+    }
+
+    [Fact]
+    public async Task PullRequestWithLinkedIssueFailingLabelFilterDoesNotUpdateStateAsync()
+    {
+        GitHubNotification notification = BuildPrNotification("mention");
+        LinkedItem linkedIssue = new(Number: 442, Labels: ["bug"], Assignees: ["dnyw4l3n13"]);
+        PullRequestDetails details = BuildPrDetails(
+            labels: ["auto-pr"],
+            author: "dnyw4l3n13",
+            commitAuthors: ["dnyw4l3n13"],
+            linkedItems: [linkedIssue]
+        );
+
+        this._filter.ShouldProcess(notification).Returns(true);
+
+        await this.RunWorkerAsync(
+            poller: new FakePoller([notification]),
+            fetcher: new FakeFetcher(details),
+            options: new GitHubOptions { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } }
+        );
 
         Assert.Empty(this._stateTracker.ReceivedCalls());
     }

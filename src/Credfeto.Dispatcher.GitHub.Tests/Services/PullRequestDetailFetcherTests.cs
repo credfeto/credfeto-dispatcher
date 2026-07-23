@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -239,7 +240,43 @@ public sealed class PullRequestDetailFetcherTests : TestBase
                 "assignees": {"nodes": []},
                 "labels": {"nodes": []},
                 "comments": {"nodes": []},
-                "reviews": {"nodes": []}
+                "reviews": {"nodes": []},
+                "closingIssuesReferences": {
+                  "nodes": [
+                    {"number": 10, "labels": {"nodes": [{"name": "AI-Work"}]}, "assignees": {"nodes": [{"login": "alice"}]}},
+                    {"number": 11, "labels": {"nodes": []}, "assignees": {"nodes": []}}
+                  ]
+                }
+              }
+            }
+          }
+        }
+        """;
+
+    private const string OPEN_PR_WITH_COMMITS_JSON = """
+        {
+          "data": {
+            "repository": {
+              "pullRequest": {
+                "number": 42,
+                "title": "Test PR",
+                "state": "OPEN",
+                "isDraft": false,
+                "url": "https://github.com/owner/repo/pull/42",
+                "body": null,
+                "headRefOid": "abc123",
+                "baseRef": {"name": "main"},
+                "assignees": {"nodes": []},
+                "labels": {"nodes": []},
+                "comments": {"nodes": []},
+                "reviews": {"nodes": []},
+                "commits": {
+                  "nodes": [
+                    {"commit": {"author": {"user": {"login": "alice"}}}},
+                    {"commit": {"author": {"user": {"login": "alice"}}}},
+                    {"commit": {"author": {"user": null}}}
+                  ]
+                }
               }
             }
           }
@@ -675,7 +712,7 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     }
 
     [Fact]
-    public async Task ParsesLinkedItemsFromBodyAsync()
+    public async Task ParsesLinkedItemsFromClosingIssuesReferencesAsync()
     {
         using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OPEN_PR_WITH_LINKED_ITEMS_JSON);
         using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
@@ -692,6 +729,64 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         Assert.Equal(expected: 2, actual: result.LinkedItems.Count);
         Assert.Contains(result.LinkedItems, item => item.Number == 10);
         Assert.Contains(result.LinkedItems, item => item.Number == 11);
+
+        LinkedItem issueTen = result.LinkedItems.Single(item => item.Number == 10);
+        Assert.Contains(expected: "AI-Work", collection: issueTen.Labels);
+        Assert.Contains(expected: "alice", collection: issueTen.Assignees);
+    }
+
+    [Fact]
+    public async Task ReturnsEmptyLinkedItemsWhenNoClosingIssuesReferencesAsync()
+    {
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OPEN_PR_JSON);
+        using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
+        this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
+
+        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
+
+        PullRequestDetails? result = await this._fetcher.FetchAsync(
+            notification: notification,
+            cancellationToken: this.CancellationToken()
+        );
+
+        Assert.NotNull(result);
+        Assert.Empty(result.LinkedItems);
+    }
+
+    [Fact]
+    public async Task ParsesDistinctCommitAuthorsFromPullRequestAsync()
+    {
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OPEN_PR_WITH_COMMITS_JSON);
+        using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
+        this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
+
+        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
+
+        PullRequestDetails? result = await this._fetcher.FetchAsync(
+            notification: notification,
+            cancellationToken: this.CancellationToken()
+        );
+
+        Assert.NotNull(result);
+        Assert.Equal(expected: ["alice"], actual: result.CommitAuthors);
+    }
+
+    [Fact]
+    public async Task ReturnsEmptyCommitAuthorsWhenNoCommitsExistAsync()
+    {
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OPEN_PR_JSON);
+        using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
+        this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
+
+        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
+
+        PullRequestDetails? result = await this._fetcher.FetchAsync(
+            notification: notification,
+            cancellationToken: this.CancellationToken()
+        );
+
+        Assert.NotNull(result);
+        Assert.Empty(result.CommitAuthors);
     }
 
     [Fact]

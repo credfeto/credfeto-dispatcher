@@ -58,7 +58,8 @@ public sealed class NotificationStateTrackerTests : TestBase
             LinkedItems: [],
             Repository: new ItemRepository(Owner: "owner", Name: "repo", Url: repoUri),
             LastNotification: new LastNotification(Id: "notif-1", Timestamp: BaseTime),
-            Author: null
+            Author: null,
+            CommitAuthors: []
         );
     }
 
@@ -77,18 +78,11 @@ public sealed class NotificationStateTrackerTests : TestBase
             Comments: [],
             Reviews: [],
             Runs: [],
-            LinkedItems:
-            [
-                new LinkedItem(
-                    Number: linkedIssueNumber,
-                    Title: string.Empty,
-                    State: string.Empty,
-                    Url: new Uri($"https://github.com/owner/repo/issues/{linkedIssueNumber}")
-                ),
-            ],
+            LinkedItems: [new LinkedItem(Number: linkedIssueNumber, Labels: [], Assignees: [])],
             Repository: new ItemRepository(Owner: "owner", Name: "repo", Url: repoUri),
             LastNotification: new LastNotification(Id: "notif-1", Timestamp: BaseTime),
-            Author: null
+            Author: null,
+            CommitAuthors: []
         );
     }
 

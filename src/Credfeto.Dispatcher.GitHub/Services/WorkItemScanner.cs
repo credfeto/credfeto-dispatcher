@@ -419,7 +419,8 @@ public sealed class WorkItemScanner : IWorkItemScanner
                 Id: $"scan:{repo}:pr:{pr.Number}",
                 Timestamp: DateTimeOffset.MinValue
             ),
-            Author: pr.User?.Login
+            Author: pr.User?.Login,
+            CommitAuthors: []
         );
     }
 

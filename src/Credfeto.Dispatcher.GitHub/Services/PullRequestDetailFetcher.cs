@@ -1,11 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.DataTypes;
@@ -14,16 +13,10 @@ using Credfeto.Dispatcher.GitHub.Models;
 
 namespace Credfeto.Dispatcher.GitHub.Services;
 
-public sealed partial class PullRequestDetailFetcher : IPullRequestDetailFetcher
+public sealed class PullRequestDetailFetcher : IPullRequestDetailFetcher
 {
     private const string PULL_REQUEST_TYPE = "PullRequest";
     private const int MAX_BODY_LENGTH = 300;
-
-    [GeneratedRegex(
-        pattern: @"(?:closes|fixes|resolves)\s+#(?<number>\d+)",
-        options: RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture | RegexOptions.NonBacktracking
-    )]
-    private static partial Regex LinkedItemPattern();
 
     private const string PULL_REQUEST_QUERY = """
         query PullRequestDetails($owner: String!, $repo: String!, $number: Int!) {
@@ -71,6 +64,32 @@ public sealed partial class PullRequestDetailFetcher : IPullRequestDetailFetcher
                   }
                   url
                   submittedAt
+                }
+              }
+              commits(last: 100) {
+                nodes {
+                  commit {
+                    author {
+                      user {
+                        login
+                      }
+                    }
+                  }
+                }
+              }
+              closingIssuesReferences(first: 10) {
+                nodes {
+                  number
+                  labels(first: 10) {
+                    nodes {
+                      name
+                    }
+                  }
+                  assignees(first: 10) {
+                    nodes {
+                      login
+                    }
+                  }
                 }
               }
             }
@@ -151,10 +170,11 @@ public sealed partial class PullRequestDetailFetcher : IPullRequestDetailFetcher
             Comments: ExtractComments(pr),
             Reviews: ExtractReviews(pr),
             Runs: runs,
-            LinkedItems: ExtractLinkedItems(pr.Body),
+            LinkedItems: ExtractLinkedItems(pr),
             Repository: repository,
             LastNotification: lastNotification,
-            Author: pr.Author?.Login
+            Author: pr.Author?.Login,
+            CommitAuthors: ExtractCommitAuthors(pr)
         );
     }
 
@@ -301,29 +321,37 @@ public sealed partial class PullRequestDetailFetcher : IPullRequestDetailFetcher
         ];
     }
 
-    private static IReadOnlyList<LinkedItem> ExtractLinkedItems(string? body)
+    private static IReadOnlyList<LinkedItem> ExtractLinkedItems(GraphQlPullRequestData pr)
     {
-        if (string.IsNullOrEmpty(body))
+        if (pr.ClosingIssuesReferences?.Nodes is not { Count: > 0 } nodes)
         {
             return [];
         }
 
-        List<LinkedItem> items = [];
+        return
+        [
+            .. nodes.Select(node => new LinkedItem(
+                Number: node.Number,
+                Labels: [.. node.Labels?.Nodes?.Select(l => l.Name) ?? []],
+                Assignees: [.. node.Assignees?.Nodes?.Select(a => a.Login) ?? []]
+            )),
+        ];
+    }
 
-        foreach (Match match in LinkedItemPattern().Matches(body))
+    private static IReadOnlyList<string> ExtractCommitAuthors(GraphQlPullRequestData pr)
+    {
+        if (pr.Commits?.Nodes is not { Count: > 0 } nodes)
         {
-            int number = int.Parse(match.Groups["number"].Value, CultureInfo.InvariantCulture);
-            items.Add(
-                new LinkedItem(
-                    Number: number,
-                    Title: string.Empty,
-                    State: string.Empty,
-                    Url: new Uri($"#{number}", UriKind.Relative)
-                )
-            );
+            return [];
         }
 
-        return items;
+        return
+        [
+            .. nodes
+                .Select(n => n.Commit?.Author?.User?.Login)
+                .OfType<string>()
+                .Distinct(StringComparer.OrdinalIgnoreCase),
+        ];
     }
 
     private static string DetermineStatus(GraphQlPullRequestData pr)

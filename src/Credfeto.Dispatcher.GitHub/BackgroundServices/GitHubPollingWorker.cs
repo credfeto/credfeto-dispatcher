@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -141,21 +140,9 @@ public sealed class GitHubPollingWorker : BackgroundService
 
     private bool PassesLabelFilter(IReadOnlyList<string> labelNames)
     {
-        if (this._options.Filter.LabelFilter.Count == 0)
-        {
-            return true;
-        }
-
-        return labelNames.Any(label =>
-            this._options.Filter.LabelFilter.Any(filter => LabelParser.FuzzyEquals(label, filter))
-        );
+        return LinkedIssueTrust.PassesLabelFilter(labelNames, this._options.Filter.LabelFilter);
     }
 
-    [SuppressMessage(
-        "Philips.CodeAnalysis.DuplicateCodeAnalyzer",
-        "PH2071:Duplicate shape found",
-        Justification = "Structurally identical to TrackIssueStateAsync but operates on pull requests."
-    )]
     private async ValueTask TrackPullRequestStateAsync(
         GitHubNotification notification,
         CancellationToken cancellationToken
@@ -166,28 +153,44 @@ public sealed class GitHubPollingWorker : BackgroundService
             cancellationToken: cancellationToken
         );
 
-        if (details is not null && this.PassesLabelFilter(details.Labels))
+        if (details is null)
         {
-            WorkPriority priority = LabelParser.ParsePriority(details.Labels);
-            bool isOnHold = LabelParser.IsOnHold(
-                labels: details.Labels,
-                noWorkFilter: this._options.Filter.NoWorkFilter
-            );
-            await this._notificationStateTracker.UpdateStateAsync(
-                notification: notification,
-                details: details,
-                priority: priority,
-                isOnHold: isOnHold,
-                cancellationToken: cancellationToken
-            );
+            return;
         }
+
+        bool ownLabelsPass = this.PassesLabelFilter(details.Labels);
+        LinkedItem? trustedLinkedIssue = ownLabelsPass ? null : this.FindTrustedLinkedIssue(details);
+
+        if (!ownLabelsPass && trustedLinkedIssue is null)
+        {
+            return;
+        }
+
+        WorkPriority priority = LinkedIssueTrust.ElevatePriority(
+            LabelParser.ParsePriority(details.Labels),
+            trustedLinkedIssue
+        );
+
+        bool isOnHold = LabelParser.IsOnHold(labels: details.Labels, noWorkFilter: this._options.Filter.NoWorkFilter);
+        await this._notificationStateTracker.UpdateStateAsync(
+            notification: notification,
+            details: details,
+            priority: priority,
+            isOnHold: isOnHold,
+            cancellationToken: cancellationToken
+        );
     }
 
-    [SuppressMessage(
-        "Philips.CodeAnalysis.DuplicateCodeAnalyzer",
-        "PH2071:Duplicate shape found",
-        Justification = "Structurally identical to TrackPullRequestStateAsync but operates on issues."
-    )]
+    private LinkedItem? FindTrustedLinkedIssue(PullRequestDetails details)
+    {
+        return LinkedIssueTrust.FindTrustedLinkedIssue(
+            author: details.Author,
+            commitAuthors: details.CommitAuthors,
+            linkedItems: details.LinkedItems,
+            labelFilter: this._options.Filter.LabelFilter
+        );
+    }
+
     private async ValueTask TrackIssueStateAsync(GitHubNotification notification, CancellationToken cancellationToken)
     {
         IssueDetails? details = await this._issueDetailFetcher.FetchAsync(

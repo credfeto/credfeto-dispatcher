@@ -26,12 +26,14 @@ public sealed class RepoEventPoller : IRepoEventPoller
     private readonly ILogger<RepoEventPoller> _logger;
     private readonly INotificationStateTracker _notificationStateTracker;
     private readonly GitHubOptions _options;
+    private readonly IPullRequestDetailFetcher _pullRequestDetailFetcher;
 
     public RepoEventPoller(
         GitHubRepoHelper helper,
         IActiveRepoTracker activeRepoTracker,
         IETagStore eTagStore,
         INotificationStateTracker notificationStateTracker,
+        IPullRequestDetailFetcher pullRequestDetailFetcher,
         IOptions<GitHubOptions> options,
         ILogger<RepoEventPoller> logger
     )
@@ -40,6 +42,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
         this._activeRepoTracker = activeRepoTracker;
         this._eTagStore = eTagStore;
         this._notificationStateTracker = notificationStateTracker;
+        this._pullRequestDetailFetcher = pullRequestDetailFetcher;
         this._options = options.Value;
         this._logger = logger;
     }
@@ -227,9 +230,20 @@ public sealed class RepoEventPoller : IRepoEventPoller
     )
     {
         string repo = ev.Repo.Name;
-        string owner = GetOwner(repo);
-        string name = GetRepoName(repo);
-        Uri repoUri = new($"https://github.com/{repo}");
+        IReadOnlyList<string> labelNames = [.. pr.Labels.Select(l => l.Name)];
+
+        (bool allowed, IReadOnlyList<LinkedItem> linkedItems, LinkedItem? trustedLinkedIssue) =
+            await this.ResolvePullRequestEligibilityAsync(
+                pr: pr,
+                repo: repo,
+                labelNames: labelNames,
+                cancellationToken: cancellationToken
+            );
+
+        if (!allowed)
+        {
+            return;
+        }
 
         GitHubNotification notification = BuildEventNotification(
             ev: ev,
@@ -239,24 +253,20 @@ public sealed class RepoEventPoller : IRepoEventPoller
             itemTitle: pr.Title
         );
 
-        PullRequestDetails details = new(
-            Number: pr.Number,
-            Title: pr.Title,
-            Status: MapPrStatus(pr: pr),
-            HtmlUrl: htmlUrl,
-            Assignees: [.. pr.Assignees.Select(a => a.Login)],
-            Labels: [.. pr.Labels.Select(l => l.Name)],
-            Body: null,
-            Comments: [],
-            Reviews: [],
-            Runs: [],
-            LinkedItems: [],
-            Repository: new ItemRepository(Owner: owner, Name: name, Url: repoUri),
-            LastNotification: new LastNotification(Id: $"event:{repo}:pr:{pr.Number}", Timestamp: ev.CreatedAt),
-            Author: pr.User?.Login
+        PullRequestDetails details = BuildEventPullRequestDetails(
+            ev: ev,
+            pr: pr,
+            repo: repo,
+            labelNames: labelNames,
+            htmlUrl: htmlUrl,
+            linkedItems: linkedItems
         );
 
-        WorkPriority priority = LabelParser.ParsePriority(details.Labels);
+        WorkPriority priority = LinkedIssueTrust.ElevatePriority(
+            LabelParser.ParsePriority(details.Labels),
+            trustedLinkedIssue
+        );
+
         bool isOnHold = LabelParser.IsOnHold(labels: details.Labels, noWorkFilter: this._options.Filter.NoWorkFilter);
 
         await this._notificationStateTracker.UpdateStateAsync(
@@ -274,6 +284,77 @@ public sealed class RepoEventPoller : IRepoEventPoller
         );
     }
 
+    private static PullRequestDetails BuildEventPullRequestDetails(
+        ApiEvent ev,
+        ApiPullRequest pr,
+        string repo,
+        IReadOnlyList<string> labelNames,
+        Uri htmlUrl,
+        IReadOnlyList<LinkedItem> linkedItems
+    )
+    {
+        return PullRequestDetailsFactory.Build(
+            pr: pr,
+            repo: repo,
+            labelNames: labelNames,
+            status: MapPrStatus(pr),
+            htmlUrl: htmlUrl,
+            linkedItems: linkedItems,
+            lastNotificationId: $"event:{repo}:pr:{pr.Number}",
+            lastNotificationTimestamp: ev.CreatedAt
+        );
+    }
+
+    private bool PassesLabelFilter(IReadOnlyList<string> labelNames)
+    {
+        return LinkedIssueTrust.PassesLabelFilter(labelNames, this._options.Filter.LabelFilter);
+    }
+
+    // A PR whose own labels fail the filter is still trusted when it unambiguously resolves the
+    // author's own assigned, label-passing issue - matching the same rule applied during full scans
+    // and notification polling.
+    private async Task<(
+        bool allowed,
+        IReadOnlyList<LinkedItem> linkedItems,
+        LinkedItem? trustedLinkedIssue
+    )> ResolvePullRequestEligibilityAsync(
+        ApiPullRequest pr,
+        string repo,
+        IReadOnlyList<string> labelNames,
+        CancellationToken cancellationToken
+    )
+    {
+        if (this.PassesLabelFilter(labelNames))
+        {
+            return (true, [], null);
+        }
+
+        GitHubNotification apiNotification = SyntheticNotifications.BuildPullRequestApiNotification(
+            idPrefix: "event-enrich",
+            repo: repo,
+            number: pr.Number
+        );
+
+        PullRequestDetails? enriched = await this._pullRequestDetailFetcher.FetchAsync(
+            notification: apiNotification,
+            cancellationToken: cancellationToken
+        );
+
+        if (enriched is null)
+        {
+            return (false, [], null);
+        }
+
+        LinkedItem? trustedLinkedIssue = LinkedIssueTrust.FindTrustedLinkedIssue(
+            author: enriched.Author,
+            commitAuthors: enriched.CommitAuthors,
+            linkedItems: enriched.LinkedItems,
+            labelFilter: this._options.Filter.LabelFilter
+        );
+
+        return trustedLinkedIssue is null ? (false, [], null) : (true, enriched.LinkedItems, trustedLinkedIssue);
+    }
+
     private async ValueTask ProcessIssueEventAsync(
         ApiEvent ev,
         ApiIssue issue,
@@ -281,6 +362,13 @@ public sealed class RepoEventPoller : IRepoEventPoller
         CancellationToken cancellationToken
     )
     {
+        IReadOnlyList<string> labelNames = issue.Labels is null ? [] : [.. issue.Labels.Select(l => l.Name)];
+
+        if (!this.PassesLabelFilter(labelNames))
+        {
+            return;
+        }
+
         string repo = ev.Repo.Name;
         string owner = GetOwner(repo);
         string name = GetRepoName(repo);
@@ -300,7 +388,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
             Status: MapIssueStatus(issue),
             HtmlUrl: htmlUrl,
             Assignees: issue.Assignees is null ? [] : [.. issue.Assignees.Select(a => a.Login)],
-            Labels: issue.Labels is null ? [] : [.. issue.Labels.Select(l => l.Name)],
+            Labels: labelNames,
             LinkedPullRequestUrl: null,
             Repository: new ItemRepository(Owner: owner, Name: name, Url: repoUri),
             LastNotification: new LastNotification(Id: $"event:{repo}:issue:{issue.Number}", Timestamp: ev.CreatedAt)

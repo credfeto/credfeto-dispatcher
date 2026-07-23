@@ -80,6 +80,8 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Return a generic 500 ProblemDetails from /priorities on unhandled exceptions instead of exception stack traces
 - Rethrow OperationCanceledException from /priorities handler so ASP.NET Core can abort the response cleanly instead of returning a 500
 - Updated MSBuild.Sdk.SqlProj from 4.2.0 to 4.3.0 to fix a --warnaserror build failure caused by the SQLPROJ0002 outdated-SDK warning
+- Pull requests that resolve their own assigned AI-Work issue (author authored every commit and is assigned to a closing-referenced issue that passes the label filter) now appear in /priorities even when the pull request itself carries no matching label
+- Extended the linked-issue trust bypass to the periodic full-repo scan and the GitHub Events poller, so PRs resolving their own assigned AI-Work issue reach /priorities regardless of which discovery path finds them first; the Events poller now also applies the label filter to pull requests and issues, closing a gap where it previously tracked every event unconditionally
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934

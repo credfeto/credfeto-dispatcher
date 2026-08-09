@@ -1,6 +1,4 @@
-using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Options;
 
 namespace Credfeto.Dispatcher.GitHub.Configuration;
@@ -28,34 +26,28 @@ public sealed class GitHubOptionsValidator : IValidateOptions<GitHubOptions>
             );
         }
 
-        if (!TryValidateBoostedRepos(options.Filter.BoostedRepos, out string? boostedReposError))
+        if (ValidateBoostedRepos(options.Filter.BoostedRepos) is { } boostedReposFailure)
         {
-            return ValidateOptionsResult.Fail(boostedReposError);
+            return boostedReposFailure;
         }
 
         return ValidateOptionsResult.Success;
     }
 
-    private static bool TryValidateBoostedRepos(
-        IReadOnlyList<string> boostedRepos,
-        [NotNullWhen(false)] out string? error
-    )
+    private static ValidateOptionsResult? ValidateBoostedRepos(IReadOnlyList<string> boostedRepos)
     {
         foreach (string entry in boostedRepos)
         {
-            int slash = entry.IndexOf(value: '/', comparisonType: StringComparison.Ordinal);
-            int lastSlash = entry.LastIndexOf(value: '/');
+            string[] parts = entry.Split('/');
 
-            if (slash <= 0 || slash != lastSlash || slash == entry.Length - 1)
+            if (parts.Length != 2 || parts[0].Length == 0 || parts[1].Length == 0)
             {
-                error = $"GitHub Filter BoostedRepos entry '{entry}' must be in 'owner/repo' format.";
-
-                return false;
+                return ValidateOptionsResult.Fail(
+                    $"GitHub Filter BoostedRepos entry '{entry}' must be in 'owner/repo' format."
+                );
             }
         }
 
-        error = null;
-
-        return true;
+        return null;
     }
 }

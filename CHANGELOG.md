@@ -40,6 +40,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - GitHub API base URL is now configurable via GitHub:ApiBaseUrl, allowing calls to be routed through a proxy rather than directly to api.github.com
 - Add in-memory implementations of the storage repositories (active repo tracker, ETag store, notification state tracker, work item repository) as an alternative to the SQL Server backend
 - Add DatabaseConfiguration.Provider (SqlServer or InMemory) to select the storage backend at startup
+- Boost ordering priority for named owner/repo combinations in /priorities
 ### Fixed
 - EF Core change-tracking comparers trimmed away at publish time causing MissingMethodException at startup; preserve EF Core and Ben.Demystifier assemblies as trimmer roots
 - preserve EF Core migration types as trimmer roots to prevent missing-table errors at runtime on trimmed binaries

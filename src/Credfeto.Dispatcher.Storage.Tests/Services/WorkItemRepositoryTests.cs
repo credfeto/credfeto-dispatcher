@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.DataTypes;
@@ -43,11 +43,16 @@ public sealed class WorkItemRepositoryTests : TestBase
         this._database.SetReturn(rows);
     }
 
-    private async Task<IReadOnlyList<WorkItem>> GetItemsAsync(IReadOnlyList<string> owners, int maxIssues = 0)
+    private async Task<IReadOnlyList<WorkItem>> GetItemsAsync(
+        IReadOnlyList<string> owners,
+        int maxIssues = 0,
+        IReadOnlyList<string>? boostedRepos = null
+    )
     {
         PrioritiesResponse response = await this._repository.GetPrioritisedWorkItemsAsync(
             owners: owners,
             maxIssues: maxIssues,
+            boostedRepos: boostedRepos ?? [],
             cancellationToken: this.CancellationToken()
         );
 
@@ -147,13 +152,11 @@ public sealed class WorkItemRepositoryTests : TestBase
     public async Task Issues_PerRepo_OnlyHighestPriorityIsReturnedAsync()
     {
         this.SetupPullRequests([]);
-        this.SetupIssues(
-            [
-                CreateIssueRow("owner/repo", id: 1, priority: WorkPriority.LOW),
-                CreateIssueRow("owner/repo", id: 2, priority: WorkPriority.HIGH),
-                CreateIssueRow("owner/repo", id: 3, priority: WorkPriority.MEDIUM),
-            ]
-        );
+        this.SetupIssues([
+            CreateIssueRow("owner/repo", id: 1, priority: WorkPriority.LOW),
+            CreateIssueRow("owner/repo", id: 2, priority: WorkPriority.HIGH),
+            CreateIssueRow("owner/repo", id: 3, priority: WorkPriority.MEDIUM),
+        ]);
 
         IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: []);
 
@@ -166,12 +169,10 @@ public sealed class WorkItemRepositoryTests : TestBase
     public async Task Issues_PerRepo_WithEqualPriority_OldestIsReturnedAsync()
     {
         this.SetupPullRequests([]);
-        this.SetupIssues(
-            [
-                CreateIssueRow("owner/repo", id: 2, priority: WorkPriority.MEDIUM, firstSeen: BaseTime.AddHours(2)),
-                CreateIssueRow("owner/repo", id: 1, priority: WorkPriority.MEDIUM, firstSeen: BaseTime.AddHours(1)),
-            ]
-        );
+        this.SetupIssues([
+            CreateIssueRow("owner/repo", id: 2, priority: WorkPriority.MEDIUM, firstSeen: BaseTime.AddHours(2)),
+            CreateIssueRow("owner/repo", id: 1, priority: WorkPriority.MEDIUM, firstSeen: BaseTime.AddHours(1)),
+        ]);
 
         IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: []);
 
@@ -183,12 +184,10 @@ public sealed class WorkItemRepositoryTests : TestBase
     public async Task Issues_EachRepoContributesAtMostOneAsync()
     {
         this.SetupPullRequests([]);
-        this.SetupIssues(
-            [
-                CreateIssueRow("owner/repo", id: 1, priority: WorkPriority.MEDIUM),
-                CreateIssueRow("owner/repo", id: 2, priority: WorkPriority.LOW),
-            ]
-        );
+        this.SetupIssues([
+            CreateIssueRow("owner/repo", id: 1, priority: WorkPriority.MEDIUM),
+            CreateIssueRow("owner/repo", id: 2, priority: WorkPriority.LOW),
+        ]);
 
         IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: []);
 
@@ -199,13 +198,11 @@ public sealed class WorkItemRepositoryTests : TestBase
     public async Task Issues_MaxIssuesCap_LimitsReturnedIssuesAsync()
     {
         this.SetupPullRequests([]);
-        this.SetupIssues(
-            [
-                CreateIssueRow("owner/repo-a", id: 1),
-                CreateIssueRow("owner/repo-b", id: 2),
-                CreateIssueRow("owner/repo-c", id: 3),
-            ]
-        );
+        this.SetupIssues([
+            CreateIssueRow("owner/repo-a", id: 1),
+            CreateIssueRow("owner/repo-b", id: 2),
+            CreateIssueRow("owner/repo-c", id: 3),
+        ]);
 
         IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], maxIssues: 2);
 
@@ -216,13 +213,11 @@ public sealed class WorkItemRepositoryTests : TestBase
     public async Task Issues_UrgentPriority_AlwaysAppearsEvenWhenCapReachedAsync()
     {
         this.SetupPullRequests([]);
-        this.SetupIssues(
-            [
-                CreateIssueRow("owner/repo-a", id: 1, priority: WorkPriority.MEDIUM),
-                CreateIssueRow("owner/repo-b", id: 2, priority: WorkPriority.MEDIUM),
-                CreateIssueRow("owner/repo-c", id: 3, priority: WorkPriority.URGENT),
-            ]
-        );
+        this.SetupIssues([
+            CreateIssueRow("owner/repo-a", id: 1, priority: WorkPriority.MEDIUM),
+            CreateIssueRow("owner/repo-b", id: 2, priority: WorkPriority.MEDIUM),
+            CreateIssueRow("owner/repo-c", id: 3, priority: WorkPriority.URGENT),
+        ]);
 
         IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], maxIssues: 2);
 
@@ -239,13 +234,11 @@ public sealed class WorkItemRepositoryTests : TestBase
     public async Task Issues_SecurityPriority_AlwaysAppearsEvenWhenCapReachedAsync()
     {
         this.SetupPullRequests([]);
-        this.SetupIssues(
-            [
-                CreateIssueRow("owner/repo-a", id: 1, priority: WorkPriority.MEDIUM),
-                CreateIssueRow("owner/repo-b", id: 2, priority: WorkPriority.MEDIUM),
-                CreateIssueRow("owner/repo-c", id: 3, priority: WorkPriority.SECURITY),
-            ]
-        );
+        this.SetupIssues([
+            CreateIssueRow("owner/repo-a", id: 1, priority: WorkPriority.MEDIUM),
+            CreateIssueRow("owner/repo-b", id: 2, priority: WorkPriority.MEDIUM),
+            CreateIssueRow("owner/repo-c", id: 3, priority: WorkPriority.SECURITY),
+        ]);
 
         IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], maxIssues: 2);
 
@@ -262,13 +255,11 @@ public sealed class WorkItemRepositoryTests : TestBase
     public async Task Issues_UrgentPriority_IsIncluded_WhenCapReachedAsync()
     {
         this.SetupPullRequests([]);
-        this.SetupIssues(
-            [
-                CreateIssueRow("owner/aa-repo", id: 1, priority: WorkPriority.MEDIUM),
-                CreateIssueRow("owner/bb-repo", id: 2, priority: WorkPriority.MEDIUM),
-                CreateIssueRow("owner/cc-repo", id: 3, priority: WorkPriority.URGENT),
-            ]
-        );
+        this.SetupIssues([
+            CreateIssueRow("owner/aa-repo", id: 1, priority: WorkPriority.MEDIUM),
+            CreateIssueRow("owner/bb-repo", id: 2, priority: WorkPriority.MEDIUM),
+            CreateIssueRow("owner/cc-repo", id: 3, priority: WorkPriority.URGENT),
+        ]);
 
         IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], maxIssues: 2);
 
@@ -343,5 +334,94 @@ public sealed class WorkItemRepositoryTests : TestBase
         IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: []);
 
         Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task BoostedRepo_RisesToFrontOfItsBandAsync()
+    {
+        this.SetupPullRequests([CreatePrRow("owner/aa-repo", id: 1), CreatePrRow("owner/zz-repo", id: 2)]);
+        this.SetupIssues([]);
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], boostedRepos: ["owner/zz-repo"]);
+
+        Assert.Equal(expected: 2, actual: result.Count);
+        Assert.Equal(expected: "owner/zz-repo", actual: result[0].Repository);
+        Assert.Equal(expected: "owner/aa-repo", actual: result[1].Repository);
+    }
+
+    [Fact]
+    public async Task BoostedRepo_NeverRisesAboveAHigherBandAsync()
+    {
+        this.SetupPullRequests([CreatePrRow("owner/aa-repo", id: 1, priority: WorkPriority.URGENT)]);
+        this.SetupIssues([CreateIssueRow("owner/zz-repo", id: 1, priority: WorkPriority.LOW)]);
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], boostedRepos: ["owner/zz-repo"]);
+
+        Assert.Equal(expected: 2, actual: result.Count);
+        Assert.Equal(expected: "PullRequest", actual: result[0].ItemType);
+        Assert.Equal(expected: "Issue", actual: result[1].ItemType);
+    }
+
+    [Fact]
+    public async Task MultipleBoostedRepos_PreserveConfigOrderAsync()
+    {
+        this.SetupPullRequests([
+            CreatePrRow("owner/aa-repo", id: 1),
+            CreatePrRow("owner/bb-repo", id: 2),
+            CreatePrRow("owner/cc-repo", id: 3),
+        ]);
+        this.SetupIssues([]);
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(
+            owners: [],
+            boostedRepos: ["owner/cc-repo", "owner/aa-repo"]
+        );
+
+        Assert.Equal(expected: 3, actual: result.Count);
+        Assert.Equal(expected: "owner/cc-repo", actual: result[0].Repository);
+        Assert.Equal(expected: "owner/aa-repo", actual: result[1].Repository);
+        Assert.Equal(expected: "owner/bb-repo", actual: result[2].Repository);
+    }
+
+    [Fact]
+    public async Task WithEmptyBoostedRepos_OrderingIsUnchangedAsync()
+    {
+        this.SetupPullRequests([CreatePrRow("zz-owner/repo", id: 1), CreatePrRow("aa-owner/repo", id: 2)]);
+        this.SetupIssues([]);
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], boostedRepos: []);
+
+        Assert.Equal(expected: 2, actual: result.Count);
+        Assert.Equal(expected: "aa-owner/repo", actual: result[0].Repository);
+        Assert.Equal(expected: "zz-owner/repo", actual: result[1].Repository);
+    }
+
+    [Fact]
+    public async Task UrgentUnboostedItem_StillPrecedesBoostedNonUrgentItemAsync()
+    {
+        this.SetupPullRequests([
+            CreatePrRow("owner/boosted-repo", id: 1, priority: WorkPriority.MEDIUM),
+            CreatePrRow("owner/urgent-repo", id: 2, priority: WorkPriority.URGENT),
+        ]);
+        this.SetupIssues([]);
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], boostedRepos: ["owner/boosted-repo"]);
+
+        Assert.Equal(expected: 2, actual: result.Count);
+        Assert.Equal(expected: "owner/urgent-repo", actual: result[0].Repository);
+        Assert.Equal(expected: "owner/boosted-repo", actual: result[1].Repository);
+    }
+
+    [Fact]
+    public async Task BandingIsGlobalAcrossOwners_NotPerOwnerAsync()
+    {
+        this.SetupPullRequests([CreatePrRow("zz-owner/repo", id: 1, priority: WorkPriority.MEDIUM)]);
+        this.SetupIssues([CreateIssueRow("aa-owner/repo", id: 1, priority: WorkPriority.URGENT)]);
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], boostedRepos: []);
+
+        Assert.Equal(expected: 2, actual: result.Count);
+        Assert.Equal(expected: "zz-owner/repo", actual: result[0].Repository);
+        Assert.Equal(expected: "aa-owner/repo", actual: result[1].Repository);
     }
 }

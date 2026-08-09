@@ -17,6 +17,7 @@ internal static class WorkItemMapping
         IReadOnlyList<IssueRow> issueRows,
         IReadOnlyList<string> owners,
         int maxIssues,
+        IReadOnlyList<string> boostedRepos,
         in DateTimeOffset now
     )
     {
@@ -29,9 +30,10 @@ internal static class WorkItemMapping
         IReadOnlyList<WorkItem> ordered =
         [
             .. combined
-                .OrderBy(w => FindIndex(owners, GetOwner(w.Repository)))
+                .OrderBy(GetBand)
+                .ThenBy(w => FindIndex(boostedRepos, w.Repository))
+                .ThenBy(w => FindIndex(owners, GetOwner(w.Repository)))
                 .ThenBy(w => GetOwner(w.Repository), comparer: StringComparer.OrdinalIgnoreCase)
-                .ThenBy(w => IsPullRequest(w) ? 0 : 1)
                 .ThenByDescending(w => (int)w.Priority)
                 .ThenBy(w => w.FirstSeen),
         ];
@@ -40,6 +42,18 @@ internal static class WorkItemMapping
         long lagSeconds = Math.Max(0, (long)(now - asOf).TotalSeconds);
 
         return new PrioritiesResponse(Priorities: ordered, AsOf: asOf, LagSeconds: lagSeconds);
+    }
+
+    private static int GetBand(WorkItem w)
+    {
+        bool highPriority = w.Priority >= WorkPriority.URGENT;
+
+        if (IsPullRequest(w))
+        {
+            return highPriority ? 0 : 1;
+        }
+
+        return highPriority ? 2 : 3;
     }
 
     private static IReadOnlyList<WorkItem> BuildIssues(

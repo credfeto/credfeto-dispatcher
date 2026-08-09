@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Options;
 
 namespace Credfeto.Dispatcher.GitHub.Configuration;
@@ -25,6 +28,34 @@ public sealed class GitHubOptionsValidator : IValidateOptions<GitHubOptions>
             );
         }
 
+        if (!TryValidateBoostedRepos(options.Filter.BoostedRepos, out string? boostedReposError))
+        {
+            return ValidateOptionsResult.Fail(boostedReposError);
+        }
+
         return ValidateOptionsResult.Success;
+    }
+
+    private static bool TryValidateBoostedRepos(
+        IReadOnlyList<string> boostedRepos,
+        [NotNullWhen(false)] out string? error
+    )
+    {
+        foreach (string entry in boostedRepos)
+        {
+            int slash = entry.IndexOf(value: '/', comparisonType: StringComparison.Ordinal);
+            int lastSlash = entry.LastIndexOf(value: '/');
+
+            if (slash <= 0 || slash != lastSlash || slash == entry.Length - 1)
+            {
+                error = $"GitHub Filter BoostedRepos entry '{entry}' must be in 'owner/repo' format.";
+
+                return false;
+            }
+        }
+
+        error = null;
+
+        return true;
     }
 }

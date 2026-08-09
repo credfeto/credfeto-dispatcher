@@ -73,4 +73,39 @@ public sealed class GitHubOptionsValidatorTests : TestBase
 
         Assert.NotEqual(expected: ValidateOptionsResult.Success, actual: result);
     }
+
+    [Fact]
+    public void ValidationSucceedsWhenBoostedReposIsWellFormed()
+    {
+        GitHubOptions options = new()
+        {
+            Token = "valid-token",
+            PollIntervalSeconds = 60,
+            Filter = new() { BoostedRepos = ["owner/repo", "another-owner/another-repo"] },
+        };
+
+        ValidateOptionsResult result = this._validator.Validate(name: null, options: options);
+
+        Assert.Equal(expected: ValidateOptionsResult.Success, actual: result);
+    }
+
+    [Theory]
+    [InlineData("no-slash")]
+    [InlineData("/repo")]
+    [InlineData("owner/")]
+    [InlineData("owner/repo/extra")]
+    [InlineData("")]
+    public void ValidationFailsWhenBoostedRepoEntryIsNotOwnerRepoShaped(string entry)
+    {
+        GitHubOptions options = new()
+        {
+            Token = "valid-token",
+            PollIntervalSeconds = 60,
+            Filter = new() { BoostedRepos = [entry] },
+        };
+
+        ValidateOptionsResult result = this._validator.Validate(name: null, options: options);
+
+        Assert.NotEqual(expected: ValidateOptionsResult.Success, actual: result);
+    }
 }

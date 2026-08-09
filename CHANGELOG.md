@@ -22,7 +22,6 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Fuzzy case-insensitive label matching for LabelFilter and NoWorkFilter
 - Expanded PullRequestDetails with full comment, review, run, and linked-item lists, PR body, and up-to-date status for issue #36
 - ItemRepository and LastNotification context to PullRequestDetails and IssueDetails for issue #35
-- Order priorities by owner (alphabetically or configured order), then type (PRs first), then repository (alphabetically or configured order), then issue priority (Urgent > High > Medium > Low > untagged)
 - Return all work item details (status, whenClosed, isOnHold, hasLinkedPr) from the /priorities endpoint
 - Persist and return comment count, review decision, and failed CI check details for pull requests
 - Include stuck dependabot PRs in /priorities endpoint at Security priority after configurable timeout (default 3 hours)
@@ -40,6 +39,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - GitHub API base URL is now configurable via GitHub:ApiBaseUrl, allowing calls to be routed through a proxy rather than directly to api.github.com
 - Add in-memory implementations of the storage repositories (active repo tracker, ETag store, notification state tracker, work item repository) as an alternative to the SQL Server backend
 - Add DatabaseConfiguration.Provider (SqlServer or InMemory) to select the storage backend at startup
+- Order priorities globally into Security/Urgent PRs, other PRs, Security/Urgent issues, then other issues, with named owner/repo combinations boosted to the front of their band; within each band fall back to owner (alphabetically or configured order), repository, issue priority, and age
 ### Fixed
 - EF Core change-tracking comparers trimmed away at publish time causing MissingMethodException at startup; preserve EF Core and Ben.Demystifier assemblies as trimmer roots
 - preserve EF Core migration types as trimmer roots to prevent missing-table errors at runtime on trimmed binaries

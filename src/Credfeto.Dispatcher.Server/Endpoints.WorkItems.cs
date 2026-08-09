@@ -36,6 +36,7 @@ internal static partial class Endpoints
             PrioritiesResponse response = await workItemRepository.GetPrioritisedWorkItemsAsync(
                 owners: filter.AllowedOwners,
                 maxIssues: filter.MaxIssues,
+                boostedRepos: filter.BoostedRepos,
                 cancellationToken: cancellationToken
             );
 

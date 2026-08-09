@@ -41,7 +41,8 @@ Set the following in `appsettings.json` or environment variables:
       "NoWorkFilter": ["on-hold"],
       "AllowedOwners": [],
       "AllowedRepos": [],
-      "ExcludedRepos": []
+      "ExcludedRepos": [],
+      "BoostedRepos": []
     }
   }
 }
@@ -57,6 +58,7 @@ Set the following in `appsettings.json` or environment variables:
 | `GitHub:Filter:AllowedOwners` | string[] | Optional owner allow-list for notifications to process. |
 | `GitHub:Filter:AllowedRepos` | string[] | Optional repository allow-list for notifications to process. |
 | `GitHub:Filter:ExcludedRepos` | string[] | Repository deny-list that is always ignored. |
+| `GitHub:Filter:BoostedRepos` | string[] | Ordered `owner/repo` list. Matching items sort to the front of their band (Security/Urgent PRs, other PRs, Security/Urgent issues, other issues) in `/priorities`, in list order. Ordering only; does not bypass `AllowedOwners`/`AllowedRepos`/`ExcludedRepos`. |
 
 ## API
 
@@ -95,7 +97,7 @@ Returns the current prioritised work item list with freshness metadata.
 | --- | --- | --- |
 | `as_of` | ISO-8601 UTC | Timestamp of the most recent ingest that contributed to this snapshot |
 | `lag_seconds` | integer | `now − as_of` in whole seconds; higher values indicate a staler snapshot |
-| `priorities` | array | Ordered work items (PRs before issues; by owner, repo, priority, age) |
+| `priorities` | array | Ordered work items, banded Security/Urgent PRs, other PRs, Security/Urgent issues, other issues, then within each band by boosted repo, owner, repo, priority, age |
 
 ### `GET /ping`
 

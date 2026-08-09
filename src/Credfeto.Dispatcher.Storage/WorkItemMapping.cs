@@ -17,21 +17,30 @@ internal static class WorkItemMapping
         IReadOnlyList<IssueRow> issueRows,
         IReadOnlyList<string> owners,
         int maxIssues,
+        IReadOnlyList<string> boostedRepos,
         in DateTimeOffset now
     )
     {
         List<WorkItem> pullRequests = [.. prRows.Select(MapPullRequest)];
 
-        IReadOnlyList<WorkItem> issues = BuildIssues(issueRows: issueRows, owners: owners, maxIssues: maxIssues);
+        Dictionary<string, int> ownersIndex = BuildIndex(owners);
+        Dictionary<string, int> boostedIndex = BuildIndex(boostedRepos);
+        IReadOnlyList<WorkItem> issues = BuildIssues(
+            issueRows: issueRows,
+            ownersIndex: ownersIndex,
+            maxIssues: maxIssues
+        );
 
         List<WorkItem> combined = Deduplicate([.. pullRequests, .. issues]);
 
         IReadOnlyList<WorkItem> ordered =
         [
             .. combined
-                .OrderBy(w => FindIndex(owners, GetOwner(w.Repository)))
+                .OrderBy(w => !IsPullRequest(w))
+                .ThenBy(w => !IsHighPriority(w))
+                .ThenBy(w => boostedIndex.GetValueOrDefault(w.Repository, int.MaxValue))
+                .ThenBy(w => ownersIndex.GetValueOrDefault(GetOwner(w.Repository), int.MaxValue))
                 .ThenBy(w => GetOwner(w.Repository), comparer: StringComparer.OrdinalIgnoreCase)
-                .ThenBy(w => IsPullRequest(w) ? 0 : 1)
                 .ThenByDescending(w => (int)w.Priority)
                 .ThenBy(w => w.FirstSeen),
         ];
@@ -42,9 +51,21 @@ internal static class WorkItemMapping
         return new PrioritiesResponse(Priorities: ordered, AsOf: asOf, LagSeconds: lagSeconds);
     }
 
+    private static Dictionary<string, int> BuildIndex(IReadOnlyList<string> values)
+    {
+        Dictionary<string, int> index = new(values.Count, StringComparer.OrdinalIgnoreCase);
+
+        for (int i = 0; i < values.Count; ++i)
+        {
+            index.TryAdd(values[i], i);
+        }
+
+        return index;
+    }
+
     private static IReadOnlyList<WorkItem> BuildIssues(
         IReadOnlyList<IssueRow> issueRows,
-        IReadOnlyList<string> owners,
+        Dictionary<string, int> ownersIndex,
         int maxIssues
     )
     {
@@ -53,7 +74,7 @@ internal static class WorkItemMapping
             .Select(g => MapIssue(g.OrderByDescending(e => e.Priority).ThenBy(e => e.FirstSeen).First()));
 
         IEnumerable<WorkItem> ordered = topIssuePerRepo
-            .OrderBy(w => FindIndex(owners, GetOwner(w.Repository)))
+            .OrderBy(w => ownersIndex.GetValueOrDefault(GetOwner(w.Repository), int.MaxValue))
             .ThenBy(w => GetOwner(w.Repository), comparer: StringComparer.OrdinalIgnoreCase)
             .ThenByDescending(w => (int)w.Priority)
             .ThenBy(w => w.FirstSeen);
@@ -70,10 +91,15 @@ internal static class WorkItemMapping
         }
 
         IReadOnlyList<WorkItem> all = [.. ordered];
-        IEnumerable<WorkItem> highPriority = all.Where(static w => w.Priority >= WorkPriority.URGENT);
-        IEnumerable<WorkItem> regular = all.Where(static w => w.Priority < WorkPriority.URGENT).Take(maxIssues);
+        IEnumerable<WorkItem> highPriority = all.Where(IsHighPriority);
+        IEnumerable<WorkItem> regular = all.Where(static w => !IsHighPriority(w)).Take(maxIssues);
 
         return [.. highPriority, .. regular];
+    }
+
+    private static bool IsHighPriority(WorkItem w)
+    {
+        return w.Priority >= WorkPriority.URGENT;
     }
 
     private static List<WorkItem> Deduplicate(IReadOnlyList<WorkItem> items)
@@ -163,19 +189,6 @@ internal static class WorkItemMapping
     private static bool IsPullRequest(WorkItem w)
     {
         return string.Equals(a: w.ItemType, b: PULL_REQUEST_TYPE, comparisonType: StringComparison.Ordinal);
-    }
-
-    private static int FindIndex(IReadOnlyList<string> list, string value)
-    {
-        for (int i = 0; i < list.Count; i++)
-        {
-            if (string.Equals(a: list[i], b: value, comparisonType: StringComparison.OrdinalIgnoreCase))
-            {
-                return i;
-            }
-        }
-
-        return int.MaxValue;
     }
 
     private static string GetOwner(string repository)

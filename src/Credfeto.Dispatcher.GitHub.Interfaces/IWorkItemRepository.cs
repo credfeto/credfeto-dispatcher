@@ -10,6 +10,7 @@ public interface IWorkItemRepository
     Task<PrioritiesResponse> GetPrioritisedWorkItemsAsync(
         IReadOnlyList<string> owners,
         int maxIssues,
+        IReadOnlyList<string> boostedRepos,
         CancellationToken cancellationToken
     );
 

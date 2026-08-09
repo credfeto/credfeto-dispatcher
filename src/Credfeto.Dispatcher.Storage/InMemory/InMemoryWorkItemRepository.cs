@@ -22,6 +22,7 @@ public sealed class InMemoryWorkItemRepository : IWorkItemRepository
     public Task<PrioritiesResponse> GetPrioritisedWorkItemsAsync(
         IReadOnlyList<string> owners,
         int maxIssues,
+        IReadOnlyList<string> boostedRepos,
         CancellationToken cancellationToken
     )
     {
@@ -32,6 +33,7 @@ public sealed class InMemoryWorkItemRepository : IWorkItemRepository
             issueRows: issueRows,
             owners: owners,
             maxIssues: maxIssues,
+            boostedRepos: boostedRepos,
             now: this._timeProvider.GetUtcNow()
         );
 

@@ -60,6 +60,24 @@ Set the following in `appsettings.json` or environment variables:
 | `GitHub:Filter:ExcludedRepos` | string[] | Repository deny-list that is always ignored. |
 | `GitHub:Filter:BoostedRepos` | string[] | Ordered `owner/repo` list. Matching items sort to the front of their band (Security/Urgent PRs, other PRs, Security/Urgent issues, other issues) in `/priorities`, in list order. Ordering only; does not bypass `AllowedOwners`/`AllowedRepos`/`ExcludedRepos`. |
 
+When `DatabaseConfiguration:Provider` is `InMemory`, the in-memory store is periodically persisted to a JSON snapshot on disk and reloaded at startup, so a container restart doesn't mean starting from zero:
+
+```json
+{
+  "Snapshot": {
+    "DirectoryPath": "data",
+    "FileName": "dispatcher-store-snapshot.json",
+    "IntervalSeconds": 30
+  }
+}
+```
+
+| Setting | Type | Description |
+| --- | --- | --- |
+| `Snapshot:DirectoryPath` | string | Directory the snapshot file is written to and read from. If blank, defaults to `data` under the current working directory. Only relevant under `DatabaseConfiguration:Provider: InMemory`; ignored otherwise. Needs a persistent volume mounted at this path to survive anything beyond an in-process crash-restart. |
+| `Snapshot:FileName` | string | Snapshot file name within `Snapshot:DirectoryPath`. Defaults to `dispatcher-store-snapshot.json`. |
+| `Snapshot:IntervalSeconds` | integer | How often the snapshot writer checks for changes and, if the store has changed since the last write, saves a new snapshot. Defaults to `30`. A non-positive value falls back to `30`. |
+
 ## API
 
 ### `GET /priorities`

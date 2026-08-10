@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.Storage.Configuration;
@@ -27,10 +29,10 @@ public sealed class DispatcherStoreSnapshotStoreTests : LoggingFolderCleanupTest
     private static DispatcherStoreSnapshotData SampleData()
     {
         return new DispatcherStoreSnapshotData(
-            Repos: [new RepoEntry(Repository: "owner/repo", IsActive: true)],
+            Repos: new Dictionary<string, bool>(StringComparer.Ordinal) { ["owner/repo"] = true },
             PullRequests: [],
             Issues: [],
-            PollingStates: [new PollingStateEntry(Key: "poll-key", ETag: "\"abc123\"")]
+            PollingStates: new Dictionary<string, string>(StringComparer.Ordinal) { ["poll-key"] = "\"abc123\"" }
         );
     }
 
@@ -57,12 +59,12 @@ public sealed class DispatcherStoreSnapshotStoreTests : LoggingFolderCleanupTest
 
         Assert.True(condition: result, userMessage: "TryLoad should report data after a successful save");
         Assert.NotNull(loaded);
-        RepoEntry repo = Assert.Single(loaded.Repos);
-        Assert.Equal(expected: "owner/repo", actual: repo.Repository);
-        Assert.True(condition: repo.IsActive, userMessage: "Repo should have round-tripped as active");
-        PollingStateEntry pollingState = Assert.Single(loaded.PollingStates);
+        KeyValuePair<string, bool> repo = Assert.Single(loaded.Repos);
+        Assert.Equal(expected: "owner/repo", actual: repo.Key);
+        Assert.True(condition: repo.Value, userMessage: "Repo should have round-tripped as active");
+        KeyValuePair<string, string> pollingState = Assert.Single(loaded.PollingStates);
         Assert.Equal(expected: "poll-key", actual: pollingState.Key);
-        Assert.Equal(expected: "\"abc123\"", actual: pollingState.ETag);
+        Assert.Equal(expected: "\"abc123\"", actual: pollingState.Value);
     }
 
     [Fact]
@@ -100,7 +102,10 @@ public sealed class DispatcherStoreSnapshotStoreTests : LoggingFolderCleanupTest
             Repos: [],
             PullRequests: [],
             Issues: [],
-            PollingStates: [new PollingStateEntry(Key: "different-key", ETag: "different-etag")]
+            PollingStates: new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["different-key"] = "different-etag",
+            }
         );
         await this._store.SaveAsync(data: updated, cancellationToken: this.CancellationToken());
 
@@ -108,7 +113,7 @@ public sealed class DispatcherStoreSnapshotStoreTests : LoggingFolderCleanupTest
 
         Assert.NotNull(loaded);
         Assert.Empty(loaded.Repos);
-        PollingStateEntry pollingState = Assert.Single(loaded.PollingStates);
+        KeyValuePair<string, string> pollingState = Assert.Single(loaded.PollingStates);
         Assert.Equal(expected: "different-key", actual: pollingState.Key);
     }
 

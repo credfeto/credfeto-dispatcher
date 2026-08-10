@@ -78,7 +78,7 @@ public sealed class DispatcherStoreSnapshotLoaderTests : LoggingFolderCleanupTes
     public async Task LoadSnapshotImportsAValidSnapshotIntoTheStoreAsync()
     {
         const string json = """
-            {"Repos":[{"Repository":"owner/repo","IsActive":true}],"PullRequests":[],"Issues":[],"PollingStates":[]}
+            {"Repos":{"owner/repo":true},"PullRequests":[],"Issues":[],"PollingStates":{}}
             """;
         await File.WriteAllTextAsync(path: this._filePath, contents: json, cancellationToken: this.CancellationToken());
 

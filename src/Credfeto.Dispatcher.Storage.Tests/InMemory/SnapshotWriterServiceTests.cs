@@ -81,6 +81,6 @@ public sealed class SnapshotWriterServiceTests : LoggingFolderCleanupTestBase
 
         Assert.True(condition: loaded, userMessage: "Snapshot written after the mutation should be loadable");
         Assert.NotNull(data);
-        Assert.Equal(expected: "etag", actual: Assert.Single(data.PollingStates).ETag);
+        Assert.Equal(expected: "etag", actual: Assert.Single(data.PollingStates).Value);
     }
 }

@@ -1,16 +1,18 @@
+using System.Collections.Generic;
 using System.Diagnostics;
 using Credfeto.Dispatcher.Storage.Database.Rows;
 
 namespace Credfeto.Dispatcher.Storage.InMemory;
 
-// The on-disk shape of an InMemoryDispatcherStore snapshot: every tuple-keyed dictionary
-// flattened to a row array so it round-trips through System.Text.Json source generation.
+// The on-disk shape of an InMemoryDispatcherStore snapshot. Repos/PollingStates have string
+// keys, so System.Text.Json source generation handles them natively; only the tuple-keyed
+// PullRequests/Issues dictionaries need flattening to a row array to round-trip.
 [DebuggerDisplay(
-    "Repos={Repos.Length}, PullRequests={PullRequests.Length}, Issues={Issues.Length}, PollingStates={PollingStates.Length}"
+    "Repos={Repos.Count}, PullRequests={PullRequests.Length}, Issues={Issues.Length}, PollingStates={PollingStates.Count}"
 )]
 internal sealed record DispatcherStoreSnapshotData(
-    RepoEntry[] Repos,
+    Dictionary<string, bool> Repos,
     PullRequestRow[] PullRequests,
     IssueRow[] Issues,
-    PollingStateEntry[] PollingStates
+    Dictionary<string, string> PollingStates
 );

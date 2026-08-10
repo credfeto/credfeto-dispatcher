@@ -16,7 +16,7 @@ public sealed class SnapshotWriterService : BackgroundService
 {
     private readonly InMemoryDispatcherStore _store;
     private readonly DispatcherStoreSnapshotStore _snapshotStore;
-    private readonly SnapshotOptions _options;
+    private readonly int _intervalMilliseconds;
     private readonly ILogger<SnapshotWriterService> _logger;
     private int _lastWrittenVersion = -1;
 
@@ -29,7 +29,8 @@ public sealed class SnapshotWriterService : BackgroundService
     {
         this._store = store;
         this._snapshotStore = snapshotStore;
-        this._options = options.Value;
+        int intervalSeconds = options.Value.IntervalSeconds > 0 ? options.Value.IntervalSeconds : 30;
+        this._intervalMilliseconds = intervalSeconds * 1000;
         this._logger = logger;
     }
 
@@ -52,11 +53,9 @@ public sealed class SnapshotWriterService : BackgroundService
                 this._logger.LogSnapshotWriteError(exception: exception);
             }
 
-            int intervalSeconds = this._options.IntervalSeconds > 0 ? this._options.IntervalSeconds : 30;
-
             try
             {
-                await Task.Delay(millisecondsDelay: intervalSeconds * 1000, cancellationToken: stoppingToken);
+                await Task.Delay(millisecondsDelay: this._intervalMilliseconds, cancellationToken: stoppingToken);
             }
             catch (OperationCanceledException)
             {

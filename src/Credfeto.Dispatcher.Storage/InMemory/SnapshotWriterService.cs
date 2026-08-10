@@ -29,7 +29,8 @@ public sealed class SnapshotWriterService : BackgroundService
     {
         this._store = store;
         this._snapshotStore = snapshotStore;
-        int intervalSeconds = options.Value.IntervalSeconds > 0 ? options.Value.IntervalSeconds : 30;
+        int intervalSeconds =
+            options.Value.IntervalSeconds > 0 ? options.Value.IntervalSeconds : SnapshotOptions.DefaultIntervalSeconds;
         this._intervalMilliseconds = intervalSeconds * 1000;
         this._logger = logger;
     }

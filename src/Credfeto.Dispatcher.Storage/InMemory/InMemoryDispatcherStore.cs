@@ -358,35 +358,45 @@ public sealed class InMemoryDispatcherStore
     {
         lock (this._gate)
         {
-            this._repos.Clear();
+            ReplaceAll(target: this._repos, source: snapshot.Repos);
+            ReplaceAll(
+                target: this._pullRequests,
+                source: snapshot.PullRequests,
+                keySelector: static row => (row.Repository, row.Id)
+            );
+            ReplaceAll(
+                target: this._issues,
+                source: snapshot.Issues,
+                keySelector: static row => (row.Repository, row.Id)
+            );
+            ReplaceAll(target: this._pollingStates, source: snapshot.PollingStates);
+        }
+    }
 
-            foreach (KeyValuePair<string, bool> entry in snapshot.Repos)
-            {
-                this._repos[entry.Key] = entry.Value;
-            }
+    private static void ReplaceAll<TKey, TValue>(Dictionary<TKey, TValue> target, Dictionary<TKey, TValue> source)
+        where TKey : notnull
+    {
+        target.Clear();
 
-            this._pullRequests.Clear();
-            this._pullRequests.EnsureCapacity(snapshot.PullRequests.Length);
+        foreach (KeyValuePair<TKey, TValue> entry in source)
+        {
+            target[entry.Key] = entry.Value;
+        }
+    }
 
-            foreach (PullRequestRow row in snapshot.PullRequests)
-            {
-                this._pullRequests[(row.Repository, row.Id)] = row;
-            }
+    private static void ReplaceAll<TKey, TValue>(
+        Dictionary<TKey, TValue> target,
+        TValue[] source,
+        Func<TValue, TKey> keySelector
+    )
+        where TKey : notnull
+    {
+        target.Clear();
+        target.EnsureCapacity(source.Length);
 
-            this._issues.Clear();
-            this._issues.EnsureCapacity(snapshot.Issues.Length);
-
-            foreach (IssueRow row in snapshot.Issues)
-            {
-                this._issues[(row.Repository, row.Id)] = row;
-            }
-
-            this._pollingStates.Clear();
-
-            foreach (KeyValuePair<string, string> entry in snapshot.PollingStates)
-            {
-                this._pollingStates[entry.Key] = entry.Value;
-            }
+        foreach (TValue value in source)
+        {
+            target[keySelector(value)] = value;
         }
     }
 

@@ -5,6 +5,8 @@ namespace Credfeto.Dispatcher.Storage.Configuration;
 [DebuggerDisplay("DirectoryPath: {DirectoryPath}, FileName: {FileName}, IntervalSeconds: {IntervalSeconds}")]
 public sealed class SnapshotOptions
 {
+    public const int DefaultIntervalSeconds = 30;
+
     // Left blank by default deliberately: DispatcherStoreSnapshotStore falls back to
     // <current working directory>/data when this is blank, rather than baking a container-only
     // path into the option's own default.
@@ -12,5 +14,5 @@ public sealed class SnapshotOptions
 
     public string FileName { get; set; } = "dispatcher-store-snapshot.json";
 
-    public int IntervalSeconds { get; set; } = 30;
+    public int IntervalSeconds { get; set; } = DefaultIntervalSeconds;
 }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
@@ -432,6 +432,15 @@ public sealed class WorkItemScannerTests : TestBase
 
     private static HttpClient CreateClient(HttpStatusCode statusCode, string? content = null, string? linkUrl = null)
     {
+        return CreateClientWithHandler(statusCode: statusCode, content: content, linkUrl: linkUrl).Client;
+    }
+
+    private static (HttpClient Client, FixedResponseHandler Handler) CreateClientWithHandler(
+        HttpStatusCode statusCode,
+        string? content = null,
+        string? linkUrl = null
+    )
+    {
         FixedResponseHandler? handler = new(statusCode: statusCode, content: content, linkUrl: linkUrl);
 
         try
@@ -440,9 +449,10 @@ public sealed class WorkItemScannerTests : TestBase
             {
                 BaseAddress = new Uri("https://api.github.com/"),
             };
+            (HttpClient Client, FixedResponseHandler Handler) result = (client, handler);
             handler = null;
 
-            return client;
+            return result;
         }
         finally
         {
@@ -1123,6 +1133,40 @@ public sealed class WorkItemScannerTests : TestBase
                 activeRepos: Arg.Any<System.Collections.Generic.IReadOnlyList<string>>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
+    }
+
+    // GitHub's real Link header always advertises https://api.github.com, even when the request was
+    // routed through a proxy configured as the client's BaseAddress. Following that absolute URL
+    // verbatim would send the next-page request straight past the proxy, re-using an Authorization
+    // header that is only valid against it. The next-page request must stay on the client's own
+    // BaseAddress regardless of what host the Link header names.
+    [Fact]
+    public async Task ScanAsync_WhenLinkHeaderNamesAForeignHost_RequestsNextPageFromClientBaseAddressAsync()
+    {
+        const string foreignHostNextPageUrl = "https://foreign-host.example/user/repos?page=2";
+
+        using HttpClient repoPage1Client = CreateClient(
+            HttpStatusCode.OK,
+            USER_REPOS_JSON,
+            linkUrl: foreignHostNextPageUrl
+        );
+        (HttpClient repoPage2Client, FixedResponseHandler repoPage2Handler) = CreateClientWithHandler(
+            HttpStatusCode.OK,
+            EMPTY_JSON
+        );
+
+        using (repoPage2Client)
+        {
+            this._httpClientFactory.CreateClient("GitHub").Returns(repoPage1Client, repoPage2Client);
+
+            WorkItemScanner scanner = this.CreateScanner();
+
+            await scanner.ScanAsync(this.CancellationToken());
+
+            Uri? requestUri = repoPage2Handler.LastRequestUri;
+            Assert.NotNull(requestUri);
+            Assert.Equal(expected: "api.github.com", actual: requestUri.Host);
+        }
     }
 
     [Fact]

@@ -1,3 +1,4 @@
+using System;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -27,11 +28,15 @@ internal sealed class FixedResponseHandler : HttpMessageHandler
         this._linkUrl = linkUrl;
     }
 
+    public Uri? LastRequestUri { get; private set; }
+
     protected override Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request,
         CancellationToken cancellationToken
     )
     {
+        this.LastRequestUri = request.RequestUri;
+
         HttpResponseMessage response = new(this._statusCode);
 
         if (this._content is not null)

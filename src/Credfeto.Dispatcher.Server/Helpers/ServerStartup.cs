@@ -78,9 +78,10 @@ internal static class ServerStartup
         // hosted service's first tick rather than blocking them; a snapshot load needs to
         // complete before the first /priorities request or WorkItemScannerService's first tick
         // can observe the store, which only this synchronous, pre-RunAsync placement guarantees.
-        // Resolved via a nullable interface (only registered under DatabaseProvider.InMemory) so
-        // this doesn't need to branch on which provider is configured.
-        app.Services.GetService<IDispatcherStoreSnapshotLoader>()?.LoadSnapshot();
+        // Every provider registers IDispatcherStoreSnapshotLoader - a no-op under
+        // DatabaseProvider.SqlServer - so ServerStartup doesn't need to branch on which provider
+        // is configured, and a missing registration fails loudly instead of silently skipping.
+        app.Services.GetRequiredService<IDispatcherStoreSnapshotLoader>().LoadSnapshot();
 
         app.Use(AddVersionHeaderAsync);
         app.UseMiddleware<ServerHeaderMiddleware>();

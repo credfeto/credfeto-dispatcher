@@ -49,7 +49,7 @@ public sealed class DispatcherStoreSnapshotStore
 
         try
         {
-            EnsureDirectoryExists(this._directoryPath);
+            Directory.CreateDirectory(this._directoryPath);
 
             tempPath = Path.Combine(this._directoryPath, Path.GetRandomFileName());
 
@@ -131,14 +131,6 @@ public sealed class DispatcherStoreSnapshotStore
             this._logger.SnapshotLoadFailed(filePath: this._filePath, exception: exception);
 
             return false;
-        }
-    }
-
-    private static void EnsureDirectoryExists(string directoryPath)
-    {
-        if (!Directory.Exists(directoryPath))
-        {
-            Directory.CreateDirectory(directoryPath);
         }
     }
 

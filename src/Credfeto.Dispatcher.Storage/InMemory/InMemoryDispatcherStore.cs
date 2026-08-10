@@ -335,18 +335,18 @@ public sealed class InMemoryDispatcherStore
         }
     }
 
-    // Copies all four dictionaries to a flat, JSON-friendly snapshot under _gate. Called
-    // periodically by SnapshotWriterService - never call this outside that gate, since the
-    // dictionaries are otherwise unsynchronised.
+    // Copies all four dictionaries to a snapshot under _gate, so a concurrent mutation during
+    // the caller's later async serialisation can't race the unsynchronised source dictionaries.
+    // Called periodically by SnapshotWriterService.
     internal DispatcherStoreSnapshotData ExportSnapshot()
     {
         lock (this._gate)
         {
             return new DispatcherStoreSnapshotData(
-                Repos: [.. this._repos.Select(static kvp => new RepoEntry(kvp.Key, kvp.Value))],
+                Repos: new Dictionary<string, bool>(this._repos, StringComparer.Ordinal),
                 PullRequests: [.. this._pullRequests.Values],
                 Issues: [.. this._issues.Values],
-                PollingStates: [.. this._pollingStates.Select(static kvp => new PollingStateEntry(kvp.Key, kvp.Value))]
+                PollingStates: new Dictionary<string, string>(this._pollingStates, StringComparer.Ordinal)
             );
         }
     }
@@ -360,12 +360,13 @@ public sealed class InMemoryDispatcherStore
         {
             this._repos.Clear();
 
-            foreach (RepoEntry entry in snapshot.Repos)
+            foreach (KeyValuePair<string, bool> entry in snapshot.Repos)
             {
-                this._repos[entry.Repository] = entry.IsActive;
+                this._repos[entry.Key] = entry.Value;
             }
 
             this._pullRequests.Clear();
+            this._pullRequests.EnsureCapacity(snapshot.PullRequests.Length);
 
             foreach (PullRequestRow row in snapshot.PullRequests)
             {
@@ -373,6 +374,7 @@ public sealed class InMemoryDispatcherStore
             }
 
             this._issues.Clear();
+            this._issues.EnsureCapacity(snapshot.Issues.Length);
 
             foreach (IssueRow row in snapshot.Issues)
             {
@@ -381,9 +383,9 @@ public sealed class InMemoryDispatcherStore
 
             this._pollingStates.Clear();
 
-            foreach (PollingStateEntry entry in snapshot.PollingStates)
+            foreach (KeyValuePair<string, string> entry in snapshot.PollingStates)
             {
-                this._pollingStates[entry.Key] = entry.ETag;
+                this._pollingStates[entry.Key] = entry.Value;
             }
         }
     }

@@ -22,7 +22,7 @@ public sealed class DispatcherStoreSnapshotLoader : IDispatcherStoreSnapshotLoad
 
     public void LoadSnapshot()
     {
-        if (!this._snapshotStore.TryLoad(out DispatcherStoreSnapshotData? data) || data is null)
+        if (!this._snapshotStore.TryLoad(out DispatcherStoreSnapshotData? data))
         {
             this._logger.SnapshotNotLoaded();
 

@@ -53,12 +53,15 @@ public sealed class DispatcherStoreSnapshotStore
 
             tempPath = Path.Combine(this._directoryPath, Path.GetRandomFileName());
 
-            string json = JsonSerializer.Serialize(
-                value: data,
-                jsonTypeInfo: DispatcherStoreSnapshotSerializerContext.Default.DispatcherStoreSnapshotData
-            );
-
-            await File.WriteAllTextAsync(path: tempPath, contents: json, cancellationToken: cancellationToken);
+            await using (FileStream stream = new(path: tempPath, mode: FileMode.Create, access: FileAccess.Write))
+            {
+                await JsonSerializer.SerializeAsync(
+                    utf8Json: stream,
+                    value: data,
+                    jsonTypeInfo: DispatcherStoreSnapshotSerializerContext.Default.DispatcherStoreSnapshotData,
+                    cancellationToken: cancellationToken
+                );
+            }
 
             File.Move(sourceFileName: tempPath, destFileName: this._filePath, overwrite: true);
             tempPath = null;
@@ -88,7 +91,7 @@ public sealed class DispatcherStoreSnapshotStore
         "MA0045:Do not use blocking calls in a sync method (need to make calling method async)",
         Justification = "Deliberately synchronous - must complete before the host starts accepting requests, see the ordering note in ServerStartup.CreateApp"
     )]
-    internal bool TryLoad(out DispatcherStoreSnapshotData? data)
+    internal bool TryLoad([NotNullWhen(true)] out DispatcherStoreSnapshotData? data)
     {
         data = null;
 
@@ -99,10 +102,10 @@ public sealed class DispatcherStoreSnapshotStore
 
         try
         {
-            string json = File.ReadAllText(this._filePath);
+            using FileStream stream = new(path: this._filePath, mode: FileMode.Open, access: FileAccess.Read);
 
             DispatcherStoreSnapshotData? deserialized = JsonSerializer.Deserialize(
-                json: json,
+                utf8Json: stream,
                 jsonTypeInfo: DispatcherStoreSnapshotSerializerContext.Default.DispatcherStoreSnapshotData
             );
 

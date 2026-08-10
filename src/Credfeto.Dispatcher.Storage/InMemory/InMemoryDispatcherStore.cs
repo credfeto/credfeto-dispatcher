@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -23,9 +23,25 @@ public sealed class InMemoryDispatcherStore
     private readonly Dictionary<string, string> _pollingStates = new(StringComparer.Ordinal);
     private readonly TimeProvider _timeProvider;
 
+    // Bumped on every mutating call (under _gate), so SnapshotWriterService can skip writing a
+    // snapshot when nothing has changed since the last write - never read as a precise change
+    // count, only ever compared for equality against a previously observed value.
+    private int _version;
+
     public InMemoryDispatcherStore(TimeProvider timeProvider)
     {
         this._timeProvider = timeProvider;
+    }
+
+    internal int Version
+    {
+        get
+        {
+            lock (this._gate)
+            {
+                return this._version;
+            }
+        }
     }
 
     public IReadOnlyList<string> GetActiveRepos()
@@ -40,6 +56,8 @@ public sealed class InMemoryDispatcherStore
     {
         lock (this._gate)
         {
+            this._version++;
+
             HashSet<string> active = new(activeRepos, StringComparer.Ordinal);
 
             foreach (string repo in active)
@@ -66,6 +84,7 @@ public sealed class InMemoryDispatcherStore
     {
         lock (this._gate)
         {
+            this._version++;
             this._pollingStates[key] = eTag;
         }
     }
@@ -86,6 +105,8 @@ public sealed class InMemoryDispatcherStore
     {
         lock (this._gate)
         {
+            this._version++;
+
             DateTimeOffset now = this._timeProvider.GetUtcNow();
             bool isClosed = string.Equals(status, CLOSED_STATUS, StringComparison.Ordinal);
             (string Repository, int Id) key = (repository, id);
@@ -133,6 +154,8 @@ public sealed class InMemoryDispatcherStore
     {
         lock (this._gate)
         {
+            this._version++;
+
             DateTimeOffset now = this._timeProvider.GetUtcNow();
             bool isClosed = string.Equals(status, CLOSED_STATUS, StringComparison.Ordinal);
             (string Repository, int Id) key = (repository, id);
@@ -177,6 +200,8 @@ public sealed class InMemoryDispatcherStore
                 && string.Equals(existing.Status, OPEN_STATUS, StringComparison.Ordinal)
             )
             {
+                this._version++;
+
                 this._issues[key] = existing with
                 {
                     LinkedPrNumber = linkedPrNumber,
@@ -218,6 +243,8 @@ public sealed class InMemoryDispatcherStore
     {
         lock (this._gate)
         {
+            this._version++;
+
             DateTimeOffset now = this._timeProvider.GetUtcNow();
 
             foreach (
@@ -247,6 +274,8 @@ public sealed class InMemoryDispatcherStore
     {
         lock (this._gate)
         {
+            this._version++;
+
             DateTimeOffset now = this._timeProvider.GetUtcNow();
 
             foreach (
@@ -284,6 +313,8 @@ public sealed class InMemoryDispatcherStore
 
         lock (this._gate)
         {
+            this._version++;
+
             HashSet<string> repos = new(repositories, StringComparer.Ordinal);
 
             foreach (
@@ -300,6 +331,59 @@ public sealed class InMemoryDispatcherStore
             )
             {
                 this._issues.Remove(key);
+            }
+        }
+    }
+
+    // Copies all four dictionaries to a flat, JSON-friendly snapshot under _gate. Called
+    // periodically by SnapshotWriterService - never call this outside that gate, since the
+    // dictionaries are otherwise unsynchronised.
+    internal DispatcherStoreSnapshotData ExportSnapshot()
+    {
+        lock (this._gate)
+        {
+            return new DispatcherStoreSnapshotData(
+                Repos: [.. this._repos.Select(static kvp => new RepoEntry(kvp.Key, kvp.Value))],
+                PullRequests: [.. this._pullRequests.Values],
+                Issues: [.. this._issues.Values],
+                PollingStates: [.. this._pollingStates.Select(static kvp => new PollingStateEntry(kvp.Key, kvp.Value))]
+            );
+        }
+    }
+
+    // Replaces all four dictionaries' contents from a previously exported snapshot. Only ever
+    // safe to call once, at startup, before any other caller can observe or mutate the store -
+    // see DispatcherStoreSnapshotLoader and the synchronous load ordering in ServerStartup.
+    internal void ImportSnapshot(DispatcherStoreSnapshotData snapshot)
+    {
+        lock (this._gate)
+        {
+            this._repos.Clear();
+
+            foreach (RepoEntry entry in snapshot.Repos)
+            {
+                this._repos[entry.Repository] = entry.IsActive;
+            }
+
+            this._pullRequests.Clear();
+
+            foreach (PullRequestRow row in snapshot.PullRequests)
+            {
+                this._pullRequests[(row.Repository, row.Id)] = row;
+            }
+
+            this._issues.Clear();
+
+            foreach (IssueRow row in snapshot.Issues)
+            {
+                this._issues[(row.Repository, row.Id)] = row;
+            }
+
+            this._pollingStates.Clear();
+
+            foreach (PollingStateEntry entry in snapshot.PollingStates)
+            {
+                this._pollingStates[entry.Key] = entry.ETag;
             }
         }
     }

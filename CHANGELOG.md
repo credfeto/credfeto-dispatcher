@@ -40,6 +40,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Add in-memory implementations of the storage repositories (active repo tracker, ETag store, notification state tracker, work item repository) as an alternative to the SQL Server backend
 - Add DatabaseConfiguration.Provider (SqlServer or InMemory) to select the storage backend at startup
 - Order priorities globally into Security/Urgent PRs, other PRs, Security/Urgent issues, then other issues, with named owner/repo combinations boosted to the front of their band; within each band fall back to owner (alphabetically or configured order), repository, issue priority, and age
+- Persist in-memory dispatcher store to periodic JSON snapshot(s) and reload on startup (#210)
 ### Fixed
 - EF Core change-tracking comparers trimmed away at publish time causing MissingMethodException at startup; preserve EF Core and Ben.Demystifier assemblies as trimmer roots
 - preserve EF Core migration types as trimmer roots to prevent missing-table errors at runtime on trimmed binaries

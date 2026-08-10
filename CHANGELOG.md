@@ -82,6 +82,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Updated MSBuild.Sdk.SqlProj from 4.2.0 to 4.3.0 to fix a --warnaserror build failure caused by the SQLPROJ0002 outdated-SDK warning
 - Pull requests that resolve their own assigned AI-Work issue (author authored every commit and is assigned to a closing-referenced issue that passes the label filter) now appear in /priorities even when the pull request itself carries no matching label
 - Extended the linked-issue trust bypass to the periodic full-repo scan and the GitHub Events poller, so PRs resolving their own assigned AI-Work issue reach /priorities regardless of which discovery path finds them first; the Events poller now also applies the label filter to pull requests and issues, closing a gap where it previously tracked every event unconditionally
+- GitHub repo/PR/issue discovery pagination now stays on the configured API base address instead of following the absolute host GitHub's Link header advertises, fixing /priorities showing only a handful of items instead of the full backlog when GitHub API calls are routed through a proxy
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934

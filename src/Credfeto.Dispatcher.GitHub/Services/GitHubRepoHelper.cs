@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -115,11 +115,24 @@ public sealed class GitHubRepoHelper
 
                 if (sections[1].Trim().Equals(value: "rel=\"next\"", comparisonType: StringComparison.Ordinal))
                 {
-                    return sections[0].Trim().Trim('<', '>');
+                    return ToRelativeUrl(sections[0].Trim().Trim('<', '>'));
                 }
             }
         }
 
         return null;
+    }
+
+    // GitHub's Link header always advertises the real api.github.com host, even when the request was
+    // served through a proxy (ApiBaseUrl pointed at github-api.markridgwell.com). Following that
+    // absolute URL verbatim would send the next page request straight to api.github.com, bypassing the
+    // configured base address and the proxy - and re-using the client's Authorization header, which is
+    // only valid against the proxy. Strip the URL down to its path and query so it is always resolved
+    // relative to the "GitHub" HttpClient's own BaseAddress instead.
+    private static string ToRelativeUrl(string url)
+    {
+        return Uri.TryCreate(uriString: url, uriKind: UriKind.Absolute, out Uri? absolute)
+            ? absolute.PathAndQuery
+            : url;
     }
 }

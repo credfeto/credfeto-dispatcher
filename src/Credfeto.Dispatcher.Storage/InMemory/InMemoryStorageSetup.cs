@@ -2,6 +2,7 @@ using System;
 using Credfeto.Dispatcher.GitHub.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 
 namespace Credfeto.Dispatcher.Storage.InMemory;
 
@@ -16,6 +17,9 @@ public static class InMemoryStorageSetup
             .AddSingleton<IActiveRepoTracker, InMemoryActiveRepoTracker>()
             .AddSingleton<IETagStore, InMemoryETagStore>()
             .AddSingleton<INotificationStateTracker, InMemoryNotificationStateTracker>()
-            .AddSingleton<IWorkItemRepository, InMemoryWorkItemRepository>();
+            .AddSingleton<IWorkItemRepository, InMemoryWorkItemRepository>()
+            .AddSingleton<DispatcherStoreSnapshotStore>()
+            .AddSingleton<IDispatcherStoreSnapshotLoader, DispatcherStoreSnapshotLoader>()
+            .AddHostedService<SnapshotWriterService>();
     }
 }

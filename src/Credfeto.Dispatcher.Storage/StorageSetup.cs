@@ -44,6 +44,7 @@ public static class StorageSetup
             .AddSingleton<IActiveRepoTracker, ActiveRepoTracker>()
             .AddSingleton<IETagStore, ETagStore>()
             .AddSingleton<INotificationStateTracker, NotificationStateTracker>()
-            .AddSingleton<IWorkItemRepository, WorkItemRepository>();
+            .AddSingleton<IWorkItemRepository, WorkItemRepository>()
+            .AddSingleton<IDispatcherStoreSnapshotLoader, NullDispatcherStoreSnapshotLoader>();
     }
 }

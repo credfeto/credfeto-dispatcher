@@ -12,6 +12,7 @@ using Credfeto.Dispatcher.Shared;
 using Credfeto.Dispatcher.Shared.Middleware;
 using Credfeto.Dispatcher.Storage;
 using Credfeto.Dispatcher.Storage.Configuration;
+using Credfeto.Dispatcher.Storage.InMemory;
 using Credfeto.Random;
 using Credfeto.Services.Startup;
 using Microsoft.AspNetCore.Builder;
@@ -71,6 +72,17 @@ internal static class ServerStartup
             .ConfigureWebHost(configPath: configPath)
             .Build();
 
+        // Must happen here - synchronously, before app.RunAsync() - not via the IRunOnStartup /
+        // StartupService mechanism used elsewhere in this method. StartupService is itself a
+        // BackgroundService, so IRunOnStartup.StartAsync calls race Kestrel and every other
+        // hosted service's first tick rather than blocking them; a snapshot load needs to
+        // complete before the first /priorities request or WorkItemScannerService's first tick
+        // can observe the store, which only this synchronous, pre-RunAsync placement guarantees.
+        // Every provider registers IDispatcherStoreSnapshotLoader - a no-op under
+        // DatabaseProvider.SqlServer - so ServerStartup doesn't need to branch on which provider
+        // is configured, and a missing registration fails loudly instead of silently skipping.
+        app.Services.GetRequiredService<IDispatcherStoreSnapshotLoader>().LoadSnapshot();
+
         app.Use(AddVersionHeaderAsync);
         app.UseMiddleware<ServerHeaderMiddleware>();
 
@@ -97,11 +109,13 @@ internal static class ServerStartup
     {
         IConfigurationSection databaseSection = builder.Configuration.GetSection("DatabaseConfiguration");
         IConfigurationSection gitHubSection = builder.Configuration.GetSection("GitHub");
+        IConfigurationSection snapshotSection = builder.Configuration.GetSection("Snapshot");
         DatabaseConfiguration databaseConfiguration = databaseSection.Get<DatabaseConfiguration>() ?? new();
 
         builder
             .Services.Configure<DatabaseConfiguration>(databaseSection)
             .Configure<GitHubOptions>(gitHubSection)
+            .Configure<SnapshotOptions>(snapshotSection)
             .AddRandomNumbers()
             .AddRunOnStartupServices()
             .AddStorage(databaseConfiguration)

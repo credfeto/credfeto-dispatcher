@@ -19,6 +19,7 @@ public sealed class SnapshotWriterServiceTests : LoggingFolderCleanupTestBase
     private const string FILE_NAME = "snapshot.json";
 
     private readonly InMemoryDispatcherStore _dispatcherStore;
+    private readonly DispatcherStoreSnapshotStore _snapshotStore;
     private readonly SnapshotWriterService _service;
     private readonly string _snapshotFilePath;
 
@@ -28,7 +29,7 @@ public sealed class SnapshotWriterServiceTests : LoggingFolderCleanupTestBase
         this._dispatcherStore = new InMemoryDispatcherStore(MockDateTimeSources.Past);
 
         SnapshotOptions options = new() { DirectoryPath = this.TempFolder, FileName = FILE_NAME };
-        DispatcherStoreSnapshotStore snapshotStore = new(
+        this._snapshotStore = new DispatcherStoreSnapshotStore(
             Options.Create(options),
             this.GetTypedLogger<DispatcherStoreSnapshotStore>()
         );
@@ -36,7 +37,7 @@ public sealed class SnapshotWriterServiceTests : LoggingFolderCleanupTestBase
 
         this._service = new SnapshotWriterService(
             this._dispatcherStore,
-            snapshotStore,
+            this._snapshotStore,
             Options.Create(options),
             this.GetTypedLogger<SnapshotWriterService>()
         );
@@ -74,10 +75,7 @@ public sealed class SnapshotWriterServiceTests : LoggingFolderCleanupTestBase
 
         await this._service.WriteIfChangedAsync(this.CancellationToken());
 
-        bool loaded = new DispatcherStoreSnapshotStore(
-            Options.Create(new SnapshotOptions { DirectoryPath = this.TempFolder, FileName = FILE_NAME }),
-            this.GetTypedLogger<DispatcherStoreSnapshotStore>()
-        ).TryLoad(out DispatcherStoreSnapshotData? data);
+        bool loaded = this._snapshotStore.TryLoad(out DispatcherStoreSnapshotData? data);
 
         Assert.True(condition: loaded, userMessage: "Snapshot written after the mutation should be loadable");
         Assert.NotNull(data);

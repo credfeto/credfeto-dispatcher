@@ -5,7 +5,7 @@ AS
 BEGIN
   SET NOCOUNT ON;
   DECLARE @now DATETIMEOFFSET = GETUTCDATE();
-  MERGE [dbo].[PollingStates] AS [Target]
+  MERGE [dbo].[PollingStates] WITH (HOLDLOCK) AS [Target]
   USING (SELECT @key AS [Key]) AS [Source] ON [Target].[Key] = [Source].[Key]
   WHEN MATCHED
     THEN UPDATE SET

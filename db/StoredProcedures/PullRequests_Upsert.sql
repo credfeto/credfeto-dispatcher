@@ -14,7 +14,7 @@ AS
 BEGIN
   SET NOCOUNT ON;
   DECLARE @now DATETIMEOFFSET = GETUTCDATE();
-  MERGE [dbo].[PullRequests] AS [Target]
+  MERGE [dbo].[PullRequests] WITH (HOLDLOCK) AS [Target]
   USING (
     SELECT
       @repository AS [Repository],

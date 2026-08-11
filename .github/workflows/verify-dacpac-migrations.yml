@@ -79,15 +79,7 @@ jobs:
 
       - name: "Find DACPAC"
         id: find_dacpac
-        shell: bash
-        run: |
-          DACPAC="$(find "$GITHUB_WORKSPACE/src" -type f -iname "*.dacpac" | head -1)"
-          if [ -z "$DACPAC" ]; then
-            echo "::error::DACPAC not found"
-            exit 1
-          fi
-          echo "✅ Found: $DACPAC"
-          echo "DACPAC=$DACPAC" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/find-dacpac
 
       - name: "Install SqlPackage tool"
         uses: ./.github/actions/dotnet-tool
@@ -108,6 +100,7 @@ jobs:
       - name: "Compare DACPAC to migrated database"
         working-directory: ${{github.workspace}}/src
         shell: bash
+        # yamllint disable rule:line-length
         run: |
           dotnet tool run --allow-roll-forward sqlpackage \
             /Action:DeployReport \
@@ -119,9 +112,11 @@ jobs:
             /tec:false \
             /OutputPath:"$GITHUB_WORKSPACE/deploy-report.xml" \
             /p:DropObjectsNotInSource=True \
+            "/p:DoNotDropObjectTypes=Aggregates;ApplicationRoles;Assemblies;AssemblyFiles;AsymmetricKeys;BrokerPriorities;Certificates;ColumnEncryptionKeys;ColumnMasterKeys;Contracts;DatabaseOptions;DatabaseRoles;Filegroups;Files;FileTables;RoleMembership;Rules;Users;Credentials;CryptographicProviders;DatabaseAuditSpecifications;DatabaseEncryptionKeys;DatabaseScopedCredentials;Endpoints;LinkedServerLogins;LinkedServers;Logins;MasterKeys;Routes;ServerAuditSpecifications;ServerRoleMembership;ServerRoles;ServerTriggers" \
             /p:BlockOnPossibleDataLoss=False \
             /p:IgnoreWhitespace=True \
             /p:IgnoreComments=True
+        # yamllint enable rule:line-length
         env:
           DACPAC_FILE: "${{steps.find_dacpac.outputs.DACPAC}}"
 

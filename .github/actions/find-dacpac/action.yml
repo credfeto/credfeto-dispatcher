@@ -1,0 +1,24 @@
+--- # Find the built DACPAC package
+# Dispatcher-specific: not sourced from a shared template
+name: 'Find DACPAC'
+description: 'Locates the built .dacpac file under src/'
+
+outputs:
+  DACPAC:
+    description: 'Full path to the found .dacpac file'
+    value: ${{steps.find_dacpac.outputs.DACPAC}}
+
+runs:
+  using: "composite"
+  steps:
+    - name: "Find DACPAC"
+      id: find_dacpac
+      shell: bash
+      run: |
+        DACPAC="$(find "$GITHUB_WORKSPACE/src" -type f -iname "*.dacpac" | head -1)"
+        if [ -z "$DACPAC" ]; then
+          echo "::error::DACPAC not found"
+          exit 1
+        fi
+        echo "✅ Found: $DACPAC"
+        echo "DACPAC=$DACPAC" >> "$GITHUB_OUTPUT"

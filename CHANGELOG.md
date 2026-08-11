@@ -85,6 +85,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Extended the linked-issue trust bypass to the periodic full-repo scan and the GitHub Events poller, so PRs resolving their own assigned AI-Work issue reach /priorities regardless of which discovery path finds them first; the Events poller now also applies the label filter to pull requests and issues, closing a gap where it previously tracked every event unconditionally
 - GitHub repo/PR/issue discovery pagination now stays on the configured API base address instead of following the absolute host GitHub's Link header advertises, fixing /priorities showing only a handful of items instead of the full backlog when GitHub API calls are routed through a proxy
 - Add HOLDLOCK to PullRequests_Upsert, Issues_Upsert and PollingStates_Upsert MERGE statements to prevent PK violations when concurrent background pollers race to insert the same new key
+- Align DACPAC project with deployed migrations (remove dead NotificationQueue objects, fix GetActive and RemoveForRepositories drift)
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934

@@ -1,4 +1,4 @@
-CREATE PROCEDURE [dbo].[Repos_SetActive]
+CREATE OR ALTER PROCEDURE [dbo].[Repos_SetActive]
   @repositories NVARCHAR(MAX)
 AS
 BEGIN
@@ -34,3 +34,4 @@ BEGIN
     THEN
     UPDATE SET [IsActive] = 0, [LastUpdated] = @now;
 END;
+GO

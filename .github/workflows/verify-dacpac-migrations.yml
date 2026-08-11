@@ -103,7 +103,14 @@ jobs:
         # yamllint disable rule:line-length
         run: |
           # DoNotDropObjectTypes below is kept in sync by hand with the equivalent list in
-          # .github/actions/database-deploy/action.yml (template-owned, cannot be shared from here)
+          # .github/actions/database-deploy/action.yml (template-owned, cannot be shared from here).
+          # The remaining options intentionally differ from that action's /Action:publish call because
+          # this is a read-only DeployReport comparison against an ephemeral database, not a real deploy:
+          # BlockOnPossibleDataLoss=False (nothing is actually applied here, so data loss is moot) and
+          # IgnoreWhitespace/IgnoreComments=True (avoid spurious drift from formatting-only differences
+          # between hand-written db/ SQL and generated migration output). IncludeCompositeObjects (used
+          # by database-deploy to also deploy extended properties/permissions) is left out of scope for
+          # this schema-only drift check.
           dotnet tool run --allow-roll-forward sqlpackage \
             /Action:DeployReport \
             /SourceFile:"$DACPAC_FILE" \

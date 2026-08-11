@@ -1,5 +1,8 @@
 --- # Find the built DACPAC package
-# Dispatcher-specific: not sourced from a shared template
+# Dispatcher-specific: not sourced from a shared template.
+# Duplicates the "Dotnet: Find Dacpac" step in the template-owned
+# .github/actions/database-deploy/action.yml (funfair-server-template) - that file can't be
+# edited to call this action, so the two must be kept in sync by hand.
 name: 'Find DACPAC'
 description: 'Locates the built .dacpac file under src/'
 

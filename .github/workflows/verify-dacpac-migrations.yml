@@ -102,6 +102,8 @@ jobs:
         shell: bash
         # yamllint disable rule:line-length
         run: |
+          # DoNotDropObjectTypes below is kept in sync by hand with the equivalent list in
+          # .github/actions/database-deploy/action.yml (template-owned, cannot be shared from here)
           dotnet tool run --allow-roll-forward sqlpackage \
             /Action:DeployReport \
             /SourceFile:"$DACPAC_FILE" \
@@ -128,9 +130,10 @@ jobs:
             echo "::error::Deploy report was not generated"
             exit 1
           fi
-          if grep -q "<Operation " "$REPORT"; then
+          OPERATIONS="$(grep "<Operation " "$REPORT" || true)"
+          if [ -n "$OPERATIONS" ]; then
             echo "❌ DACPAC and migrations have drifted - schema differences found:"
-            grep "<Operation " "$REPORT"
+            echo "$OPERATIONS"
             exit 1
           fi
           echo "✅ DACPAC matches the schema produced by running all migrations"

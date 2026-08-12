@@ -1,0 +1,146 @@
+--- # Verify: DACPAC matches the schema produced by the migration scripts
+# Dispatcher-specific: not sourced from a shared template, see issue #187
+name: "Verify: DACPAC Matches Migrations"
+
+on:
+  pull_request:
+    paths:
+      - "db/**"
+      - "src/Credfeto.Dispatcher.Storage/migrations/**"
+      - "src/Credfeto.Dispatcher.Storage.Database/**"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{github.workflow}}-${{github.ref}}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  MSSQL_SA_PASSWORD: "Verify-Dacpac-Ephemeral-Ci-1"
+  VERIFY_DB_NAME: "VerifyDacpac"
+
+jobs:
+  verify-dacpac-matches-migrations:
+    runs-on: ubuntu-latest
+
+    services:
+      sql-server:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: ${{env.MSSQL_SA_PASSWORD}}
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd="/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P Verify-Dacpac-Ephemeral-Ci-1 -Q 'SELECT 1' || exit 1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - name: "Checkout Source"
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          clean: true
+          fetch-depth: 1
+
+      - name: "Ensure sqlcmd is available"
+        shell: bash
+        run: |
+          if command -v sqlcmd >/dev/null 2>&1; then
+            echo "✅ sqlcmd already available: $(command -v sqlcmd)"
+          elif [ -x /opt/mssql-tools18/bin/sqlcmd ]; then
+            echo "/opt/mssql-tools18/bin" >> "$GITHUB_PATH"
+            echo "✅ sqlcmd found at /opt/mssql-tools18/bin"
+          else
+            echo "ℹ️ Installing mssql-tools18 (sqlcmd)"
+            curl -sSL -O https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb
+            sudo dpkg -i packages-microsoft-prod.deb
+            rm packages-microsoft-prod.deb
+            sudo apt-get update
+            sudo ACCEPT_EULA=Y apt-get install -y mssql-tools18 unixodbc-dev
+            echo "/opt/mssql-tools18/bin" >> "$GITHUB_PATH"
+          fi
+
+      - name: "Install dotnet"
+        uses: ./.github/actions/dotnet-install
+        with:
+          GITHUB_TOKEN: ${{secrets.SOURCE_PUSH_TOKEN}}
+          NUGET_PUBLIC_RESTORE_FEED: ${{vars.NUGET_PUBLIC_RESTORE_FEED || 'https://api.nuget.org/v3/index.json'}}
+          NUGET_ADDITIONAL_RESTORE_FEED_RELEASE: ${{vars.NUGET_ADDITIONAL_RESTORE_FEED_RELEASE}}
+          NUGET_ADDITIONAL_RESTORE_FEED_PRERELEASE: ${{vars.NUGET_ADDITIONAL_RESTORE_FEED_PRERELEASE}}
+
+      - name: "Build DACPAC"
+        working-directory: ${{github.workspace}}/src
+        shell: bash
+        run: dotnet build Credfeto.Dispatcher.Storage.Database/Credfeto.Dispatcher.Storage.Database.csproj -c Release
+
+      - name: "Find DACPAC"
+        id: find_dacpac
+        uses: ./.github/actions/find-dacpac
+
+      - name: "Install SqlPackage tool"
+        uses: ./.github/actions/dotnet-tool
+        with:
+          TOOL_NAME: "microsoft.sqlpackage"
+          TOOL_VERSION: "latest"
+
+      - name: "Apply migrations to verification database"
+        shell: bash
+        run: |
+          sqlcmd -C -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -Q "CREATE DATABASE [$VERIFY_DB_NAME];"
+          for script in $(find src/Credfeto.Dispatcher.Storage/migrations -type f -iname "*.sql" | sort); do
+            echo "ℹ️ Applying $script"
+            sqlcmd -C -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -d "$VERIFY_DB_NAME" -i "$script"
+          done
+          echo "✅ All migrations applied"
+
+      - name: "Compare DACPAC to migrated database"
+        working-directory: ${{github.workspace}}/src
+        shell: bash
+        # yamllint disable rule:line-length
+        run: |
+          # DoNotDropObjectTypes below is kept in sync by hand with the equivalent list in
+          # .github/actions/database-deploy/action.yml (template-owned, cannot be shared from here).
+          # The remaining options intentionally differ from that action's /Action:publish call because
+          # this is a read-only DeployReport comparison against an ephemeral database, not a real deploy:
+          # BlockOnPossibleDataLoss=False (nothing is actually applied here, so data loss is moot) and
+          # IgnoreWhitespace/IgnoreComments=True (avoid spurious drift from formatting-only differences
+          # between hand-written db/ SQL and generated migration output). IncludeCompositeObjects (used
+          # by database-deploy to also deploy extended properties/permissions) is left out of scope for
+          # this schema-only drift check.
+          dotnet tool run --allow-roll-forward sqlpackage \
+            /Action:DeployReport \
+            /SourceFile:"$DACPAC_FILE" \
+            /TargetServerName:"localhost,1433" \
+            /TargetDatabaseName:"$VERIFY_DB_NAME" \
+            /TargetUser:sa \
+            /TargetPassword:"$MSSQL_SA_PASSWORD" \
+            /tec:false \
+            /OutputPath:"$GITHUB_WORKSPACE/deploy-report.xml" \
+            /p:DropObjectsNotInSource=True \
+            "/p:DoNotDropObjectTypes=Aggregates;ApplicationRoles;Assemblies;AssemblyFiles;AsymmetricKeys;BrokerPriorities;Certificates;ColumnEncryptionKeys;ColumnMasterKeys;Contracts;DatabaseOptions;DatabaseRoles;Filegroups;Files;FileTables;RoleMembership;Rules;Users;Credentials;CryptographicProviders;DatabaseAuditSpecifications;DatabaseEncryptionKeys;DatabaseScopedCredentials;Endpoints;LinkedServerLogins;LinkedServers;Logins;MasterKeys;Routes;ServerAuditSpecifications;ServerRoleMembership;ServerRoles;ServerTriggers" \
+            /p:BlockOnPossibleDataLoss=False \
+            /p:IgnoreWhitespace=True \
+            /p:IgnoreComments=True
+        # yamllint enable rule:line-length
+        env:
+          DACPAC_FILE: "${{steps.find_dacpac.outputs.DACPAC}}"
+
+      - name: "Verify no drift"
+        shell: bash
+        run: |
+          REPORT="$GITHUB_WORKSPACE/deploy-report.xml"
+          if [ ! -f "$REPORT" ]; then
+            echo "::error::Deploy report was not generated"
+            exit 1
+          fi
+          OPERATIONS="$(grep "<Operation " "$REPORT" || true)"
+          if [ -n "$OPERATIONS" ]; then
+            echo "❌ DACPAC and migrations have drifted - schema differences found:"
+            echo "$OPERATIONS"
+            exit 1
+          fi
+          echo "✅ DACPAC matches the schema produced by running all migrations"

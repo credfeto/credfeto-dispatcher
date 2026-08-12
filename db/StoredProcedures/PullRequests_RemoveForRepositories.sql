@@ -3,21 +3,22 @@ CREATE PROCEDURE [dbo].[PullRequests_RemoveForRepositories]
 AS
 BEGIN
   SET NOCOUNT ON;
+  DECLARE @RepositoriesToRemove TABLE ([Repository] NVARCHAR(450) NOT NULL PRIMARY KEY);
   IF @repositories IS NULL
     BEGIN
       RETURN;
     END;
-  WITH
-    [RepositoryList] AS (
-      SELECT TRIM([value]) AS [Repository]
-      FROM STRING_SPLIT(@repositories, N',')
-    )
-
+  INSERT INTO @RepositoriesToRemove ([Repository])
+  SELECT [Source].[Repository]
+  FROM (
+    SELECT TRIM([value]) AS [Repository]
+    FROM STRING_SPLIT(@repositories, N',')
+  ) AS [Source]
+  WHERE [Source].[Repository] > N'';
   DELETE FROM [dbo].[PullRequests]
   WHERE EXISTS (
       SELECT 1
-      FROM [RepositoryList]
-      WHERE [RepositoryList].[Repository] = [PullRequests].[Repository]
-        AND [RepositoryList].[Repository] > N''
+      FROM @RepositoriesToRemove AS [Source]
+      WHERE [Source].[Repository] = [dbo].[PullRequests].[Repository]
     );
 END;

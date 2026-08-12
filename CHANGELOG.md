@@ -86,7 +86,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - GitHub repo/PR/issue discovery pagination now stays on the configured API base address instead of following the absolute host GitHub's Link header advertises, fixing /priorities showing only a handful of items instead of the full backlog when GitHub API calls are routed through a proxy
 - Add HOLDLOCK to PullRequests_Upsert, Issues_Upsert and PollingStates_Upsert MERGE statements to prevent PK violations when concurrent background pollers race to insert the same new key
 - Align DACPAC project with deployed migrations (remove dead NotificationQueue objects, fix GetActive and RemoveForRepositories drift)
-- TBD - to be finalized after review
+- scripts/smoke-test.sh writes its server log and response body under the mktemp PUBLISH_DIR instead of fixed /tmp paths, so concurrent runs no longer clobber each other's files and the existing cleanup trap removes both
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934

@@ -3,8 +3,8 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.Models;
 using Credfeto.Dispatcher.GitHub.Services;
-using Credfeto.Dispatcher.GitHub.Tests.Helpers;
 using FunFair.Test.Common;
+using FunFair.Test.Common.Extensions;
 using NSubstitute;
 using Xunit;
 
@@ -14,11 +14,11 @@ public sealed class GitHubRepoHelperTests : TestBase
 {
     private const string EMPTY_JSON = "[]";
 
-    private readonly System.Net.Http.IHttpClientFactory _httpClientFactory;
+    private readonly IHttpClientFactory _httpClientFactory;
 
     public GitHubRepoHelperTests()
     {
-        this._httpClientFactory = GetSubstitute<System.Net.Http.IHttpClientFactory>();
+        this._httpClientFactory = GetSubstitute<IHttpClientFactory>();
     }
 
     private GitHubRepoHelper CreateHelper()
@@ -29,8 +29,11 @@ public sealed class GitHubRepoHelperTests : TestBase
     [Fact]
     public async Task GetPagedAsync_WhenSuccessful_ReturnsNoFailureStatusAsync()
     {
-        using HttpClient client = HttpClientTestFactory.Create(HttpStatusCode.OK, EMPTY_JSON);
-        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+        this._httpClientFactory.MockCreateClientWithResponse(
+            clientName: "GitHub",
+            httpStatusCode: HttpStatusCode.OK,
+            responseMessage: EMPTY_JSON
+        );
 
         GitHubRepoHelper helper = this.CreateHelper();
 
@@ -53,8 +56,7 @@ public sealed class GitHubRepoHelperTests : TestBase
     [InlineData(HttpStatusCode.InternalServerError)]
     public async Task GetPagedAsync_WhenRequestFails_ReturnsMatchingFailureStatusAsync(HttpStatusCode statusCode)
     {
-        using HttpClient client = HttpClientTestFactory.Create(statusCode);
-        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+        this._httpClientFactory.MockCreateClientWithResponse(clientName: "GitHub", httpStatusCode: statusCode);
 
         GitHubRepoHelper helper = this.CreateHelper();
 

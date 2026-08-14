@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.Configuration;
@@ -138,11 +139,11 @@ public sealed class WorkItemScanner : IWorkItemScanner
     {
         this._logger.LogScanningRepo(repo: repo);
 
-        IReadOnlyList<int>? activePrNumbers = await this.ScanPullRequestsAsync(
+        (IReadOnlyList<int>? activePrNumbers, bool prConfirmedGone) = await this.ScanPullRequestsAsync(
             repo: repo,
             cancellationToken: cancellationToken
         );
-        IReadOnlyList<int>? activeIssueNumbers = await this.ScanIssuesAsync(
+        (IReadOnlyList<int>? activeIssueNumbers, bool issueConfirmedGone) = await this.ScanIssuesAsync(
             repo: repo,
             cancellationToken: cancellationToken
         );
@@ -155,33 +156,50 @@ public sealed class WorkItemScanner : IWorkItemScanner
                 activeIssueNumbers: activeIssueNumbers,
                 cancellationToken: cancellationToken
             );
+
+            return;
         }
-        else
+
+        if (prConfirmedGone || issueConfirmedGone)
         {
-            this._logger.LogRepoScanFailed(repo: repo);
+            this._logger.LogRepoConfirmedGone(repo: repo);
             await this._workItemRepository.RemoveItemsForRepositoriesAsync(
                 repositories: [repo],
                 cancellationToken: cancellationToken
             );
+
+            return;
         }
+
+        this._logger.LogRepoScanFailed(repo: repo);
     }
 
-    private async Task<IReadOnlyList<int>?> ScanPullRequestsAsync(string repo, CancellationToken cancellationToken)
+    private static bool IsGoneStatus(HttpStatusCode? status)
+    {
+        return status is HttpStatusCode.NotFound or HttpStatusCode.Gone;
+    }
+
+    private async Task<(IReadOnlyList<int>? ActiveNumbers, bool RepoConfirmedGone)> ScanPullRequestsAsync(
+        string repo,
+        CancellationToken cancellationToken
+    )
     {
         string? url = $"repos/{repo}/pulls?state=open&per_page=100";
         List<int> activePrNumbers = [];
+        bool isFirstPage = true;
 
         while (url is not null)
         {
-            (ApiPullRequest[]? items, string? nextUrl) = await this._helper.GetPagedAsync(
-                url: url,
-                jsonTypeInfo: NotificationSerializerContext.Default.ApiPullRequestArray,
-                cancellationToken: cancellationToken
-            );
+            (ApiPullRequest[]? items, string? nextUrl, HttpStatusCode? failureStatus) =
+                await this._helper.GetPagedAsync(
+                    url: url,
+                    jsonTypeInfo: NotificationSerializerContext.Default.ApiPullRequestArray,
+                    cancellationToken: cancellationToken
+                );
 
             if (items is null)
             {
-                return null;
+                return (null, isFirstPage && IsGoneStatus(failureStatus));
             }
 
             foreach (ApiPullRequest pr in items)
@@ -195,19 +213,24 @@ public sealed class WorkItemScanner : IWorkItemScanner
             }
 
             url = nextUrl;
+            isFirstPage = false;
         }
 
-        return activePrNumbers;
+        return (activePrNumbers, false);
     }
 
-    private async Task<IReadOnlyList<int>?> ScanIssuesAsync(string repo, CancellationToken cancellationToken)
+    private async Task<(IReadOnlyList<int>? ActiveNumbers, bool RepoConfirmedGone)> ScanIssuesAsync(
+        string repo,
+        CancellationToken cancellationToken
+    )
     {
         string? url = $"repos/{repo}/issues?state=open&per_page=100";
         List<int> activeIssueNumbers = [];
+        bool isFirstPage = true;
 
         while (url is not null)
         {
-            (ApiIssue[]? items, string? nextUrl) = await this._helper.GetPagedAsync(
+            (ApiIssue[]? items, string? nextUrl, HttpStatusCode? failureStatus) = await this._helper.GetPagedAsync(
                 url: url,
                 jsonTypeInfo: NotificationSerializerContext.Default.ApiIssueArray,
                 cancellationToken: cancellationToken
@@ -215,7 +238,14 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
             if (items is null)
             {
-                return null;
+                if (isFirstPage && failureStatus == HttpStatusCode.Gone)
+                {
+                    this._logger.LogIssuesDisabledForRepo(repo: repo);
+
+                    return (activeIssueNumbers, false);
+                }
+
+                return (null, isFirstPage && failureStatus == HttpStatusCode.NotFound);
             }
 
             foreach (ApiIssue issue in items)
@@ -231,9 +261,10 @@ public sealed class WorkItemScanner : IWorkItemScanner
             }
 
             url = nextUrl;
+            isFirstPage = false;
         }
 
-        return activeIssueNumbers;
+        return (activeIssueNumbers, false);
     }
 
     private async Task ProcessScannedPullRequestAsync(

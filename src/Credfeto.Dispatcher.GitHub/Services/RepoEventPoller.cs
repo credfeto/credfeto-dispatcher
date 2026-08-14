@@ -103,7 +103,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
     {
         long lastId = await this.LoadLastIdAsync(key: lastIdKey, cancellationToken: cancellationToken);
 
-        (ApiEvent[]? events, _) = await this._helper.GetPagedAsync(
+        (ApiEvent[]? events, _, _) = await this._helper.GetPagedAsync(
             url: url,
             jsonTypeInfo: NotificationSerializerContext.Default.ApiEventArray,
             cancellationToken: cancellationToken

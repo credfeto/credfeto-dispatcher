@@ -1,4 +1,3 @@
-using System;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -27,30 +26,10 @@ public sealed class GitHubRepoHelperTests : TestBase
         return new(httpClientFactory: this._httpClientFactory, logger: this.GetTypedLogger<GitHubRepoHelper>());
     }
 
-    private static HttpClient CreateClient(HttpStatusCode statusCode, string? content = null)
-    {
-        FixedResponseHandler? handler = new(statusCode: statusCode, content: content);
-
-        try
-        {
-            HttpClient client = new(handler: handler, disposeHandler: true)
-            {
-                BaseAddress = new Uri("https://api.github.com/"),
-            };
-            handler = null;
-
-            return client;
-        }
-        finally
-        {
-            handler?.Dispose();
-        }
-    }
-
     [Fact]
     public async Task GetPagedAsync_WhenSuccessful_ReturnsNoFailureStatusAsync()
     {
-        using HttpClient client = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        using HttpClient client = HttpClientTestFactory.Create(HttpStatusCode.OK, EMPTY_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(client);
 
         GitHubRepoHelper helper = this.CreateHelper();
@@ -74,7 +53,7 @@ public sealed class GitHubRepoHelperTests : TestBase
     [InlineData(HttpStatusCode.InternalServerError)]
     public async Task GetPagedAsync_WhenRequestFails_ReturnsMatchingFailureStatusAsync(HttpStatusCode statusCode)
     {
-        using HttpClient client = CreateClient(statusCode);
+        using HttpClient client = HttpClientTestFactory.Create(statusCode);
         this._httpClientFactory.CreateClient("GitHub").Returns(client);
 
         GitHubRepoHelper helper = this.CreateHelper();

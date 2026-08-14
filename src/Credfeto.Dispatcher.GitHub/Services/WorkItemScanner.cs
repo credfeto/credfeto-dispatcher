@@ -245,7 +245,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
                     return (activeIssueNumbers, false);
                 }
 
-                return (null, isFirstPage && failureStatus == HttpStatusCode.NotFound);
+                return (null, isFirstPage && IsGoneStatus(failureStatus));
             }
 
             foreach (ApiIssue issue in items)

@@ -96,7 +96,7 @@ public sealed class ModifiedIssueMentionPoller : IModifiedIssueMentionPoller
 
         while (url is not null)
         {
-            (ApiIssue[]? items, string? nextUrl) = await this._helper.GetPagedAsync(
+            (ApiIssue[]? items, string? nextUrl, _) = await this._helper.GetPagedAsync(
                 url: url,
                 jsonTypeInfo: NotificationSerializerContext.Default.ApiIssueArray,
                 cancellationToken: cancellationToken

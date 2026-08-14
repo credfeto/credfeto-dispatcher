@@ -432,32 +432,7 @@ public sealed class WorkItemScannerTests : TestBase
 
     private static HttpClient CreateClient(HttpStatusCode statusCode, string? content = null, string? linkUrl = null)
     {
-        return CreateClientWithHandler(statusCode: statusCode, content: content, linkUrl: linkUrl).Client;
-    }
-
-    private static (HttpClient Client, FixedResponseHandler Handler) CreateClientWithHandler(
-        HttpStatusCode statusCode,
-        string? content = null,
-        string? linkUrl = null
-    )
-    {
-        FixedResponseHandler? handler = new(statusCode: statusCode, content: content, linkUrl: linkUrl);
-
-        try
-        {
-            HttpClient client = new(handler: handler, disposeHandler: true)
-            {
-                BaseAddress = new Uri("https://api.github.com/"),
-            };
-            (HttpClient Client, FixedResponseHandler Handler) result = (client, handler);
-            handler = null;
-
-            return result;
-        }
-        finally
-        {
-            handler?.Dispose();
-        }
+        return HttpClientTestFactory.Create(statusCode: statusCode, content: content, linkUrl: linkUrl);
     }
 
     [Fact]
@@ -998,6 +973,166 @@ public sealed class WorkItemScannerTests : TestBase
     }
 
     [Fact]
+    public async Task ScanAsync_WhenPrScanFailsTransiently_DoesNotDeleteStoredItemsAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.InternalServerError);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, OPEN_ISSUE_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        WorkItemScanner scanner = this.CreateScanner();
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._workItemRepository.DidNotReceive()
+            .RemoveItemsForRepositoriesAsync(
+                repositories: Arg.Any<IReadOnlyList<string>>(),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WhenIssueScanFailsTransiently_DoesNotDeleteStoredItemsAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, OPEN_PR_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.InternalServerError);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        WorkItemScanner scanner = this.CreateScanner();
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._workItemRepository.DidNotReceive()
+            .RemoveItemsForRepositoriesAsync(
+                repositories: Arg.Any<IReadOnlyList<string>>(),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.NotFound)]
+    [InlineData(HttpStatusCode.Gone)]
+    public async Task ScanAsync_WhenPullRequestListingConfirmsRepoGoneOnFirstPage_RemovesStoredItemsAsync(
+        HttpStatusCode statusCode
+    )
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(statusCode);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        WorkItemScanner scanner = this.CreateScanner();
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._workItemRepository.Received(1)
+            .RemoveItemsForRepositoriesAsync(
+                repositories: Arg.Is<IReadOnlyList<string>>(r => r.Count == 1 && r[0] == REPO),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WhenIssueListingReturnsNotFoundOnFirstPage_RemovesStoredItemsAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.NotFound);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        WorkItemScanner scanner = this.CreateScanner();
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._workItemRepository.Received(1)
+            .RemoveItemsForRepositoriesAsync(
+                repositories: Arg.Is<IReadOnlyList<string>>(r => r.Count == 1 && r[0] == REPO),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WhenIssueListingReturnsGoneOnFirstPage_TreatsAsNoActiveIssuesAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, OPEN_PR_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.Gone);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        WorkItemScanner scanner = this.CreateScanner();
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._workItemRepository.DidNotReceive()
+            .RemoveItemsForRepositoriesAsync(
+                repositories: Arg.Any<IReadOnlyList<string>>(),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+
+        await this
+            ._workItemRepository.Received(1)
+            .CloseStaleItemsForRepoAsync(
+                repository: REPO,
+                activePullRequestNumbers: Arg.Is<IReadOnlyList<int>>(l => l.Count == 1 && l[0] == 1),
+                activeIssueNumbers: Arg.Is<IReadOnlyList<int>>(l => l.Count == 0),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WhenPullRequestSecondPageFailsWithNotFound_DoesNotDeleteStoredItemsAsync()
+    {
+        const string page2Url = "https://api.github.com/repos/owner/repo/pulls?state=open&per_page=100&page=2";
+
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prPage1Client = CreateClient(HttpStatusCode.OK, PR_PAGE1_JSON, linkUrl: page2Url);
+        using HttpClient prPage2Client = CreateClient(HttpStatusCode.NotFound);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prPage1Client, prPage2Client, issueClient);
+
+        WorkItemScanner scanner = this.CreateScanner();
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._workItemRepository.DidNotReceive()
+            .RemoveItemsForRepositoriesAsync(
+                repositories: Arg.Any<IReadOnlyList<string>>(),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WhenIssueListingSecondPageFailsWithNotFound_DoesNotDeleteStoredItemsAsync()
+    {
+        const string issuePage2Url = "https://api.github.com/repos/owner/repo/issues?state=open&per_page=100&page=2";
+
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        using HttpClient issuePage1Client = CreateClient(HttpStatusCode.OK, OPEN_ISSUE_JSON, linkUrl: issuePage2Url);
+        using HttpClient issuePage2Client = CreateClient(HttpStatusCode.NotFound);
+        this._httpClientFactory.CreateClient("GitHub")
+            .Returns(repoClient, prClient, issuePage1Client, issuePage2Client);
+
+        WorkItemScanner scanner = this.CreateScanner();
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._workItemRepository.DidNotReceive()
+            .RemoveItemsForRepositoriesAsync(
+                repositories: Arg.Any<IReadOnlyList<string>>(),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
     public async Task ScanAsync_WithPaginatedPullRequests_ProcessesBothPagesAsync()
     {
         const string page2Url = "https://api.github.com/repos/owner/repo/pulls?state=open&per_page=100&page=2";
@@ -1150,7 +1285,7 @@ public sealed class WorkItemScannerTests : TestBase
             USER_REPOS_JSON,
             linkUrl: foreignHostNextPageUrl
         );
-        (HttpClient repoPage2Client, FixedResponseHandler repoPage2Handler) = CreateClientWithHandler(
+        (HttpClient repoPage2Client, FixedResponseHandler repoPage2Handler) = HttpClientTestFactory.CreateWithHandler(
             HttpStatusCode.OK,
             EMPTY_JSON
         );

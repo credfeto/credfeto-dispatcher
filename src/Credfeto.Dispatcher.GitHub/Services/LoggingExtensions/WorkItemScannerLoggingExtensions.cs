@@ -78,4 +78,19 @@ internal static partial class WorkItemScannerLoggingExtensions
         Message = "Failed to scan repo {Repo}: scan returned null result"
     )]
     public static partial void LogRepoScanFailed(this ILogger logger, string repo);
+
+    [LoggerMessage(
+        EventId = 14,
+        Level = LogLevel.Warning,
+        Message = "Repo {Repo} confirmed gone; removing stored work items"
+    )]
+    public static partial void LogRepoConfirmedGone(this ILogger logger, string repo);
+
+    [Conditional("DEBUG")]
+    [LoggerMessage(
+        EventId = 15,
+        Level = LogLevel.Debug,
+        Message = "Repo {Repo}: issues API returned 410 Gone (issues disabled); treating as zero active issues"
+    )]
+    public static partial void LogIssuesDisabledForRepo(this ILogger logger, string repo);
 }

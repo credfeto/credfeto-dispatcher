@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
@@ -37,7 +38,7 @@ public sealed class GitHubRepoHelper
 
         while (url is not null)
         {
-            (ApiUserRepo[]? items, string? nextUrl) = await this.GetPagedAsync(
+            (ApiUserRepo[]? items, string? nextUrl, _) = await this.GetPagedAsync(
                 url: url,
                 jsonTypeInfo: NotificationSerializerContext.Default.ApiUserRepoArray,
                 cancellationToken: cancellationToken
@@ -66,7 +67,7 @@ public sealed class GitHubRepoHelper
         return (true, active, inactive);
     }
 
-    internal async ValueTask<(T[]? items, string? nextUrl)> GetPagedAsync<T>(
+    internal async ValueTask<(T[]? items, string? nextUrl, HttpStatusCode? failureStatus)> GetPagedAsync<T>(
         string url,
         JsonTypeInfo<T[]> jsonTypeInfo,
         CancellationToken cancellationToken
@@ -85,14 +86,14 @@ public sealed class GitHubRepoHelper
         {
             this._logger.LogPageFetchFailed(url: url);
 
-            return (null, null);
+            return (null, null, response.StatusCode);
         }
 
         string json = await response.Content.ReadAsStringAsync(cancellationToken);
         T[]? items = JsonSerializer.Deserialize(json: json, jsonTypeInfo: jsonTypeInfo);
         string? nextUrl = ParseNextLink(response.Headers);
 
-        return (items, nextUrl);
+        return (items, nextUrl, null);
     }
 
     private static string? ParseNextLink(HttpResponseHeaders headers)

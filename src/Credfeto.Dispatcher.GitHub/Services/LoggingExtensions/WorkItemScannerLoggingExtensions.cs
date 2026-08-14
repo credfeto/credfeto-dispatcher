@@ -82,7 +82,7 @@ internal static partial class WorkItemScannerLoggingExtensions
     [LoggerMessage(
         EventId = 14,
         Level = LogLevel.Warning,
-        Message = "Repo {Repo} confirmed gone (404/410 on first page); removing stored work items"
+        Message = "Repo {Repo} confirmed gone; removing stored work items"
     )]
     public static partial void LogRepoConfirmedGone(this ILogger logger, string repo);
 

@@ -238,6 +238,9 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
             if (items is null)
             {
+                // Checked ahead of IsGoneStatus: for the issues endpoint, 410 Gone on the first page means
+                // issues are disabled for the repo, not that the repo itself is gone - IsGoneStatus treats
+                // Gone as repo-confirmed-gone, which does not apply here.
                 if (isFirstPage && failureStatus == HttpStatusCode.Gone)
                 {
                     this._logger.LogIssuesDisabledForRepo(repo: repo);

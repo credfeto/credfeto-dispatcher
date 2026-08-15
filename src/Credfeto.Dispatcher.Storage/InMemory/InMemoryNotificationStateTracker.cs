@@ -29,6 +29,7 @@ public sealed class InMemoryNotificationStateTracker : INotificationStateTracker
             status: details.Status,
             priority: (int)priority,
             isOnHold: isOnHold,
+            hasDetail: details.HasDetail,
             commentCount: details.Comments.Count,
             reviewDecision: NotificationDetailMapping.ComputeReviewDecision(details.Reviews),
             failedCheckCount: NotificationDetailMapping.CountFailedChecks(details.Runs),

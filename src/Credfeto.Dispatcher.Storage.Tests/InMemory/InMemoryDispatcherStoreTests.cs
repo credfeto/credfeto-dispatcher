@@ -109,6 +109,7 @@ public sealed class InMemoryDispatcherStoreTests : TestBase
             status: "Open",
             priority: 1,
             isOnHold: false,
+            hasDetail: true,
             commentCount: 2,
             reviewDecision: "Approved",
             failedCheckCount: 0,
@@ -141,6 +142,93 @@ public sealed class InMemoryDispatcherStoreTests : TestBase
         PullRequestRow pullRequest = Assert.Single(pullRequests);
         Assert.Equal(expected: 10, actual: pullRequest.Id);
         Assert.Empty(issues);
+    }
+
+    [Fact]
+    public void UpsertPullRequestWithoutDetailPreservesExistingDetailColumns()
+    {
+        this._store.UpsertPullRequest(
+            repository: REPOSITORY,
+            id: 10,
+            status: "Open",
+            priority: 1,
+            isOnHold: false,
+            hasDetail: true,
+            commentCount: 5,
+            reviewDecision: "ChangesRequested",
+            failedCheckCount: 3,
+            failedCheckNames: "build,test",
+            failedCheckSha: "abc123",
+            author: "octocat"
+        );
+
+        this._store.UpsertPullRequest(
+            repository: REPOSITORY,
+            id: 10,
+            status: "Open",
+            priority: 2,
+            isOnHold: false,
+            hasDetail: false,
+            commentCount: 0,
+            reviewDecision: null,
+            failedCheckCount: 0,
+            failedCheckNames: null,
+            failedCheckSha: null,
+            author: null
+        );
+
+        (IReadOnlyList<PullRequestRow> pullRequests, _) = this._store.GetActiveWorkItems();
+        PullRequestRow pullRequest = Assert.Single(pullRequests);
+
+        Assert.Equal(expected: 2, actual: pullRequest.Priority);
+        Assert.Equal(expected: 5, actual: pullRequest.CommentCount);
+        Assert.Equal(expected: "ChangesRequested", actual: pullRequest.ReviewDecision);
+        Assert.Equal(expected: 3, actual: pullRequest.FailedCheckCount);
+        Assert.Equal(expected: "build,test", actual: pullRequest.FailedCheckNames);
+        Assert.Equal(expected: "abc123", actual: pullRequest.FailedCheckSha);
+    }
+
+    [Fact]
+    public void UpsertPullRequestWithDetailOverwritesDetailColumnsWithGenuineZeroAndNullValues()
+    {
+        this._store.UpsertPullRequest(
+            repository: REPOSITORY,
+            id: 10,
+            status: "Open",
+            priority: 1,
+            isOnHold: false,
+            hasDetail: true,
+            commentCount: 5,
+            reviewDecision: "ChangesRequested",
+            failedCheckCount: 3,
+            failedCheckNames: "build,test",
+            failedCheckSha: "abc123",
+            author: "octocat"
+        );
+
+        this._store.UpsertPullRequest(
+            repository: REPOSITORY,
+            id: 10,
+            status: "Open",
+            priority: 1,
+            isOnHold: false,
+            hasDetail: true,
+            commentCount: 0,
+            reviewDecision: null,
+            failedCheckCount: 0,
+            failedCheckNames: null,
+            failedCheckSha: null,
+            author: "octocat"
+        );
+
+        (IReadOnlyList<PullRequestRow> pullRequests, _) = this._store.GetActiveWorkItems();
+        PullRequestRow pullRequest = Assert.Single(pullRequests);
+
+        Assert.Equal(expected: 0, actual: pullRequest.CommentCount);
+        Assert.Null(pullRequest.ReviewDecision);
+        Assert.Equal(expected: 0, actual: pullRequest.FailedCheckCount);
+        Assert.Null(pullRequest.FailedCheckNames);
+        Assert.Null(pullRequest.FailedCheckSha);
     }
 
     [Fact]

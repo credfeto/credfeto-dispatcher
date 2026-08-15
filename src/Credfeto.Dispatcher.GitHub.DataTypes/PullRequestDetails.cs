@@ -20,5 +20,6 @@ public sealed record PullRequestDetails(
     ItemRepository Repository,
     LastNotification LastNotification,
     string? Author,
-    IReadOnlyList<string> CommitAuthors
+    IReadOnlyList<string> CommitAuthors,
+    bool HasDetail
 );

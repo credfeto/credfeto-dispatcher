@@ -426,7 +426,8 @@ public sealed class WorkItemScannerTests : TestBase
             Repository: new ItemRepository(Owner: "owner", Name: "repo", Url: new Uri("https://github.com/owner/repo")),
             LastNotification: new LastNotification(Id: "scan:owner/repo:pr:40", Timestamp: DateTimeOffset.MinValue),
             Author: author,
-            CommitAuthors: commitAuthors
+            CommitAuthors: commitAuthors,
+            HasDetail: true
         );
     }
 
@@ -588,7 +589,7 @@ public sealed class WorkItemScannerTests : TestBase
             ._notificationStateTracker.Received(1)
             .UpdateStateAsync(
                 notification: Arg.Is<GitHubNotification>(n => n.Repository.FullName == REPO),
-                details: Arg.Is<PullRequestDetails>(d => d.Number == 1 && d.Status == "Open"),
+                details: Arg.Is<PullRequestDetails>(d => d.Number == 1 && d.Status == "Open" && !d.HasDetail),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
                 cancellationToken: Arg.Any<CancellationToken>()

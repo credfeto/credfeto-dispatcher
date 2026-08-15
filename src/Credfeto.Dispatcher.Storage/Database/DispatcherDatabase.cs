@@ -42,6 +42,7 @@ internal static partial class DispatcherDatabase
         string status,
         int priority,
         bool isOnHold,
+        bool hasDetail,
         int commentCount,
         string? reviewDecision,
         int failedCheckCount,

@@ -1,4 +1,4 @@
-CREATE PROCEDURE [dbo].[PullRequests_Upsert]
+CREATE OR ALTER PROCEDURE [dbo].[PullRequests_Upsert]
   @repository NVARCHAR(450),
   @id INT,
   @status NVARCHAR(MAX),
@@ -53,3 +53,4 @@ BEGIN
       @now
     );
 END;
+GO

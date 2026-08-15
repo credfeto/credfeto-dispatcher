@@ -122,7 +122,8 @@ public sealed class GitHubPollingWorkerTests : TestBase
             Repository: BuildTestRepository(),
             LastNotification: BuildTestLastNotification("1"),
             Author: author,
-            CommitAuthors: commitAuthors ?? []
+            CommitAuthors: commitAuthors ?? [],
+            HasDetail: true
         );
     }
 

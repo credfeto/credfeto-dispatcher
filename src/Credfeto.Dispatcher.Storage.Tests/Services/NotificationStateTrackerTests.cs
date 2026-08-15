@@ -59,7 +59,8 @@ public sealed class NotificationStateTrackerTests : TestBase
             Repository: new ItemRepository(Owner: "owner", Name: "repo", Url: repoUri),
             LastNotification: new LastNotification(Id: "notif-1", Timestamp: BaseTime),
             Author: null,
-            CommitAuthors: []
+            CommitAuthors: [],
+            HasDetail: true
         );
     }
 
@@ -82,7 +83,8 @@ public sealed class NotificationStateTrackerTests : TestBase
             Repository: new ItemRepository(Owner: "owner", Name: "repo", Url: repoUri),
             LastNotification: new LastNotification(Id: "notif-1", Timestamp: BaseTime),
             Author: null,
-            CommitAuthors: []
+            CommitAuthors: [],
+            HasDetail: true
         );
     }
 

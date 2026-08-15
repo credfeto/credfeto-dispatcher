@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -421,6 +421,10 @@ public sealed class PullRequestDetailFetcherTests : TestBase
 
         Assert.NotNull(result);
         Assert.Equal(expected: "Open", actual: result.Status);
+        Assert.True(
+            result.HasDetail,
+            userMessage: "Expected notification-fetched details to be marked as having detail"
+        );
     }
 
     [Fact]

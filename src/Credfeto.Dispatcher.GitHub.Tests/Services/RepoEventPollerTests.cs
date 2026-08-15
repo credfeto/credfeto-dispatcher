@@ -229,7 +229,8 @@ public sealed class RepoEventPollerTests : TestBase
             Repository: new ItemRepository(Owner: "owner", Name: "repo", Url: new Uri("https://github.com/owner/repo")),
             LastNotification: new LastNotification(Id: "event:owner/repo:pr:42", Timestamp: DateTimeOffset.MinValue),
             Author: author,
-            CommitAuthors: commitAuthors
+            CommitAuthors: commitAuthors,
+            HasDetail: true
         );
     }
 
@@ -249,7 +250,7 @@ public sealed class RepoEventPollerTests : TestBase
             ._notificationStateTracker.Received(1)
             .UpdateStateAsync(
                 notification: Arg.Any<GitHubNotification>(),
-                details: Arg.Is<PullRequestDetails>(d => d.Number == 40),
+                details: Arg.Is<PullRequestDetails>(d => d.Number == 40 && !d.HasDetail),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
                 cancellationToken: Arg.Any<CancellationToken>()

@@ -174,7 +174,8 @@ public sealed class PullRequestDetailFetcher : IPullRequestDetailFetcher
             Repository: repository,
             LastNotification: lastNotification,
             Author: pr.Author?.Login,
-            CommitAuthors: ExtractCommitAuthors(pr)
+            CommitAuthors: ExtractCommitAuthors(pr),
+            HasDetail: true
         );
     }
 

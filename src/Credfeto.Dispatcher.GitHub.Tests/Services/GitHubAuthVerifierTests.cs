@@ -14,41 +14,13 @@ namespace Credfeto.Dispatcher.GitHub.Tests.Services;
 
 public sealed class GitHubAuthVerifierTests : TestBase
 {
-    private readonly System.Net.Http.IHttpClientFactory _httpClientFactory;
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly IGitHubAuthVerifier _verifier;
 
     public GitHubAuthVerifierTests()
     {
-        this._httpClientFactory = GetSubstitute<System.Net.Http.IHttpClientFactory>();
+        this._httpClientFactory = GetSubstitute<IHttpClientFactory>();
         this._verifier = new GitHubAuthVerifier(httpClientFactory: this._httpClientFactory);
-    }
-
-    private static (
-        HttpClient Client,
-        CapturingResponseHandler Handler
-    ) MockHttpClientFactoryCreateClientWithCapturingHandler(
-        System.Net.Http.IHttpClientFactory httpClientFactory,
-        HttpStatusCode statusCode
-    )
-    {
-        CapturingResponseHandler? handler = new(statusCode: statusCode);
-
-        try
-        {
-            HttpClient client = new(handler: handler, disposeHandler: true)
-            {
-                BaseAddress = new Uri("https://api.github.com/"),
-            };
-            httpClientFactory.CreateClient("GitHub").Returns(client);
-            (HttpClient Client, CapturingResponseHandler Handler) result = (client, handler);
-            handler = null;
-
-            return result;
-        }
-        finally
-        {
-            handler?.Dispose();
-        }
     }
 
     [Fact]
@@ -60,40 +32,17 @@ public sealed class GitHubAuthVerifierTests : TestBase
     }
 
     [Fact]
-    public async Task VerifyAsyncRequestsTheUserEndpointAsync()
+    public async Task VerifyAsyncRequestsTheUserEndpointWithoutIfNoneMatchHeaderAsync()
     {
-        (HttpClient httpClient, CapturingResponseHandler handler) =
-            MockHttpClientFactoryCreateClientWithCapturingHandler(
-                httpClientFactory: this._httpClientFactory,
-                statusCode: HttpStatusCode.OK
-            );
-        using (httpClient)
-        {
-            await this._verifier.VerifyAsync(this.CancellationToken());
+        using CapturingResponseHandler handler = new(statusCode: HttpStatusCode.OK);
+        using HttpClient httpClient = new(handler) { BaseAddress = new Uri("https://api.github.com/") };
+        this._httpClientFactory.CreateClient("GitHub").Returns(httpClient);
 
-            Assert.NotNull(handler.CapturedRequest);
-            Assert.Equal(
-                expected: "https://api.github.com/user",
-                actual: handler.CapturedRequest.RequestUri?.ToString()
-            );
-        }
-    }
+        await this._verifier.VerifyAsync(this.CancellationToken());
 
-    [Fact]
-    public async Task VerifyAsyncDoesNotSendIfNoneMatchHeaderAsync()
-    {
-        (HttpClient httpClient, CapturingResponseHandler handler) =
-            MockHttpClientFactoryCreateClientWithCapturingHandler(
-                httpClientFactory: this._httpClientFactory,
-                statusCode: HttpStatusCode.OK
-            );
-        using (httpClient)
-        {
-            await this._verifier.VerifyAsync(this.CancellationToken());
-
-            Assert.NotNull(handler.CapturedRequest);
-            Assert.Empty(handler.CapturedRequest.Headers.IfNoneMatch);
-        }
+        Assert.NotNull(handler.CapturedRequest);
+        Assert.Equal(expected: "https://api.github.com/user", actual: handler.CapturedRequest.RequestUri?.ToString());
+        Assert.Empty(handler.CapturedRequest.Headers.IfNoneMatch);
     }
 
     [Theory]

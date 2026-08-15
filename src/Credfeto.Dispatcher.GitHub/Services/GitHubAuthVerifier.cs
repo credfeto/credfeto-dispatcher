@@ -24,6 +24,7 @@ public sealed class GitHubAuthVerifier : IGitHubAuthVerifier
         using HttpRequestMessage request = new(method: HttpMethod.Get, requestUri: UserRelativeUri);
         using HttpResponseMessage response = await httpClient.SendAsync(
             request: request,
+            completionOption: HttpCompletionOption.ResponseHeadersRead,
             cancellationToken: cancellationToken
         );
 

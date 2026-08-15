@@ -43,60 +43,40 @@ public sealed class StartupNotificationServiceTests : TestBase
         Assert.Equal(expected: 1, actual: verifier.CallCount);
     }
 
-    [Fact]
-    public async Task DoesNotThrowWhenVerifierThrowsUnauthorizedAsync()
+    [Theory]
+    [InlineData(FailureMode.Unauthorized)]
+    [InlineData(FailureMode.Forbidden)]
+    [InlineData(FailureMode.Cancelled)]
+    [InlineData(FailureMode.Unexpected)]
+    public async Task DoesNotThrowWhenVerifierThrowsAsync(FailureMode failureMode)
     {
-        FakeAuthVerifier verifier = new(
-            exception: new HttpRequestException(
+        FakeAuthVerifier verifier = new(exception: CreateException(failureMode));
+        CancellationToken token = this.CancellationToken();
+
+        using StartupNotificationService service = this.CreateService(verifier);
+        await RunToCompletionAsync(service: service, verifier: verifier, cancellationToken: token);
+
+        Assert.Equal(expected: 1, actual: verifier.CallCount);
+    }
+
+    private static Exception CreateException(FailureMode failureMode)
+    {
+        return failureMode switch
+        {
+            FailureMode.Unauthorized => new HttpRequestException(
                 message: "unauthorized",
                 inner: null,
                 statusCode: HttpStatusCode.Unauthorized
-            )
-        );
-        CancellationToken token = this.CancellationToken();
-
-        using StartupNotificationService service = this.CreateService(verifier);
-        await RunToCompletionAsync(service: service, verifier: verifier, cancellationToken: token);
-
-        Assert.Equal(expected: 1, actual: verifier.CallCount);
-    }
-
-    [Fact]
-    public async Task DoesNotThrowWhenVerifierThrowsForbiddenAsync()
-    {
-        FakeAuthVerifier verifier = new(
-            exception: new HttpRequestException(message: "forbidden", inner: null, statusCode: HttpStatusCode.Forbidden)
-        );
-        CancellationToken token = this.CancellationToken();
-
-        using StartupNotificationService service = this.CreateService(verifier);
-        await RunToCompletionAsync(service: service, verifier: verifier, cancellationToken: token);
-
-        Assert.Equal(expected: 1, actual: verifier.CallCount);
-    }
-
-    [Fact]
-    public async Task DoesNotThrowWhenVerifierThrowsOperationCanceledExceptionAsync()
-    {
-        FakeAuthVerifier verifier = new(exception: new OperationCanceledException());
-        CancellationToken token = this.CancellationToken();
-
-        using StartupNotificationService service = this.CreateService(verifier);
-        await RunToCompletionAsync(service: service, verifier: verifier, cancellationToken: token);
-
-        Assert.Equal(expected: 1, actual: verifier.CallCount);
-    }
-
-    [Fact]
-    public async Task DoesNotThrowWhenVerifierThrowsUnexpectedExceptionAsync()
-    {
-        FakeAuthVerifier verifier = new(exception: new InvalidOperationException("boom"));
-        CancellationToken token = this.CancellationToken();
-
-        using StartupNotificationService service = this.CreateService(verifier);
-        await RunToCompletionAsync(service: service, verifier: verifier, cancellationToken: token);
-
-        Assert.Equal(expected: 1, actual: verifier.CallCount);
+            ),
+            FailureMode.Forbidden => new HttpRequestException(
+                message: "forbidden",
+                inner: null,
+                statusCode: HttpStatusCode.Forbidden
+            ),
+            FailureMode.Cancelled => new OperationCanceledException(),
+            FailureMode.Unexpected => new InvalidOperationException("boom"),
+            _ => throw new ArgumentOutOfRangeException(nameof(failureMode)),
+        };
     }
 
     private sealed class FakeAuthVerifier : IGitHubAuthVerifier

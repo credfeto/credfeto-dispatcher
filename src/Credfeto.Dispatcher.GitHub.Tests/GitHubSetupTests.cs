@@ -26,6 +26,18 @@ public sealed class GitHubSetupTests : DependencyInjectionTestsBase
     }
 
     [Fact]
+    public void GitHubAuthVerifierShouldBeRegistered()
+    {
+        this.RequireService<IGitHubAuthVerifier>();
+    }
+
+    [Fact]
+    public void GitHubAuthVerifierShouldBeOfCorrectType()
+    {
+        this.RequireServiceInCollectionFor<IGitHubAuthVerifier, GitHubAuthVerifier>();
+    }
+
+    [Fact]
     public void NotificationPollerShouldBeRegistered()
     {
         this.RequireService<INotificationPoller>();

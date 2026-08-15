@@ -12,12 +12,12 @@ namespace Credfeto.Dispatcher.GitHub.BackgroundServices;
 
 public sealed class StartupNotificationService : BackgroundService
 {
+    private readonly IGitHubAuthVerifier _authVerifier;
     private readonly ILogger<StartupNotificationService> _logger;
-    private readonly INotificationPoller _poller;
 
-    public StartupNotificationService(INotificationPoller poller, ILogger<StartupNotificationService> logger)
+    public StartupNotificationService(IGitHubAuthVerifier authVerifier, ILogger<StartupNotificationService> logger)
     {
-        this._poller = poller;
+        this._authVerifier = authVerifier;
         this._logger = logger;
     }
 
@@ -30,7 +30,7 @@ public sealed class StartupNotificationService : BackgroundService
     {
         try
         {
-            await this._poller.PollAsync(cancellationToken);
+            await this._authVerifier.VerifyAsync(cancellationToken);
             this._logger.LogGitHubAuthenticationSuccessful();
         }
         catch (HttpRequestException httpException)

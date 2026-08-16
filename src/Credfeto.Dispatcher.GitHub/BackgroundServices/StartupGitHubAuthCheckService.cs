@@ -10,12 +10,12 @@ using Microsoft.Extensions.Logging;
 
 namespace Credfeto.Dispatcher.GitHub.BackgroundServices;
 
-public sealed class StartupNotificationService : BackgroundService
+public sealed class StartupGitHubAuthCheckService : BackgroundService
 {
     private readonly IGitHubAuthVerifier _authVerifier;
-    private readonly ILogger<StartupNotificationService> _logger;
+    private readonly ILogger<StartupGitHubAuthCheckService> _logger;
 
-    public StartupNotificationService(IGitHubAuthVerifier authVerifier, ILogger<StartupNotificationService> logger)
+    public StartupGitHubAuthCheckService(IGitHubAuthVerifier authVerifier, ILogger<StartupGitHubAuthCheckService> logger)
     {
         this._authVerifier = authVerifier;
         this._logger = logger;
@@ -41,7 +41,7 @@ public sealed class StartupNotificationService : BackgroundService
         }
         catch (OperationCanceledException exception)
         {
-            this._logger.LogStartupNotificationError(exception: exception);
+            this._logger.LogStartupGitHubAuthCheckCancelled(exception: exception);
         }
         catch (Exception exception)
         {

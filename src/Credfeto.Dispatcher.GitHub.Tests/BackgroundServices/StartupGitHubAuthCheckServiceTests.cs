@@ -10,18 +10,18 @@ using Xunit;
 
 namespace Credfeto.Dispatcher.GitHub.Tests.BackgroundServices;
 
-public sealed class StartupNotificationServiceTests : TestBase
+public sealed class StartupGitHubAuthCheckServiceTests : TestBase
 {
-    private StartupNotificationService CreateService(IGitHubAuthVerifier verifier)
+    private StartupGitHubAuthCheckService CreateService(IGitHubAuthVerifier verifier)
     {
-        return new StartupNotificationService(
+        return new StartupGitHubAuthCheckService(
             authVerifier: verifier,
-            logger: this.GetTypedLogger<StartupNotificationService>()
+            logger: this.GetTypedLogger<StartupGitHubAuthCheckService>()
         );
     }
 
     private static async Task RunToCompletionAsync(
-        StartupNotificationService service,
+        StartupGitHubAuthCheckService service,
         FakeAuthVerifier verifier,
         CancellationToken cancellationToken
     )
@@ -37,7 +37,7 @@ public sealed class StartupNotificationServiceTests : TestBase
         FakeAuthVerifier verifier = new();
         CancellationToken token = this.CancellationToken();
 
-        using StartupNotificationService service = this.CreateService(verifier);
+        using StartupGitHubAuthCheckService service = this.CreateService(verifier);
         await RunToCompletionAsync(service: service, verifier: verifier, cancellationToken: token);
 
         Assert.Equal(expected: 1, actual: verifier.CallCount);
@@ -58,7 +58,7 @@ public sealed class StartupNotificationServiceTests : TestBase
         FakeAuthVerifier verifier = new(exception: exception);
         CancellationToken token = this.CancellationToken();
 
-        using StartupNotificationService service = this.CreateService(verifier);
+        using StartupGitHubAuthCheckService service = this.CreateService(verifier);
         await RunToCompletionAsync(service: service, verifier: verifier, cancellationToken: token);
 
         Assert.Equal(expected: 1, actual: verifier.CallCount);

@@ -34,7 +34,7 @@ public static class GitHubSetup
             .AddSingleton<IPullRequestDetailFetcher, PullRequestDetailFetcher>()
             .AddSingleton<IIssueDetailFetcher, IssueDetailFetcher>()
             .AddSingleton<IWorkItemScanner, WorkItemScanner>()
-            .AddHostedService<StartupNotificationService>()
+            .AddHostedService<StartupGitHubAuthCheckService>()
             .AddHostedService<GitHubPollingWorker>()
             .AddHostedService<WorkItemScannerService>()
             .AddHostedService<RepoEventPollerService>();

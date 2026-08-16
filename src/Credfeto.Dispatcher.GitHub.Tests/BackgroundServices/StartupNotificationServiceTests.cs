@@ -43,40 +43,25 @@ public sealed class StartupNotificationServiceTests : TestBase
         Assert.Equal(expected: 1, actual: verifier.CallCount);
     }
 
+    public static TheoryData<Exception> FailureExceptions() =>
+        [
+            new HttpRequestException(message: "unauthorized", inner: null, statusCode: HttpStatusCode.Unauthorized),
+            new HttpRequestException(message: "forbidden", inner: null, statusCode: HttpStatusCode.Forbidden),
+            new OperationCanceledException(),
+            new InvalidOperationException("boom"),
+        ];
+
     [Theory]
-    [InlineData(FailureMode.Unauthorized)]
-    [InlineData(FailureMode.Forbidden)]
-    [InlineData(FailureMode.Cancelled)]
-    [InlineData(FailureMode.Unexpected)]
-    public async Task DoesNotThrowWhenVerifierThrowsAsync(FailureMode failureMode)
+    [MemberData(nameof(FailureExceptions))]
+    public async Task DoesNotThrowWhenVerifierThrowsAsync(Exception exception)
     {
-        FakeAuthVerifier verifier = new(exception: CreateException(failureMode));
+        FakeAuthVerifier verifier = new(exception: exception);
         CancellationToken token = this.CancellationToken();
 
         using StartupNotificationService service = this.CreateService(verifier);
         await RunToCompletionAsync(service: service, verifier: verifier, cancellationToken: token);
 
         Assert.Equal(expected: 1, actual: verifier.CallCount);
-    }
-
-    private static Exception CreateException(FailureMode failureMode)
-    {
-        return failureMode switch
-        {
-            FailureMode.Unauthorized => new HttpRequestException(
-                message: "unauthorized",
-                inner: null,
-                statusCode: HttpStatusCode.Unauthorized
-            ),
-            FailureMode.Forbidden => new HttpRequestException(
-                message: "forbidden",
-                inner: null,
-                statusCode: HttpStatusCode.Forbidden
-            ),
-            FailureMode.Cancelled => new OperationCanceledException(),
-            FailureMode.Unexpected => new InvalidOperationException("boom"),
-            _ => throw new ArgumentOutOfRangeException(nameof(failureMode)),
-        };
     }
 
     private sealed class FakeAuthVerifier : IGitHubAuthVerifier

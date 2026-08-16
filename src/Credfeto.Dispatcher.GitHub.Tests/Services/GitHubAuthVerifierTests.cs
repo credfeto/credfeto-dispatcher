@@ -24,14 +24,6 @@ public sealed class GitHubAuthVerifierTests : TestBase
     }
 
     [Fact]
-    public async Task VerifyAsyncCompletesWhenServerRespondsWithOkAsync()
-    {
-        this._httpClientFactory.MockCreateClientWithResponse(clientName: "GitHub", httpStatusCode: HttpStatusCode.OK);
-
-        await this._verifier.VerifyAsync(this.CancellationToken());
-    }
-
-    [Fact]
     public async Task VerifyAsyncRequestsTheUserEndpointWithoutIfNoneMatchHeaderAsync()
     {
         using CapturingResponseHandler handler = new(statusCode: HttpStatusCode.OK);

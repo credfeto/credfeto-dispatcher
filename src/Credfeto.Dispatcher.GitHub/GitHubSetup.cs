@@ -26,6 +26,7 @@ public static class GitHubSetup
             .AddHttpClient(name: "GitHub", configureClient: ConfigureGitHubHttpClient)
             .AddStandardResilienceHandler()
             .Services.AddSingleton<GitHubRepoHelper>()
+            .AddSingleton<IGitHubAuthVerifier, GitHubAuthVerifier>()
             .AddSingleton<INotificationPoller, NotificationPoller>()
             .AddSingleton<IModifiedIssueMentionPoller, ModifiedIssueMentionPoller>()
             .AddSingleton<IRepoEventPoller, RepoEventPoller>()
@@ -33,7 +34,7 @@ public static class GitHubSetup
             .AddSingleton<IPullRequestDetailFetcher, PullRequestDetailFetcher>()
             .AddSingleton<IIssueDetailFetcher, IssueDetailFetcher>()
             .AddSingleton<IWorkItemScanner, WorkItemScanner>()
-            .AddHostedService<StartupNotificationService>()
+            .AddHostedService<StartupGitHubAuthCheckService>()
             .AddHostedService<GitHubPollingWorker>()
             .AddHostedService<WorkItemScannerService>()
             .AddHostedService<RepoEventPollerService>();

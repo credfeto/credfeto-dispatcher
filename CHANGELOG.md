@@ -89,6 +89,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - scripts/smoke-test.sh writes its server log and response body under the mktemp PUBLISH_DIR instead of fixed /tmp paths, so concurrent runs no longer clobber each other's files and the existing cleanup trap removes both
 - Repo scan no longer hard-deletes stored pull requests and issues on a transient fetch failure (rate limiting, 429, 5xx); deletion now only happens when the repo is confirmed gone (404/410)
 - Preserve notification-derived pull request fields (review decision, failed check details) across scan and repo-event upserts
+- Startup GitHub auth check no longer consumes the notifications ETag, which could drop the pending-notification backlog on restart
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934

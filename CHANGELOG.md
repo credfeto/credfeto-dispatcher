@@ -90,6 +90,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Repo scan no longer hard-deletes stored pull requests and issues on a transient fetch failure (rate limiting, 429, 5xx); deletion now only happens when the repo is confirmed gone (404/410)
 - Preserve notification-derived pull request fields (review decision, failed check details) across scan and repo-event upserts
 - Startup GitHub auth check no longer consumes the notifications ETag, which could drop the pending-notification backlog on restart
+- Notifications ETag is no longer persisted until a polled batch has been fully processed, so a failure mid-batch does not permanently drop it
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934

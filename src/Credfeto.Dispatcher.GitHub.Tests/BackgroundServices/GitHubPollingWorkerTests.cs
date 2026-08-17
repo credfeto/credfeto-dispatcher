@@ -426,34 +426,21 @@ public sealed class GitHubPollingWorkerTests : TestBase
             );
     }
 
-    [Fact]
-    public async Task CommitsCandidateETagAfterNotificationsAreProcessedAsync()
+    [Theory]
+    [InlineData("\"new-etag\"")]
+    [InlineData(null)]
+    public async Task CommitsCandidateETagAfterNotificationsAreProcessedAsync(string? candidateETag)
     {
         GitHubNotification notification = BuildPrNotification("mention");
         PullRequestDetails details = BuildPrDetails();
 
         this._filter.ShouldProcess(notification).Returns(true);
 
-        FakePoller poller = new([notification], candidateETag: "\"new-etag\"");
+        FakePoller poller = new([notification], candidateETag: candidateETag);
 
         await this.RunWorkerAsync(poller: poller, fetcher: new FakeFetcher(details));
 
-        Assert.Equal(expected: "\"new-etag\"", actual: poller.CommittedETag);
-    }
-
-    [Fact]
-    public async Task DoesNotCommitETagWhenNoCandidateETagIsReturnedAsync()
-    {
-        GitHubNotification notification = BuildPrNotification("mention");
-        PullRequestDetails details = BuildPrDetails();
-
-        this._filter.ShouldProcess(notification).Returns(true);
-
-        FakePoller poller = new([notification], candidateETag: null);
-
-        await this.RunWorkerAsync(poller: poller, fetcher: new FakeFetcher(details));
-
-        Assert.Null(poller.CommittedETag);
+        Assert.Equal(expected: candidateETag, actual: poller.CommittedETag);
     }
 
     [Fact]

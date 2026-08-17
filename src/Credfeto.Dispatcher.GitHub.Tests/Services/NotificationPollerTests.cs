@@ -295,7 +295,7 @@ public sealed class NotificationPollerTests : TestBase
     [Fact]
     public async Task PollAsyncReturnsNullCandidateETagWhenResponseHasEmptyTagAsync()
     {
-        using CapturingResponseHandler handler = new(
+        using FixedResponseHandler handler = new(
             statusCode: HttpStatusCode.OK,
             content: NOTIFICATION_JSON,
             eTag: "\"\""

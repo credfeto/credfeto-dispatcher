@@ -95,23 +95,15 @@ public sealed class NotificationPoller : INotificationPoller
 
         _ = response.EnsureSuccessStatusCode();
 
-        string? candidateETag =
-            response.Headers.ETag is not null && IsUsableETag(response.Headers.ETag.Tag)
-                ? response.Headers.ETag.Tag
-                : null;
+        string? tag = response.Headers.ETag?.Tag;
+        string? candidateETag = IsUsableETag(tag) ? tag : null;
 
         string json = await response.Content.ReadAsStringAsync(cancellationToken);
-        ApiNotification[]? apiNotifications = JsonSerializer.Deserialize(
-            json: json,
-            jsonTypeInfo: NotificationSerializerContext.Default.ApiNotificationArray
-        );
-
-        if (apiNotifications is null)
-        {
-            this._logger.LogPollNotificationsReceived(count: 0);
-
-            return new NotificationPollResult(Notifications: [], CandidateETag: candidateETag);
-        }
+        ApiNotification[] apiNotifications =
+            JsonSerializer.Deserialize(
+                json: json,
+                jsonTypeInfo: NotificationSerializerContext.Default.ApiNotificationArray
+            ) ?? [];
 
         List<GitHubNotification> notifications = new(apiNotifications.Length);
 

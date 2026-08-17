@@ -17,7 +17,7 @@ namespace Credfeto.Dispatcher.GitHub.Services;
 
 public sealed class NotificationPoller : INotificationPoller
 {
-    private const string E_TAG_KEY = "github.notifications";
+    internal const string E_TAG_KEY = "github.notifications";
     private static readonly Uri NotificationsRelativeUri = new(uriString: "notifications", uriKind: UriKind.Relative);
 
     private readonly IETagStore _eTagStore;
@@ -35,7 +35,7 @@ public sealed class NotificationPoller : INotificationPoller
         this._logger = logger;
     }
 
-    public async ValueTask<IReadOnlyList<GitHubNotification>> PollAsync(CancellationToken cancellationToken)
+    public async ValueTask<NotificationPollResult> PollAsync(CancellationToken cancellationToken)
     {
         string? eTag = await this._eTagStore.GetETagAsync(key: E_TAG_KEY, cancellationToken: cancellationToken);
 
@@ -76,7 +76,7 @@ public sealed class NotificationPoller : INotificationPoller
         return request;
     }
 
-    private async ValueTask<IReadOnlyList<GitHubNotification>> ProcessResponseAsync(
+    private async ValueTask<NotificationPollResult> ProcessResponseAsync(
         HttpResponseMessage response,
         CancellationToken cancellationToken
     )
@@ -85,19 +85,15 @@ public sealed class NotificationPoller : INotificationPoller
         {
             this._logger.LogPollNotModified();
 
-            return [];
+            return new NotificationPollResult(Notifications: [], CandidateETag: null);
         }
 
         _ = response.EnsureSuccessStatusCode();
 
-        if (response.Headers.ETag is not null && IsUsableETag(response.Headers.ETag.Tag))
-        {
-            await this._eTagStore.SaveETagAsync(
-                key: E_TAG_KEY,
-                eTag: response.Headers.ETag.Tag,
-                cancellationToken: cancellationToken
-            );
-        }
+        string? candidateETag =
+            response.Headers.ETag is not null && IsUsableETag(response.Headers.ETag.Tag)
+                ? response.Headers.ETag.Tag
+                : null;
 
         string json = await response.Content.ReadAsStringAsync(cancellationToken);
         ApiNotification[]? apiNotifications = JsonSerializer.Deserialize(
@@ -109,7 +105,7 @@ public sealed class NotificationPoller : INotificationPoller
         {
             this._logger.LogPollNotificationsReceived(count: 0);
 
-            return [];
+            return new NotificationPollResult(Notifications: [], CandidateETag: candidateETag);
         }
 
         List<GitHubNotification> notifications = new(apiNotifications.Length);
@@ -128,7 +124,7 @@ public sealed class NotificationPoller : INotificationPoller
 
         this._logger.LogPollNotificationsReceived(count: notifications.Count);
 
-        return notifications;
+        return new NotificationPollResult(Notifications: notifications, CandidateETag: candidateETag);
     }
 
     private static GitHubNotification MapNotification(ApiNotification n)

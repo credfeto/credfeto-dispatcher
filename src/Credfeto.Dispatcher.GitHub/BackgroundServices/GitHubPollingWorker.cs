@@ -7,6 +7,7 @@ using Credfeto.Dispatcher.GitHub.BackgroundServices.LoggingExtensions;
 using Credfeto.Dispatcher.GitHub.Configuration;
 using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Interfaces;
+using Credfeto.Dispatcher.GitHub.Services;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -18,6 +19,7 @@ public sealed class GitHubPollingWorker : BackgroundService
     private const string PULL_REQUEST_TYPE = "PullRequest";
     private const string ISSUE_TYPE = "Issue";
 
+    private readonly IETagStore _eTagStore;
     private readonly IIssueDetailFetcher _issueDetailFetcher;
     private readonly ILogger<GitHubPollingWorker> _logger;
     private readonly INotificationFilter _notificationFilter;
@@ -34,6 +36,7 @@ public sealed class GitHubPollingWorker : BackgroundService
         IPullRequestDetailFetcher pullRequestDetailFetcher,
         IIssueDetailFetcher issueDetailFetcher,
         INotificationStateTracker notificationStateTracker,
+        IETagStore eTagStore,
         IOptions<GitHubOptions> options,
         ILogger<GitHubPollingWorker> logger
     )
@@ -44,6 +47,7 @@ public sealed class GitHubPollingWorker : BackgroundService
         this._pullRequestDetailFetcher = pullRequestDetailFetcher;
         this._issueDetailFetcher = issueDetailFetcher;
         this._notificationStateTracker = notificationStateTracker;
+        this._eTagStore = eTagStore;
         this._options = options.Value;
         this._logger = logger;
     }
@@ -84,9 +88,21 @@ public sealed class GitHubPollingWorker : BackgroundService
 
     private async ValueTask PollAndProcessAsync(CancellationToken cancellationToken)
     {
-        IReadOnlyList<GitHubNotification> notifications = await this._poller.PollAsync(cancellationToken);
-        this._logger.LogPolledNotifications(count: notifications.Count);
-        await this.ProcessNotificationsAsync(notifications: notifications, cancellationToken: cancellationToken);
+        NotificationPollResult pollResult = await this._poller.PollAsync(cancellationToken);
+        this._logger.LogPolledNotifications(count: pollResult.Notifications.Count);
+        await this.ProcessNotificationsAsync(
+            notifications: pollResult.Notifications,
+            cancellationToken: cancellationToken
+        );
+
+        if (pollResult.CandidateETag is not null)
+        {
+            await this._eTagStore.SaveETagAsync(
+                key: NotificationPoller.E_TAG_KEY,
+                eTag: pollResult.CandidateETag,
+                cancellationToken: cancellationToken
+            );
+        }
 
         if (this._options.Filter.PollIssueEdits)
         {

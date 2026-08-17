@@ -15,7 +15,6 @@ namespace Credfeto.Dispatcher.GitHub.Tests.BackgroundServices;
 
 public sealed class GitHubPollingWorkerTests : TestBase
 {
-    private readonly IETagStore _eTagStore;
     private readonly INotificationFilter _filter;
     private readonly INotificationStateTracker _stateTracker;
 
@@ -23,7 +22,6 @@ public sealed class GitHubPollingWorkerTests : TestBase
     {
         this._filter = GetSubstitute<INotificationFilter>();
         this._stateTracker = GetSubstitute<INotificationStateTracker>();
-        this._eTagStore = GetSubstitute<IETagStore>();
     }
 
     private static GitHubNotification BuildPrNotification(string reason)
@@ -159,7 +157,6 @@ public sealed class GitHubPollingWorkerTests : TestBase
             pullRequestDetailFetcher: fetcher,
             issueDetailFetcher: issueFetcher ?? new FakeIssueFetcher(result: null),
             notificationStateTracker: this._stateTracker,
-            eTagStore: this._eTagStore,
             options: Options.Create(options ?? new GitHubOptions { PollIntervalSeconds = 30 }),
             logger: this.GetTypedLogger<GitHubPollingWorker>()
         );
@@ -437,18 +434,11 @@ public sealed class GitHubPollingWorkerTests : TestBase
 
         this._filter.ShouldProcess(notification).Returns(true);
 
-        await this.RunWorkerAsync(
-            poller: new FakePoller([notification], candidateETag: "\"new-etag\""),
-            fetcher: new FakeFetcher(details)
-        );
+        FakePoller poller = new([notification], candidateETag: "\"new-etag\"");
 
-        await this
-            ._eTagStore.Received(1)
-            .SaveETagAsync(
-                key: "github.notifications",
-                eTag: "\"new-etag\"",
-                cancellationToken: Arg.Any<CancellationToken>()
-            );
+        await this.RunWorkerAsync(poller: poller, fetcher: new FakeFetcher(details));
+
+        Assert.Equal(expected: "\"new-etag\"", actual: poller.CommittedETag);
     }
 
     [Fact]
@@ -459,18 +449,11 @@ public sealed class GitHubPollingWorkerTests : TestBase
 
         this._filter.ShouldProcess(notification).Returns(true);
 
-        await this.RunWorkerAsync(
-            poller: new FakePoller([notification], candidateETag: null),
-            fetcher: new FakeFetcher(details)
-        );
+        FakePoller poller = new([notification], candidateETag: null);
 
-        await this
-            ._eTagStore.DidNotReceive()
-            .SaveETagAsync(
-                key: Arg.Any<string>(),
-                eTag: Arg.Any<string>(),
-                cancellationToken: Arg.Any<CancellationToken>()
-            );
+        await this.RunWorkerAsync(poller: poller, fetcher: new FakeFetcher(details));
+
+        Assert.Null(poller.CommittedETag);
     }
 
     [Fact]
@@ -480,18 +463,11 @@ public sealed class GitHubPollingWorkerTests : TestBase
 
         this._filter.ShouldProcess(notification).Returns(true);
 
-        await this.RunWorkerAsync(
-            poller: new FakePoller([notification], candidateETag: "\"new-etag\""),
-            fetcher: new FakeThrowingFetcher()
-        );
+        FakePoller poller = new([notification], candidateETag: "\"new-etag\"");
 
-        await this
-            ._eTagStore.DidNotReceive()
-            .SaveETagAsync(
-                key: Arg.Any<string>(),
-                eTag: Arg.Any<string>(),
-                cancellationToken: Arg.Any<CancellationToken>()
-            );
+        await this.RunWorkerAsync(poller: poller, fetcher: new FakeThrowingFetcher());
+
+        Assert.Null(poller.CommittedETag);
     }
 
     private sealed class FakeMentionPoller : IModifiedIssueMentionPoller
@@ -520,11 +496,20 @@ public sealed class GitHubPollingWorkerTests : TestBase
             this._candidateETag = candidateETag;
         }
 
+        public string? CommittedETag { get; private set; }
+
         public ValueTask<NotificationPollResult> PollAsync(CancellationToken cancellationToken)
         {
             return ValueTask.FromResult(
                 new NotificationPollResult(Notifications: this._notifications, CandidateETag: this._candidateETag)
             );
+        }
+
+        public ValueTask CommitETagAsync(string candidateETag, CancellationToken cancellationToken)
+        {
+            this.CommittedETag = candidateETag;
+
+            return ValueTask.CompletedTask;
         }
     }
 

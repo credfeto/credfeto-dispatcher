@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
@@ -17,7 +17,7 @@ namespace Credfeto.Dispatcher.GitHub.Services;
 
 public sealed class NotificationPoller : INotificationPoller
 {
-    internal const string E_TAG_KEY = "github.notifications";
+    private const string E_TAG_KEY = "github.notifications";
     private static readonly Uri NotificationsRelativeUri = new(uriString: "notifications", uriKind: UriKind.Relative);
 
     private readonly IETagStore _eTagStore;
@@ -57,6 +57,11 @@ public sealed class NotificationPoller : INotificationPoller
         );
 
         return await this.ProcessResponseAsync(response: response, cancellationToken: cancellationToken);
+    }
+
+    public ValueTask CommitETagAsync(string candidateETag, CancellationToken cancellationToken)
+    {
+        return this._eTagStore.SaveETagAsync(key: E_TAG_KEY, eTag: candidateETag, cancellationToken: cancellationToken);
     }
 
     private static bool IsUsableETag([NotNullWhen(returnValue: true)] string? eTag)

@@ -7,4 +7,6 @@ namespace Credfeto.Dispatcher.GitHub.Interfaces;
 public interface INotificationPoller
 {
     ValueTask<NotificationPollResult> PollAsync(CancellationToken cancellationToken);
+
+    ValueTask CommitETagAsync(string candidateETag, CancellationToken cancellationToken);
 }

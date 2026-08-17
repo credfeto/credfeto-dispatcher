@@ -380,4 +380,18 @@ public sealed class NotificationPollerTests : TestBase
 
         Assert.Equal(expected: "\"new-etag\"", actual: result.CandidateETag);
     }
+
+    [Fact]
+    public async Task CommitETagAsyncSavesTheCandidateETagToTheStoreAsync()
+    {
+        await this._poller.CommitETagAsync(candidateETag: "\"new-etag\"", cancellationToken: this.CancellationToken());
+
+        await this
+            ._eTagStore.Received(1)
+            .SaveETagAsync(
+                key: "github.notifications",
+                eTag: "\"new-etag\"",
+                cancellationToken: this.CancellationToken()
+            );
+    }
 }

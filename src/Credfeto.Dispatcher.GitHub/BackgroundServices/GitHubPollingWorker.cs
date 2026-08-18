@@ -84,9 +84,20 @@ public sealed class GitHubPollingWorker : BackgroundService
 
     private async ValueTask PollAndProcessAsync(CancellationToken cancellationToken)
     {
-        IReadOnlyList<GitHubNotification> notifications = await this._poller.PollAsync(cancellationToken);
-        this._logger.LogPolledNotifications(count: notifications.Count);
-        await this.ProcessNotificationsAsync(notifications: notifications, cancellationToken: cancellationToken);
+        NotificationPollResult pollResult = await this._poller.PollAsync(cancellationToken);
+        this._logger.LogPolledNotifications(count: pollResult.Notifications.Count);
+        await this.ProcessNotificationsAsync(
+            notifications: pollResult.Notifications,
+            cancellationToken: cancellationToken
+        );
+
+        if (pollResult.CandidateETag is not null)
+        {
+            await this._poller.CommitETagAsync(
+                candidateETag: pollResult.CandidateETag,
+                cancellationToken: cancellationToken
+            );
+        }
 
         if (this._options.Filter.PollIssueEdits)
         {

@@ -426,6 +426,37 @@ public sealed class GitHubPollingWorkerTests : TestBase
             );
     }
 
+    [Theory]
+    [InlineData("\"new-etag\"")]
+    [InlineData(null)]
+    public async Task CommitsCandidateETagAfterNotificationsAreProcessedAsync(string? candidateETag)
+    {
+        GitHubNotification notification = BuildPrNotification("mention");
+        PullRequestDetails details = BuildPrDetails();
+
+        this._filter.ShouldProcess(notification).Returns(true);
+
+        FakePoller poller = new([notification], candidateETag: candidateETag);
+
+        await this.RunWorkerAsync(poller: poller, fetcher: new FakeFetcher(details));
+
+        Assert.Equal(expected: candidateETag, actual: poller.CommittedETag);
+    }
+
+    [Fact]
+    public async Task DoesNotCommitETagWhenProcessingNotificationThrowsAsync()
+    {
+        GitHubNotification notification = BuildPrNotification("mention");
+
+        this._filter.ShouldProcess(notification).Returns(true);
+
+        FakePoller poller = new([notification], candidateETag: "\"new-etag\"");
+
+        await this.RunWorkerAsync(poller: poller, fetcher: new FakeThrowingFetcher());
+
+        Assert.Null(poller.CommittedETag);
+    }
+
     private sealed class FakeMentionPoller : IModifiedIssueMentionPoller
     {
         private readonly IReadOnlyList<GitHubNotification> _notifications;
@@ -443,16 +474,29 @@ public sealed class GitHubPollingWorkerTests : TestBase
 
     private sealed class FakePoller : INotificationPoller
     {
+        private readonly string? _candidateETag;
         private readonly IReadOnlyList<GitHubNotification> _notifications;
 
-        public FakePoller(IReadOnlyList<GitHubNotification> notifications)
+        public FakePoller(IReadOnlyList<GitHubNotification> notifications, string? candidateETag = null)
         {
             this._notifications = notifications;
+            this._candidateETag = candidateETag;
         }
 
-        public ValueTask<IReadOnlyList<GitHubNotification>> PollAsync(CancellationToken cancellationToken)
+        public string? CommittedETag { get; private set; }
+
+        public ValueTask<NotificationPollResult> PollAsync(CancellationToken cancellationToken)
         {
-            return ValueTask.FromResult(this._notifications);
+            return ValueTask.FromResult(
+                new NotificationPollResult(Notifications: this._notifications, CandidateETag: this._candidateETag)
+            );
+        }
+
+        public ValueTask CommitETagAsync(string candidateETag, CancellationToken cancellationToken)
+        {
+            this.CommittedETag = candidateETag;
+
+            return ValueTask.CompletedTask;
         }
     }
 
@@ -471,6 +515,17 @@ public sealed class GitHubPollingWorkerTests : TestBase
         )
         {
             return ValueTask.FromResult(this._result);
+        }
+    }
+
+    private sealed class FakeThrowingFetcher : IPullRequestDetailFetcher
+    {
+        public ValueTask<PullRequestDetails?> FetchAsync(
+            GitHubNotification notification,
+            CancellationToken cancellationToken
+        )
+        {
+            throw new InvalidOperationException("Simulated processing failure");
         }
     }
 

@@ -6,6 +6,10 @@ ALTER TABLE [dbo].[Issues]
 ALTER COLUMN [Status] NVARCHAR(16) NOT NULL;
 GO
 
+-- Filtered indexes require QUOTED_IDENTIFIER ON; sqlcmd connections default it to OFF.
+SET QUOTED_IDENTIFIER ON;
+GO
+
 IF
   NOT EXISTS (
     SELECT 1

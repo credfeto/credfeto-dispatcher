@@ -1,7 +1,7 @@
 CREATE PROCEDURE [dbo].[PullRequests_Upsert]
   @repository NVARCHAR(450),
   @id INT,
-  @status NVARCHAR(MAX),
+  @status NVARCHAR(16),
   @priority INT,
   @isOnHold BIT,
   @hasDetail BIT,

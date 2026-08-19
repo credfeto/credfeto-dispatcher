@@ -3,7 +3,6 @@
     <File Path="../CHANGELOG.md" />
     <File Path="../Dockerfile" />
     <File Path="../README.md" />
-    <File Path="../healthcheck" />
     <File Path="..\.ai-instructions" />
     <File Path="..\.editorconfig" />
     <File Path="..\.globalconfig" />

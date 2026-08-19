@@ -91,6 +91,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Preserve notification-derived pull request fields (review decision, failed check details) across scan and repo-event upserts
 - Startup GitHub auth check no longer consumes the notifications ETag, which could drop the pending-notification backlog on restart
 - Notifications ETag is no longer persisted until a polled batch has been fully processed, so a failure mid-batch does not permanently drop it
+- Container healthcheck now detects an unresponsive server instead of always reporting healthy
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934
@@ -114,6 +115,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Renamed Database config section to DatabaseConfiguration
 - SDK - Updated DotNet SDK to 10.0.302
 - Rename StorageSetup.AddStorage to AddSqlServerStorage; AddStorage now dispatches to the SQL Server or in-memory backend based on DatabaseConfiguration.Provider
+- Dependencies - Updated Credfeto.Docker.HealthCheck.Http.Client to 0.0.76.1094
 ### Deprecated
 ### Removed
 - Removed IsUpToDate field from WorkItem and PullRequestDetails as it was never populated in production

@@ -41,7 +41,7 @@ Tracks which repositories are currently active (discovered by the scanner).
 | --- | --- | --- |
 | `Repository` | `NVARCHAR(450)` PK | Full repo name |
 | `Id` | `INT` PK | PR number |
-| `Status` | `NVARCHAR(MAX)` | `Open`, `Draft`, or `Closed` |
+| `Status` | `NVARCHAR(16)` | `Open`, `Draft`, or `Closed` |
 | `Priority` | `INT` | Maps to `WorkPriority` enum (0=UNKNOWN … 5=SECURITY) |
 | `IsOnHold` | `BIT` | Label-driven hold flag |
 | `CommentCount` | `INT` | |
@@ -60,7 +60,7 @@ Tracks which repositories are currently active (discovered by the scanner).
 | --- | --- | --- |
 | `Repository` | `NVARCHAR(450)` PK | Full repo name |
 | `Id` | `INT` PK | Issue number |
-| `Status` | `NVARCHAR(MAX)` | `Open` or `Closed` |
+| `Status` | `NVARCHAR(16)` | `Open` or `Closed` |
 | `Priority` | `INT` | Maps to `WorkPriority` enum |
 | `IsOnHold` | `BIT` | |
 | `LinkedPrNumber` | `INT` | PR number if a linked PR exists; `NULL` otherwise |
@@ -71,6 +71,11 @@ Tracks which repositories are currently active (discovered by the scanner).
 ### `dbo.PollingStates`
 
 Stores ETags for GitHub notification polling endpoints to support conditional requests.
+
+## Indexes
+
+- `IX_PullRequests_Active`: filtered nonclustered index on `dbo.PullRequests` (`Repository`, `Id`) covering `PullRequests_GetActive`'s select list, `WHERE [Status] IN (N'Open', N'Draft')`. Keeps `PullRequests_GetActive` and `PullRequests_CloseStale` seeking/scanning only active rows instead of the whole (ever-growing) table.
+- `IX_Issues_Active`: filtered nonclustered index on `dbo.Issues` (`Repository`, `Id`) covering `Issues_GetActive`'s select list, `WHERE [Status] = N'Open'`. Same rationale for `Issues_GetActive` and `Issues_CloseStale`.
 
 ## Key Stored Procedures
 

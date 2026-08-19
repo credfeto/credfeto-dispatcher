@@ -1,7 +1,7 @@
 CREATE TABLE [dbo].[PullRequests] (
   [Repository] NVARCHAR(450) NOT NULL,
   [Id] INT NOT NULL,
-  [Status] NVARCHAR(MAX) NOT NULL,
+  [Status] NVARCHAR(16) NOT NULL,
   [FirstSeen] DATETIMEOFFSET NOT NULL,
   [LastUpdated] DATETIMEOFFSET NOT NULL,
   [WhenClosed] DATETIMEOFFSET NULL,

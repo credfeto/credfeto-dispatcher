@@ -1,7 +1,7 @@
 CREATE PROCEDURE [dbo].[Issues_Upsert]
   @repository NVARCHAR(450),
   @id INT,
-  @status NVARCHAR(MAX),
+  @status NVARCHAR(16),
   @priority INT,
   @isOnHold BIT,
   @linkedPrNumber INT

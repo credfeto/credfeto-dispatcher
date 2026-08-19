@@ -67,10 +67,10 @@ jobs:
       - name: "Install dotnet"
         uses: ./.github/actions/dotnet-install
         with:
-          GITHUB_TOKEN: ${{secrets.SOURCE_PUSH_TOKEN}}
-          NUGET_PUBLIC_RESTORE_FEED: ${{vars.NUGET_PUBLIC_RESTORE_FEED || 'https://api.nuget.org/v3/index.json'}}
-          NUGET_ADDITIONAL_RESTORE_FEED_RELEASE: ${{vars.NUGET_ADDITIONAL_RESTORE_FEED_RELEASE}}
-          NUGET_ADDITIONAL_RESTORE_FEED_PRERELEASE: ${{vars.NUGET_ADDITIONAL_RESTORE_FEED_PRERELEASE}}
+          github-token: ${{secrets.SOURCE_PUSH_TOKEN}}
+          nuget-public-restore-feed: ${{vars.NUGET_PUBLIC_RESTORE_FEED || 'https://api.nuget.org/v3/index.json'}}
+          nuget-additional-restore-feed-release: ${{vars.NUGET_ADDITIONAL_RESTORE_FEED_RELEASE}}
+          nuget-additional-restore-feed-prerelease: ${{vars.NUGET_ADDITIONAL_RESTORE_FEED_PRERELEASE}}
 
       - name: "Build DACPAC"
         working-directory: ${{github.workspace}}/src
@@ -84,8 +84,8 @@ jobs:
       - name: "Install SqlPackage tool"
         uses: ./.github/actions/dotnet-tool
         with:
-          TOOL_NAME: "microsoft.sqlpackage"
-          TOOL_VERSION: "latest"
+          tool-name: "microsoft.sqlpackage"
+          tool-version: "latest"
 
       - name: "Apply migrations to verification database"
         shell: bash

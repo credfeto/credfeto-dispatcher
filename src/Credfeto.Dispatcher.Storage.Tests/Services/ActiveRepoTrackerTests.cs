@@ -35,4 +35,15 @@ public sealed class ActiveRepoTrackerTests : TestBase
 
         Assert.Equal(expected: 1, actual: this._database.VoidExecuteCallCount);
     }
+
+    [Fact]
+    public async Task UpdateActiveReposAsync_WithDuplicateRepos_CallsDatabaseOnceAsync()
+    {
+        await this._tracker.UpdateActiveReposAsync(
+            activeRepos: ["owner/repo-a", "Owner/Repo-A", "owner/repo-a"],
+            cancellationToken: this.CancellationToken()
+        );
+
+        Assert.Equal(expected: 1, actual: this._database.VoidExecuteCallCount);
+    }
 }

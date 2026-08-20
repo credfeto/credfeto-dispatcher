@@ -413,6 +413,17 @@ public sealed class WorkItemRepositoryTests : TestBase
     }
 
     [Fact]
+    public async Task RemoveItemsForRepositoriesAsync_WithDuplicateRepos_CallsDatabaseAsync()
+    {
+        await this._repository.RemoveItemsForRepositoriesAsync(
+            repositories: ["owner/repo-a", "Owner/Repo-A", "owner/repo-a"],
+            cancellationToken: this.CancellationToken()
+        );
+
+        Assert.Equal(expected: 2, actual: this._database.VoidExecuteCallCount);
+    }
+
+    [Fact]
     public async Task BandingIsGlobalAcrossOwners_NotPerOwnerAsync()
     {
         this.SetupPullRequests([CreatePrRow("zz-owner/repo", id: 1, priority: WorkPriority.MEDIUM)]);

@@ -30,7 +30,7 @@ public sealed class ActiveRepoTracker : IActiveRepoTracker
 
     public ValueTask UpdateActiveReposAsync(IReadOnlyList<string> activeRepos, CancellationToken cancellationToken)
     {
-        string repositories = string.Join(separator: ',', activeRepos);
+        string repositories = RepositoryCsv.Build(activeRepos);
 
         return this._database.ExecuteAsync(
             action: (c, ct) =>

@@ -8,7 +8,7 @@ BEGIN
   IF @repositories IS NOT NULL
     BEGIN
       INSERT INTO @ActiveRepos ([Repository])
-      SELECT [Source].[Repository]
+      SELECT DISTINCT [Source].[Repository]
       FROM (
         SELECT TRIM([value]) AS [Repository]
         FROM STRING_SPLIT(@repositories, N',')

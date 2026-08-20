@@ -58,7 +58,7 @@ public sealed class WorkItemRepository : IWorkItemRepository
             return;
         }
 
-        string reposCsv = string.Join(separator: ',', repositories);
+        string reposCsv = RepositoryCsv.Build(repositories);
 
         await this._database.ExecuteAsync(
             action: (c, ct) =>

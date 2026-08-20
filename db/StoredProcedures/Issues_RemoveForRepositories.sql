@@ -9,7 +9,7 @@ BEGIN
       RETURN;
     END;
   INSERT INTO @RepositoriesToRemove ([Repository])
-  SELECT [Source].[Repository]
+  SELECT DISTINCT [Source].[Repository]
   FROM (
     SELECT TRIM([value]) AS [Repository]
     FROM STRING_SPLIT(@repositories, N',')

@@ -92,6 +92,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Startup GitHub auth check no longer consumes the notifications ETag, which could drop the pending-notification backlog on restart
 - Notifications ETag is no longer persisted until a polled batch has been fully processed, so a failure mid-batch does not permanently drop it
 - Container healthcheck now detects an unresponsive server instead of always reporting healthy
+- Repos_SetActive, PullRequests_RemoveForRepositories, and Issues_RemoveForRepositories now deduplicate the split repository CSV with SELECT DISTINCT, preventing a MERGE error or primary key violation when a repository name appears twice in the input (e.g. GitHub offset pagination shifting mid-scan); ActiveRepoTracker and WorkItemRepository also dedupe case-insensitively before building the CSV as defence in depth (#189)
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934

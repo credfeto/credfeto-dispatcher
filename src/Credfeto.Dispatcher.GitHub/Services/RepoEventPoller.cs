@@ -136,8 +136,10 @@ public sealed class RepoEventPoller : IRepoEventPoller
             cancellationToken: cancellationToken
         );
 
-        long lastId = ParseLastId(await lastIdTask);
+        string? lastIdString = await lastIdTask;
         string? storedETag = await storedETagTask;
+
+        long lastId = ParseLastId(lastIdString);
 
         PagedETagResult<ApiEvent> result = await this._helper.GetPagedWithETagAsync(
             url: url,

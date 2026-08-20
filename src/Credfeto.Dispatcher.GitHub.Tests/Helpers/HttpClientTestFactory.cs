@@ -14,10 +14,18 @@ internal static class HttpClientTestFactory
     public static (HttpClient Client, FixedResponseHandler Handler) CreateWithHandler(
         HttpStatusCode statusCode,
         string? content = null,
-        string? linkUrl = null
+        string? linkUrl = null,
+        string? eTag = null,
+        int? pollIntervalSeconds = null
     )
     {
-        FixedResponseHandler? handler = new(statusCode: statusCode, content: content, linkUrl: linkUrl);
+        FixedResponseHandler? handler = new(
+            statusCode: statusCode,
+            content: content,
+            eTag: eTag,
+            linkUrl: linkUrl,
+            pollIntervalSeconds: pollIntervalSeconds
+        );
 
         try
         {

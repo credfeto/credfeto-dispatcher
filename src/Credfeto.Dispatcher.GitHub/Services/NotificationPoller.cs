@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -64,16 +63,11 @@ public sealed class NotificationPoller : INotificationPoller
         return this._eTagStore.SaveETagAsync(key: E_TAG_KEY, eTag: candidateETag, cancellationToken: cancellationToken);
     }
 
-    private static bool IsUsableETag([NotNullWhen(returnValue: true)] string? eTag)
-    {
-        return !string.IsNullOrEmpty(eTag) && !string.Equals(eTag, "\"\"", StringComparison.Ordinal);
-    }
-
     private static HttpRequestMessage BuildRequest(string? eTag)
     {
         HttpRequestMessage request = new(method: HttpMethod.Get, requestUri: NotificationsRelativeUri);
 
-        if (IsUsableETag(eTag))
+        if (ETagHeaderUtility.IsUsableETag(eTag))
         {
             request.Headers.IfNoneMatch.Add(new EntityTagHeaderValue(eTag));
         }
@@ -95,8 +89,7 @@ public sealed class NotificationPoller : INotificationPoller
 
         _ = response.EnsureSuccessStatusCode();
 
-        string? tag = response.Headers.ETag?.Tag;
-        string? candidateETag = IsUsableETag(tag) ? tag : null;
+        string? candidateETag = ETagHeaderUtility.ExtractETag(response.Headers);
 
         string json = await response.Content.ReadAsStringAsync(cancellationToken);
         ApiNotification[] apiNotifications =

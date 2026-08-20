@@ -74,26 +74,85 @@ public sealed class GitHubRepoHelper
     )
         where T : class
     {
+        (T[]? items, string? nextUrl, HttpStatusCode? failureStatus, _, _, _) = await this.FetchPageAsync(
+            url: url,
+            jsonTypeInfo: jsonTypeInfo,
+            eTag: null,
+            cancellationToken: cancellationToken
+        );
+
+        return (items, nextUrl, failureStatus);
+    }
+
+    internal async ValueTask<(
+        T[]? items,
+        string? nextUrl,
+        string? eTag,
+        bool notModified,
+        int? pollIntervalSeconds
+    )> GetPagedWithETagAsync<T>(
+        string url,
+        JsonTypeInfo<T[]> jsonTypeInfo,
+        string? eTag,
+        CancellationToken cancellationToken
+    )
+        where T : class
+    {
+        (T[]? items, string? nextUrl, _, string? responseETag, bool notModified, int? pollIntervalSeconds) =
+            await this.FetchPageAsync(
+                url: url,
+                jsonTypeInfo: jsonTypeInfo,
+                eTag: eTag,
+                cancellationToken: cancellationToken
+            );
+
+        return (items, nextUrl, responseETag, notModified, pollIntervalSeconds);
+    }
+
+    private async ValueTask<(
+        T[]? items,
+        string? nextUrl,
+        HttpStatusCode? failureStatus,
+        string? eTag,
+        bool notModified,
+        int? pollIntervalSeconds
+    )> FetchPageAsync<T>(string url, JsonTypeInfo<T[]> jsonTypeInfo, string? eTag, CancellationToken cancellationToken)
+        where T : class
+    {
         HttpClient httpClient = this._httpClientFactory.CreateClient("GitHub");
 
         using HttpRequestMessage request = new(method: HttpMethod.Get, requestUri: url);
+
+        if (ETagHeaderUtility.IsUsableETag(eTag))
+        {
+            request.Headers.IfNoneMatch.Add(new EntityTagHeaderValue(eTag));
+        }
+
         using HttpResponseMessage response = await httpClient.SendAsync(
             request: request,
             cancellationToken: cancellationToken
         );
 
+        int? pollIntervalSeconds = ETagHeaderUtility.ExtractPollIntervalSeconds(response.Headers);
+        string? responseETag = ETagHeaderUtility.ExtractETag(response.Headers);
+
+        if (response.StatusCode == HttpStatusCode.NotModified)
+        {
+            return (null, null, null, responseETag, true, pollIntervalSeconds);
+        }
+
         if (!response.IsSuccessStatusCode)
         {
             this._logger.LogPageFetchFailed(url: url);
 
-            return (null, null, response.StatusCode);
+            return (null, null, response.StatusCode, null, false, pollIntervalSeconds);
         }
 
         string json = await response.Content.ReadAsStringAsync(cancellationToken);
         T[]? items = JsonSerializer.Deserialize(json: json, jsonTypeInfo: jsonTypeInfo);
         string? nextUrl = ParseNextLink(response.Headers);
 
-        return (items, nextUrl, null);
+        return (items, nextUrl, null, responseETag, false, pollIntervalSeconds);
     }
 
     private static string? ParseNextLink(HttpResponseHeaders headers)

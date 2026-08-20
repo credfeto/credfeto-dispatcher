@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.BackgroundServices;
@@ -95,31 +95,69 @@ public sealed class RepoEventPollerServiceTests : TestBase
         Assert.True(poller.PollCount >= 1, "Expected poller to have been called at least once");
     }
 
+    [Fact]
+    public async Task DelaysLongerWhenSuggestedPollIntervalExceedsConfiguredAsync()
+    {
+        FakePoller poller = new(onPoll: () => { }, suggestedPollIntervalSeconds: 5);
+
+        CancellationToken token = TestContext.Current.CancellationToken;
+
+        using RepoEventPollerService service = this.CreateService(
+            poller,
+            new GitHubOptions { PollIntervalSeconds = 1 }
+        );
+        await service.StartAsync(token);
+        await Task.Delay(millisecondsDelay: 1500, cancellationToken: token);
+        await service.StopAsync(token);
+
+        Assert.Equal(expected: 1, actual: poller.PollCount);
+    }
+
+    [Fact]
+    public async Task IgnoresSuggestedPollIntervalWhenLessThanConfiguredAsync()
+    {
+        FakePoller poller = new(onPoll: () => { }, suggestedPollIntervalSeconds: 1);
+
+        CancellationToken token = TestContext.Current.CancellationToken;
+
+        using RepoEventPollerService service = this.CreateService(
+            poller,
+            new GitHubOptions { PollIntervalSeconds = 5 }
+        );
+        await service.StartAsync(token);
+        await Task.Delay(millisecondsDelay: 1500, cancellationToken: token);
+        await service.StopAsync(token);
+
+        Assert.Equal(expected: 1, actual: poller.PollCount);
+    }
+
     private sealed class FakePoller : IRepoEventPoller
     {
         private readonly Exception? _exception;
         private readonly Action _onPoll;
+        private readonly int? _suggestedPollIntervalSeconds;
         private int _pollCount;
 
-        public FakePoller(Action onPoll, Exception? exception = null)
+        public FakePoller(Action onPoll, Exception? exception = null, int? suggestedPollIntervalSeconds = null)
         {
             this._onPoll = onPoll;
             this._exception = exception;
+            this._suggestedPollIntervalSeconds = suggestedPollIntervalSeconds;
         }
 
         public int PollCount => this._pollCount;
 
-        public ValueTask PollAsync(CancellationToken cancellationToken)
+        public ValueTask<int?> PollAsync(CancellationToken cancellationToken)
         {
             Interlocked.Increment(ref this._pollCount);
             this._onPoll();
 
             if (this._exception is not null)
             {
-                return ValueTask.FromException(this._exception);
+                return ValueTask.FromException<int?>(this._exception);
             }
 
-            return ValueTask.CompletedTask;
+            return ValueTask.FromResult(this._suggestedPollIntervalSeconds);
         }
     }
 }

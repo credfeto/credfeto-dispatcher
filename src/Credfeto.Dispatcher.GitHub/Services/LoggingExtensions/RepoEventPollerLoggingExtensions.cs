@@ -24,4 +24,7 @@ internal static partial class RepoEventPollerLoggingExtensions
 
     [LoggerMessage(EventId = 3, Level = LogLevel.Debug, Message = "Issue event: {repo}#{number} action={action}")]
     public static partial void LogProcessedIssueEvent(this ILogger logger, string repo, int number, string action);
+
+    [LoggerMessage(EventId = 4, Level = LogLevel.Debug, Message = "Feed {feed}: not modified since last poll")]
+    public static partial void LogFeedNotModified(this ILogger logger, string feed);
 }

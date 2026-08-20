@@ -387,4 +387,141 @@ public sealed class RepoEventPollerTests : TestBase
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
+
+    [Fact]
+    public async Task PollAsync_WithStoredETagForRepoFeed_SendsIfNoneMatchHeaderAsync()
+    {
+        const string storedETag = "\"stored-etag\"";
+        this._eTagStore.GetETagAsync("events.repo.etag:owner/repo", Arg.Any<CancellationToken>()).Returns(storedETag);
+
+        (HttpClient repoFeedClient, FixedResponseHandler repoHandler) = HttpClientTestFactory.CreateWithHandler(
+            statusCode: HttpStatusCode.OK,
+            content: EMPTY_JSON
+        );
+        using HttpClient ownerFeedClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoFeedClient, ownerFeedClient);
+
+        try
+        {
+            RepoEventPoller poller = this.CreatePoller();
+
+            await poller.PollAsync(this.CancellationToken());
+
+            Assert.Equal(expected: storedETag, actual: repoHandler.LastRequestIfNoneMatch);
+        }
+        finally
+        {
+            repoFeedClient.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task PollAsync_WhenRepoFeedReturns304_DoesNotProcessEventsOrUpdateLastIdAsync()
+    {
+        this._eTagStore.GetETagAsync("events.repo.etag:owner/repo", Arg.Any<CancellationToken>())
+            .Returns("\"cached-etag\"");
+
+        using HttpClient repoFeedClient = CreateClient(HttpStatusCode.NotModified);
+        using HttpClient ownerFeedClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoFeedClient, ownerFeedClient);
+
+        RepoEventPoller poller = this.CreatePoller();
+
+        await poller.PollAsync(this.CancellationToken());
+
+        Assert.Empty(this._notificationStateTracker.ReceivedCalls());
+        await this
+            ._eTagStore.DidNotReceive()
+            .SaveETagAsync(
+                key: "events.repo.lastid:owner/repo",
+                eTag: Arg.Any<string>(),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task PollAsync_WhenRepoFeedReturnsNewETag_SavesETagForFeedAsync()
+    {
+        (HttpClient repoFeedClient, FixedResponseHandler _) = HttpClientTestFactory.CreateWithHandler(
+            statusCode: HttpStatusCode.OK,
+            content: EMPTY_JSON,
+            eTag: "\"new-etag\""
+        );
+        using HttpClient ownerFeedClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoFeedClient, ownerFeedClient);
+
+        try
+        {
+            RepoEventPoller poller = this.CreatePoller();
+
+            await poller.PollAsync(this.CancellationToken());
+
+            await this
+                ._eTagStore.Received(1)
+                .SaveETagAsync(
+                    key: "events.repo.etag:owner/repo",
+                    eTag: "\"new-etag\"",
+                    cancellationToken: Arg.Any<CancellationToken>()
+                );
+        }
+        finally
+        {
+            repoFeedClient.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task PollAsync_WhenFeedReturnsPollIntervalHeader_ReturnsSuggestedIntervalAsync()
+    {
+        (HttpClient repoFeedClient, FixedResponseHandler _) = HttpClientTestFactory.CreateWithHandler(
+            statusCode: HttpStatusCode.OK,
+            content: EMPTY_JSON,
+            pollIntervalSeconds: 90
+        );
+        using HttpClient ownerFeedClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoFeedClient, ownerFeedClient);
+
+        try
+        {
+            RepoEventPoller poller = this.CreatePoller();
+
+            int? result = await poller.PollAsync(this.CancellationToken());
+
+            Assert.Equal(expected: 90, actual: result);
+        }
+        finally
+        {
+            repoFeedClient.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task PollAsync_WhenFeedsReturnDifferentPollIntervals_ReturnsMaxAsync()
+    {
+        (HttpClient repoFeedClient, FixedResponseHandler _) = HttpClientTestFactory.CreateWithHandler(
+            statusCode: HttpStatusCode.OK,
+            content: EMPTY_JSON,
+            pollIntervalSeconds: 60
+        );
+        (HttpClient ownerFeedClient, FixedResponseHandler _) = HttpClientTestFactory.CreateWithHandler(
+            statusCode: HttpStatusCode.OK,
+            content: EMPTY_JSON,
+            pollIntervalSeconds: 120
+        );
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoFeedClient, ownerFeedClient);
+
+        try
+        {
+            RepoEventPoller poller = this.CreatePoller();
+
+            int? result = await poller.PollAsync(this.CancellationToken());
+
+            Assert.Equal(expected: 120, actual: result);
+        }
+        finally
+        {
+            repoFeedClient.Dispose();
+            ownerFeedClient.Dispose();
+        }
+    }
 }

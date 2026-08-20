@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
@@ -47,11 +47,11 @@ public sealed class RepoEventPoller : IRepoEventPoller
         this._logger = logger;
     }
 
-    public async ValueTask PollAsync(CancellationToken cancellationToken)
+    public async ValueTask<int?> PollAsync(CancellationToken cancellationToken)
     {
         if (!this._options.Filter.PollEvents)
         {
-            return;
+            return null;
         }
 
         IReadOnlyList<string> repos = await this._activeRepoTracker.GetActiveReposAsync(cancellationToken);
@@ -66,52 +66,97 @@ public sealed class RepoEventPoller : IRepoEventPoller
 
         if (repos.Count == 0)
         {
-            return;
+            return null;
         }
 
         IReadOnlyList<string> owners = [.. repos.Select(GetOwner).Distinct(StringComparer.OrdinalIgnoreCase)];
 
+        int? suggestedPollIntervalSeconds = null;
+
         foreach (string repo in repos)
         {
-            await this.PollFeedAsync(
+            int? feedPollIntervalSeconds = await this.PollFeedAsync(
                 url: $"repos/{repo}/events?per_page=30",
                 lastIdKey: $"events.repo.lastid:{repo}",
+                etagKey: $"events.repo.etag:{repo}",
                 feedDescription: repo,
                 cancellationToken: cancellationToken
+            );
+            suggestedPollIntervalSeconds = MaxPollIntervalSeconds(
+                suggestedPollIntervalSeconds,
+                feedPollIntervalSeconds
             );
         }
 
         foreach (string owner in owners)
         {
-            await this.PollFeedAsync(
+            int? feedPollIntervalSeconds = await this.PollFeedAsync(
                 url: $"users/{owner}/events?per_page=30",
                 lastIdKey: $"events.owner.lastid:{owner}",
+                etagKey: $"events.owner.etag:{owner}",
                 feedDescription: $"@{owner}",
                 cancellationToken: cancellationToken
+            );
+            suggestedPollIntervalSeconds = MaxPollIntervalSeconds(
+                suggestedPollIntervalSeconds,
+                feedPollIntervalSeconds
             );
         }
 
         this._logger.LogEventPollComplete(repoCount: repos.Count, ownerCount: owners.Count);
+
+        return suggestedPollIntervalSeconds;
     }
 
-    private async Task PollFeedAsync(
+    private static int? MaxPollIntervalSeconds(int? left, int? right)
+    {
+        if (left is null)
+        {
+            return right;
+        }
+
+        if (right is null)
+        {
+            return left;
+        }
+
+        return Math.Max(left.Value, right.Value);
+    }
+
+    private async Task<int?> PollFeedAsync(
         string url,
         string lastIdKey,
+        string etagKey,
         string feedDescription,
         CancellationToken cancellationToken
     )
     {
         long lastId = await this.LoadLastIdAsync(key: lastIdKey, cancellationToken: cancellationToken);
+        string? storedETag = await this._eTagStore.GetETagAsync(key: etagKey, cancellationToken: cancellationToken);
 
-        (ApiEvent[]? events, _, _) = await this._helper.GetPagedAsync(
-            url: url,
-            jsonTypeInfo: NotificationSerializerContext.Default.ApiEventArray,
-            cancellationToken: cancellationToken
-        );
+        (ApiEvent[]? events, _, string? responseETag, bool notModified, int? pollIntervalSeconds) =
+            await this._helper.GetPagedWithETagAsync(
+                url: url,
+                jsonTypeInfo: NotificationSerializerContext.Default.ApiEventArray,
+                eTag: storedETag,
+                cancellationToken: cancellationToken
+            );
+
+        if (responseETag is not null)
+        {
+            await this._eTagStore.SaveETagAsync(key: etagKey, eTag: responseETag, cancellationToken: cancellationToken);
+        }
+
+        if (notModified)
+        {
+            this._logger.LogFeedNotModified(feed: feedDescription);
+
+            return pollIntervalSeconds;
+        }
 
         if (events is null || events.Length == 0)
         {
-            return;
+            return pollIntervalSeconds;
         }
 
         (long newestId, int processed) = await this.ProcessNewEventsAsync(
@@ -133,6 +178,8 @@ public sealed class RepoEventPoller : IRepoEventPoller
         {
             this._logger.LogFeedProcessed(feed: feedDescription, count: processed);
         }
+
+        return pollIntervalSeconds;
     }
 
     private async ValueTask<long> LoadLastIdAsync(string key, CancellationToken cancellationToken)

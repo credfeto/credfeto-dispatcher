@@ -33,9 +33,11 @@ public sealed class RepoEventPollerService : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            int? suggestedPollIntervalSeconds = null;
+
             try
             {
-                await this._poller.PollAsync(stoppingToken);
+                suggestedPollIntervalSeconds = await this._poller.PollAsync(stoppingToken);
             }
             catch (OperationCanceledException)
             {
@@ -46,7 +48,12 @@ public sealed class RepoEventPollerService : BackgroundService
                 this._logger.LogEventPollerError(exception: exception);
             }
 
-            int pollIntervalSeconds = this._options.PollIntervalSeconds > 0 ? this._options.PollIntervalSeconds : 60;
+            int configuredPollIntervalSeconds =
+                this._options.PollIntervalSeconds > 0 ? this._options.PollIntervalSeconds : 60;
+            int pollIntervalSeconds =
+                suggestedPollIntervalSeconds is { } suggested && suggested > configuredPollIntervalSeconds
+                    ? suggested
+                    : configuredPollIntervalSeconds;
 
             try
             {

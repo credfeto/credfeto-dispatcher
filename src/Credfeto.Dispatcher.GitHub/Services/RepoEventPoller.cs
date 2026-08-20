@@ -110,12 +110,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
 
     private static int? MaxPollIntervalSeconds(int? left, int? right)
     {
-        if (left is null)
-        {
-            return right;
-        }
-
-        return right is null ? left : Math.Max(left.Value, right.Value);
+        return left is null || right is null ? left ?? right : Math.Max(left.Value, right.Value);
     }
 
     private async Task<int?> PollFeedAsync(

@@ -115,12 +115,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
             return right;
         }
 
-        if (right is null)
-        {
-            return left;
-        }
-
-        return Math.Max(left.Value, right.Value);
+        return right is null ? left : Math.Max(left.Value, right.Value);
     }
 
     private async Task<int?> PollFeedAsync(

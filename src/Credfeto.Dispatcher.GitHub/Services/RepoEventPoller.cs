@@ -71,33 +71,23 @@ public sealed class RepoEventPoller : IRepoEventPoller
 
         IReadOnlyList<string> owners = [.. repos.Select(GetOwner).Distinct(StringComparer.OrdinalIgnoreCase)];
 
+        IEnumerable<(string Url, string LastIdKey, string EtagKey, string FeedDescription)> feeds = BuildFeeds(
+            repos: repos,
+            owners: owners
+        );
+
         int? suggestedPollIntervalSeconds = null;
 
-        foreach (string repo in repos)
+        foreach ((string url, string lastIdKey, string etagKey, string feedDescription) in feeds)
         {
             int? feedPollIntervalSeconds = await this.PollFeedAsync(
-                url: $"repos/{repo}/events?per_page=30",
-                lastIdKey: $"events.repo.lastid:{repo}",
-                etagKey: $"events.repo.etag:{repo}",
-                feedDescription: repo,
+                url: url,
+                lastIdKey: lastIdKey,
+                etagKey: etagKey,
+                feedDescription: feedDescription,
                 cancellationToken: cancellationToken
             );
-            suggestedPollIntervalSeconds = MaxPollIntervalSeconds(
-                suggestedPollIntervalSeconds,
-                feedPollIntervalSeconds
-            );
-        }
-
-        foreach (string owner in owners)
-        {
-            int? feedPollIntervalSeconds = await this.PollFeedAsync(
-                url: $"users/{owner}/events?per_page=30",
-                lastIdKey: $"events.owner.lastid:{owner}",
-                etagKey: $"events.owner.etag:{owner}",
-                feedDescription: $"@{owner}",
-                cancellationToken: cancellationToken
-            );
-            suggestedPollIntervalSeconds = MaxPollIntervalSeconds(
+            suggestedPollIntervalSeconds = ETagHeaderUtility.MaxPollIntervalSeconds(
                 suggestedPollIntervalSeconds,
                 feedPollIntervalSeconds
             );
@@ -108,9 +98,25 @@ public sealed class RepoEventPoller : IRepoEventPoller
         return suggestedPollIntervalSeconds;
     }
 
-    private static int? MaxPollIntervalSeconds(int? left, int? right)
+    private static IEnumerable<(string Url, string LastIdKey, string EtagKey, string FeedDescription)> BuildFeeds(
+        IReadOnlyList<string> repos,
+        IReadOnlyList<string> owners
+    )
     {
-        return left is null || right is null ? left ?? right : Math.Max(left.Value, right.Value);
+        return repos
+            .Select(repo =>
+                ($"repos/{repo}/events?per_page=30", $"events.repo.lastid:{repo}", $"events.repo.etag:{repo}", repo)
+            )
+            .Concat(
+                owners.Select(owner =>
+                    (
+                        $"users/{owner}/events?per_page=30",
+                        $"events.owner.lastid:{owner}",
+                        $"events.owner.etag:{owner}",
+                        $"@{owner}"
+                    )
+                )
+            );
     }
 
     private async Task<int?> PollFeedAsync(
@@ -121,36 +127,44 @@ public sealed class RepoEventPoller : IRepoEventPoller
         CancellationToken cancellationToken
     )
     {
-        long lastId = await this.LoadLastIdAsync(key: lastIdKey, cancellationToken: cancellationToken);
-        string? storedETag = await this._eTagStore.GetETagAsync(key: etagKey, cancellationToken: cancellationToken);
+        ValueTask<string?> lastIdTask = this._eTagStore.GetETagAsync(
+            key: lastIdKey,
+            cancellationToken: cancellationToken
+        );
+        ValueTask<string?> storedETagTask = this._eTagStore.GetETagAsync(
+            key: etagKey,
+            cancellationToken: cancellationToken
+        );
 
-        (ApiEvent[]? events, _, string? responseETag, bool notModified, int? pollIntervalSeconds) =
-            await this._helper.GetPagedWithETagAsync(
-                url: url,
-                jsonTypeInfo: NotificationSerializerContext.Default.ApiEventArray,
-                eTag: storedETag,
-                cancellationToken: cancellationToken
-            );
+        long lastId = ParseLastId(await lastIdTask);
+        string? storedETag = await storedETagTask;
 
-        if (responseETag is not null)
+        PagedETagResult<ApiEvent> result = await this._helper.GetPagedWithETagAsync(
+            url: url,
+            jsonTypeInfo: NotificationSerializerContext.Default.ApiEventArray,
+            eTag: storedETag,
+            cancellationToken: cancellationToken
+        );
+
+        if (result.ETag is not null)
         {
-            await this._eTagStore.SaveETagAsync(key: etagKey, eTag: responseETag, cancellationToken: cancellationToken);
+            await this._eTagStore.SaveETagAsync(key: etagKey, eTag: result.ETag, cancellationToken: cancellationToken);
         }
 
-        if (notModified)
+        if (result.NotModified)
         {
             this._logger.LogFeedNotModified(feed: feedDescription);
 
-            return pollIntervalSeconds;
+            return result.PollIntervalSeconds;
         }
 
-        if (events is null || events.Length == 0)
+        if (result.Items is null || result.Items.Length == 0)
         {
-            return pollIntervalSeconds;
+            return result.PollIntervalSeconds;
         }
 
         (long newestId, int processed) = await this.ProcessNewEventsAsync(
-            events: events,
+            events: result.Items,
             lastId: lastId,
             cancellationToken: cancellationToken
         );
@@ -169,13 +183,11 @@ public sealed class RepoEventPoller : IRepoEventPoller
             this._logger.LogFeedProcessed(feed: feedDescription, count: processed);
         }
 
-        return pollIntervalSeconds;
+        return result.PollIntervalSeconds;
     }
 
-    private async ValueTask<long> LoadLastIdAsync(string key, CancellationToken cancellationToken)
+    private static long ParseLastId(string? lastIdStr)
     {
-        string? lastIdStr = await this._eTagStore.GetETagAsync(key: key, cancellationToken: cancellationToken);
-
         return
             lastIdStr is not null
             && long.TryParse(

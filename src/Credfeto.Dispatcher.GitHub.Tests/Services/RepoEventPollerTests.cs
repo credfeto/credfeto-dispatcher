@@ -398,7 +398,7 @@ public sealed class RepoEventPollerTests : TestBase
             statusCode: HttpStatusCode.OK,
             content: EMPTY_JSON
         );
-        using HttpClient ownerFeedClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        using HttpClient ownerFeedClient = HttpClientTestFactory.Create(HttpStatusCode.OK, EMPTY_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoFeedClient, ownerFeedClient);
 
         try
@@ -421,8 +421,8 @@ public sealed class RepoEventPollerTests : TestBase
         this._eTagStore.GetETagAsync("events.repo.etag:owner/repo", Arg.Any<CancellationToken>())
             .Returns("\"cached-etag\"");
 
-        using HttpClient repoFeedClient = CreateClient(HttpStatusCode.NotModified);
-        using HttpClient ownerFeedClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        using HttpClient repoFeedClient = HttpClientTestFactory.Create(HttpStatusCode.NotModified);
+        using HttpClient ownerFeedClient = HttpClientTestFactory.Create(HttpStatusCode.OK, EMPTY_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoFeedClient, ownerFeedClient);
 
         RepoEventPoller poller = this.CreatePoller();
@@ -447,7 +447,7 @@ public sealed class RepoEventPollerTests : TestBase
             content: EMPTY_JSON,
             eTag: "\"new-etag\""
         );
-        using HttpClient ownerFeedClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        using HttpClient ownerFeedClient = HttpClientTestFactory.Create(HttpStatusCode.OK, EMPTY_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoFeedClient, ownerFeedClient);
 
         try
@@ -478,7 +478,7 @@ public sealed class RepoEventPollerTests : TestBase
             content: EMPTY_JSON,
             pollIntervalSeconds: 90
         );
-        using HttpClient ownerFeedClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        using HttpClient ownerFeedClient = HttpClientTestFactory.Create(HttpStatusCode.OK, EMPTY_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(repoFeedClient, ownerFeedClient);
 
         try

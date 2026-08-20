@@ -47,4 +47,9 @@ internal static class ETagHeaderUtility
 
         return null;
     }
+
+    internal static int? MaxPollIntervalSeconds(int? left, int? right)
+    {
+        return left is null || right is null ? left ?? right : Math.Max(left.Value, right.Value);
+    }
 }

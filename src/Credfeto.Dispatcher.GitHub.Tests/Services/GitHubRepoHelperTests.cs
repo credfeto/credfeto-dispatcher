@@ -101,19 +101,18 @@ public sealed class GitHubRepoHelperTests : TestBase
 
         GitHubRepoHelper helper = this.CreateHelper();
 
-        (ApiUserRepo[]? items, string? nextUrl, string? eTag, bool notModified, int? pollIntervalSeconds) =
-            await helper.GetPagedWithETagAsync(
-                url: "repos/owner/repo/events",
-                jsonTypeInfo: NotificationSerializerContext.Default.ApiUserRepoArray,
-                eTag: "\"stored-etag\"",
-                cancellationToken: this.CancellationToken()
-            );
+        PagedETagResult<ApiUserRepo> result = await helper.GetPagedWithETagAsync(
+            url: "repos/owner/repo/events",
+            jsonTypeInfo: NotificationSerializerContext.Default.ApiUserRepoArray,
+            eTag: "\"stored-etag\"",
+            cancellationToken: this.CancellationToken()
+        );
 
-        Assert.Null(items);
-        Assert.Null(nextUrl);
-        Assert.Null(eTag);
-        Assert.True(notModified, userMessage: "Expected response to be reported as not modified");
-        Assert.Null(pollIntervalSeconds);
+        Assert.Null(result.Items);
+        Assert.Null(result.NextUrl);
+        Assert.Null(result.ETag);
+        Assert.True(result.NotModified, userMessage: "Expected response to be reported as not modified");
+        Assert.Null(result.PollIntervalSeconds);
     }
 
     [Fact]
@@ -129,18 +128,17 @@ public sealed class GitHubRepoHelperTests : TestBase
 
         GitHubRepoHelper helper = this.CreateHelper();
 
-        (ApiUserRepo[]? items, string? nextUrl, string? eTag, bool notModified, int? pollIntervalSeconds) =
-            await helper.GetPagedWithETagAsync(
-                url: "repos/owner/repo/events",
-                jsonTypeInfo: NotificationSerializerContext.Default.ApiUserRepoArray,
-                eTag: null,
-                cancellationToken: this.CancellationToken()
-            );
+        PagedETagResult<ApiUserRepo> result = await helper.GetPagedWithETagAsync(
+            url: "repos/owner/repo/events",
+            jsonTypeInfo: NotificationSerializerContext.Default.ApiUserRepoArray,
+            eTag: null,
+            cancellationToken: this.CancellationToken()
+        );
 
-        Assert.NotNull(items);
-        Assert.Null(nextUrl);
-        Assert.Equal(expected: "\"new-etag\"", actual: eTag);
-        Assert.False(notModified, userMessage: "Expected response to not be reported as not modified");
-        Assert.Equal(expected: 90, actual: pollIntervalSeconds);
+        Assert.NotNull(result.Items);
+        Assert.Null(result.NextUrl);
+        Assert.Equal(expected: "\"new-etag\"", actual: result.ETag);
+        Assert.False(result.NotModified, userMessage: "Expected response to not be reported as not modified");
+        Assert.Equal(expected: 90, actual: result.PollIntervalSeconds);
     }
 }

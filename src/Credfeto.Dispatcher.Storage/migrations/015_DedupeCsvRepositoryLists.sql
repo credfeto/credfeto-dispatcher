@@ -13,7 +13,7 @@ BEGIN
         SELECT TRIM([value]) AS [Repository]
         FROM STRING_SPLIT(@repositories, N',')
       ) AS [Source]
-      WHERE [Source].[Repository] <> N'';
+      WHERE [Source].[Repository] > N'';
     END;
   MERGE [dbo].[Repos] AS [Target]
   USING (
@@ -41,22 +41,22 @@ CREATE OR ALTER PROCEDURE [dbo].[PullRequests_RemoveForRepositories]
 AS
 BEGIN
   SET NOCOUNT ON;
-  DECLARE @Repositories TABLE ([Repository] NVARCHAR(450) NOT NULL PRIMARY KEY);
+  DECLARE @RepositoriesToRemove TABLE ([Repository] NVARCHAR(450) NOT NULL PRIMARY KEY);
   IF @repositories IS NULL
     BEGIN
       RETURN;
     END;
-  INSERT INTO @Repositories ([Repository])
+  INSERT INTO @RepositoriesToRemove ([Repository])
   SELECT DISTINCT [Source].[Repository]
   FROM (
     SELECT TRIM([value]) AS [Repository]
     FROM STRING_SPLIT(@repositories, N',')
   ) AS [Source]
-  WHERE [Source].[Repository] <> N'';
+  WHERE [Source].[Repository] > N'';
   DELETE FROM [dbo].[PullRequests]
   WHERE EXISTS (
       SELECT 1
-      FROM @Repositories AS [Source]
+      FROM @RepositoriesToRemove AS [Source]
       WHERE [Source].[Repository] = [dbo].[PullRequests].[Repository]
     );
 END;
@@ -67,22 +67,22 @@ CREATE OR ALTER PROCEDURE [dbo].[Issues_RemoveForRepositories]
 AS
 BEGIN
   SET NOCOUNT ON;
-  DECLARE @Repositories TABLE ([Repository] NVARCHAR(450) NOT NULL PRIMARY KEY);
+  DECLARE @RepositoriesToRemove TABLE ([Repository] NVARCHAR(450) NOT NULL PRIMARY KEY);
   IF @repositories IS NULL
     BEGIN
       RETURN;
     END;
-  INSERT INTO @Repositories ([Repository])
+  INSERT INTO @RepositoriesToRemove ([Repository])
   SELECT DISTINCT [Source].[Repository]
   FROM (
     SELECT TRIM([value]) AS [Repository]
     FROM STRING_SPLIT(@repositories, N',')
   ) AS [Source]
-  WHERE [Source].[Repository] <> N'';
+  WHERE [Source].[Repository] > N'';
   DELETE FROM [dbo].[Issues]
   WHERE EXISTS (
       SELECT 1
-      FROM @Repositories AS [Source]
+      FROM @RepositoriesToRemove AS [Source]
       WHERE [Source].[Repository] = [dbo].[Issues].[Repository]
     );
 END;

@@ -136,11 +136,6 @@ public sealed class RepoEventPoller : IRepoEventPoller
             cancellationToken: cancellationToken
         );
 
-        if (result.ETag is not null && !string.Equals(result.ETag, storedETag, StringComparison.Ordinal))
-        {
-            await this._eTagStore.SaveETagAsync(key: etagKey, eTag: result.ETag, cancellationToken: cancellationToken);
-        }
-
         if (result.NotModified)
         {
             this._logger.LogFeedNotModified(feed: feedDescription);
@@ -150,14 +145,44 @@ public sealed class RepoEventPoller : IRepoEventPoller
 
         if (result.Items is null || result.Items.Length == 0)
         {
+            await this.SaveETagIfChangedAsync(
+                etagKey: etagKey,
+                newETag: result.ETag,
+                storedETag: storedETag,
+                cancellationToken: cancellationToken
+            );
+
             return result.PollIntervalSeconds;
         }
 
+        await this.ProcessFeedItemsAsync(
+            items: result.Items,
+            lastIdKey: lastIdKey,
+            etagKey: etagKey,
+            newETag: result.ETag,
+            storedETag: storedETag,
+            feedDescription: feedDescription,
+            cancellationToken: cancellationToken
+        );
+
+        return result.PollIntervalSeconds;
+    }
+
+    private async Task ProcessFeedItemsAsync(
+        ApiEvent[] items,
+        string lastIdKey,
+        string etagKey,
+        string? newETag,
+        string? storedETag,
+        string feedDescription,
+        CancellationToken cancellationToken
+    )
+    {
         string? lastIdString = await this._eTagStore.GetETagAsync(key: lastIdKey, cancellationToken: cancellationToken);
         long lastId = ParseLastId(lastIdString);
 
         (long newestId, int processed) = await this.ProcessNewEventsAsync(
-            events: result.Items,
+            events: items,
             lastId: lastId,
             cancellationToken: cancellationToken
         );
@@ -171,12 +196,31 @@ public sealed class RepoEventPoller : IRepoEventPoller
             );
         }
 
+        // Saved after processing so a failure mid-processing re-fetches the same events next poll instead of skipping them via 304.
+        await this.SaveETagIfChangedAsync(
+            etagKey: etagKey,
+            newETag: newETag,
+            storedETag: storedETag,
+            cancellationToken: cancellationToken
+        );
+
         if (processed > 0)
         {
             this._logger.LogFeedProcessed(feed: feedDescription, count: processed);
         }
+    }
 
-        return result.PollIntervalSeconds;
+    private async Task SaveETagIfChangedAsync(
+        string etagKey,
+        string? newETag,
+        string? storedETag,
+        CancellationToken cancellationToken
+    )
+    {
+        if (newETag is not null && !StringComparer.Ordinal.Equals(newETag, storedETag))
+        {
+            await this._eTagStore.SaveETagAsync(key: etagKey, eTag: newETag, cancellationToken: cancellationToken);
+        }
     }
 
     private static long ParseLastId(string? lastIdStr)

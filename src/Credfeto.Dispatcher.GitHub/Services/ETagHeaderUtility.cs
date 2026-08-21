@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.Net.Http;
 using System.Net.Http.Headers;
 
 namespace Credfeto.Dispatcher.GitHub.Services;
@@ -9,10 +10,19 @@ namespace Credfeto.Dispatcher.GitHub.Services;
 internal static class ETagHeaderUtility
 {
     private const string POLL_INTERVAL_HEADER = "X-Poll-Interval";
+    private const int MAX_POLL_INTERVAL_SECONDS = 3600;
 
     internal static bool IsUsableETag([NotNullWhen(returnValue: true)] string? eTag)
     {
         return !string.IsNullOrEmpty(eTag) && !string.Equals(eTag, "\"\"", StringComparison.Ordinal);
+    }
+
+    internal static void ApplyIfNoneMatch(HttpRequestMessage request, string? eTag)
+    {
+        if (IsUsableETag(eTag))
+        {
+            request.Headers.IfNoneMatch.Add(new EntityTagHeaderValue(eTag));
+        }
     }
 
     internal static string? ExtractETag(HttpResponseHeaders headers)
@@ -41,7 +51,7 @@ internal static class ETagHeaderUtility
                 && seconds > 0
             )
             {
-                return seconds;
+                return Math.Min(seconds, MAX_POLL_INTERVAL_SECONDS);
             }
         }
 

@@ -96,10 +96,7 @@ public sealed class GitHubRepoHelper
 
         using HttpRequestMessage request = new(method: HttpMethod.Get, requestUri: url);
 
-        if (ETagHeaderUtility.IsUsableETag(eTag))
-        {
-            request.Headers.IfNoneMatch.Add(new EntityTagHeaderValue(eTag));
-        }
+        ETagHeaderUtility.ApplyIfNoneMatch(request: request, eTag: eTag);
 
         using HttpResponseMessage response = await httpClient.SendAsync(
             request: request,

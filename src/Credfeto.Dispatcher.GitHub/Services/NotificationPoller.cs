@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
-using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -67,10 +66,7 @@ public sealed class NotificationPoller : INotificationPoller
     {
         HttpRequestMessage request = new(method: HttpMethod.Get, requestUri: NotificationsRelativeUri);
 
-        if (ETagHeaderUtility.IsUsableETag(eTag))
-        {
-            request.Headers.IfNoneMatch.Add(new EntityTagHeaderValue(eTag));
-        }
+        ETagHeaderUtility.ApplyIfNoneMatch(request: request, eTag: eTag);
 
         return request;
     }

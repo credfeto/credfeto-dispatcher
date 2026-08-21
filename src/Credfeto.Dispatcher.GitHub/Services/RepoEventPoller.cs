@@ -127,19 +127,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
         CancellationToken cancellationToken
     )
     {
-        ValueTask<string?> lastIdTask = this._eTagStore.GetETagAsync(
-            key: lastIdKey,
-            cancellationToken: cancellationToken
-        );
-        ValueTask<string?> storedETagTask = this._eTagStore.GetETagAsync(
-            key: etagKey,
-            cancellationToken: cancellationToken
-        );
-
-        string? lastIdString = await lastIdTask;
-        string? storedETag = await storedETagTask;
-
-        long lastId = ParseLastId(lastIdString);
+        string? storedETag = await this._eTagStore.GetETagAsync(key: etagKey, cancellationToken: cancellationToken);
 
         PagedETagResult<ApiEvent> result = await this._helper.GetPagedWithETagAsync(
             url: url,
@@ -148,7 +136,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
             cancellationToken: cancellationToken
         );
 
-        if (result.ETag is not null)
+        if (result.ETag is not null && !string.Equals(result.ETag, storedETag, StringComparison.Ordinal))
         {
             await this._eTagStore.SaveETagAsync(key: etagKey, eTag: result.ETag, cancellationToken: cancellationToken);
         }
@@ -164,6 +152,9 @@ public sealed class RepoEventPoller : IRepoEventPoller
         {
             return result.PollIntervalSeconds;
         }
+
+        string? lastIdString = await this._eTagStore.GetETagAsync(key: lastIdKey, cancellationToken: cancellationToken);
+        long lastId = ParseLastId(lastIdString);
 
         (long newestId, int processed) = await this.ProcessNewEventsAsync(
             events: result.Items,

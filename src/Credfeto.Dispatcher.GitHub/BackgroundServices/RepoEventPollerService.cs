@@ -4,7 +4,6 @@ using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.BackgroundServices.LoggingExtensions;
 using Credfeto.Dispatcher.GitHub.Configuration;
 using Credfeto.Dispatcher.GitHub.Interfaces;
-using Credfeto.Dispatcher.GitHub.Services;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -51,9 +50,10 @@ public sealed class RepoEventPollerService : BackgroundService
 
             int configuredPollIntervalSeconds =
                 this._options.PollIntervalSeconds > 0 ? this._options.PollIntervalSeconds : 60;
-            int pollIntervalSeconds =
-                ETagHeaderUtility.MaxPollIntervalSeconds(configuredPollIntervalSeconds, suggestedPollIntervalSeconds)
-                ?? configuredPollIntervalSeconds;
+            int pollIntervalSeconds = Math.Max(
+                configuredPollIntervalSeconds,
+                suggestedPollIntervalSeconds ?? configuredPollIntervalSeconds
+            );
 
             try
             {

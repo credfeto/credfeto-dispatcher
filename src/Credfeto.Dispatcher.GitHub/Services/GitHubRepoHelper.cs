@@ -111,21 +111,42 @@ public sealed class GitHubRepoHelper
 
         if (response.StatusCode == HttpStatusCode.NotModified)
         {
-            return new(null, null, null, responseETag, true, pollIntervalSeconds);
+            return new(
+                Items: null,
+                NextUrl: null,
+                FailureStatus: null,
+                ETag: responseETag,
+                NotModified: true,
+                PollIntervalSeconds: pollIntervalSeconds
+            );
         }
 
         if (!response.IsSuccessStatusCode)
         {
             this._logger.LogPageFetchFailed(url: url);
 
-            return new(null, null, response.StatusCode, null, false, pollIntervalSeconds);
+            return new(
+                Items: null,
+                NextUrl: null,
+                FailureStatus: response.StatusCode,
+                ETag: null,
+                NotModified: false,
+                PollIntervalSeconds: pollIntervalSeconds
+            );
         }
 
         string json = await response.Content.ReadAsStringAsync(cancellationToken);
         T[]? items = JsonSerializer.Deserialize(json: json, jsonTypeInfo: jsonTypeInfo);
         string? nextUrl = ParseNextLink(response.Headers);
 
-        return new(items, nextUrl, null, responseETag, false, pollIntervalSeconds);
+        return new(
+            Items: items,
+            NextUrl: nextUrl,
+            FailureStatus: null,
+            ETag: responseETag,
+            NotModified: false,
+            PollIntervalSeconds: pollIntervalSeconds
+        );
     }
 
     private static string? ParseNextLink(HttpResponseHeaders headers)

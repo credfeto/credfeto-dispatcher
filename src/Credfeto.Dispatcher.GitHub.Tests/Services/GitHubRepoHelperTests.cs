@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.Models;
 using Credfeto.Dispatcher.GitHub.Services;
+using Credfeto.Dispatcher.GitHub.Tests.Helpers;
 using FunFair.Test.Common;
 using FunFair.Test.Common.Extensions;
 using NSubstitute;
@@ -69,5 +70,75 @@ public sealed class GitHubRepoHelperTests : TestBase
         Assert.Null(items);
         Assert.Null(nextUrl);
         Assert.Equal(expected: statusCode, actual: failureStatus);
+    }
+
+    [Fact]
+    public async Task GetPagedWithETagAsync_WhenStoredETagProvided_SendsIfNoneMatchHeaderAsync()
+    {
+        (HttpClient client, FixedResponseHandler handler) = HttpClientTestFactory.CreateWithHandler(
+            statusCode: HttpStatusCode.OK,
+            content: EMPTY_JSON
+        );
+        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+
+        GitHubRepoHelper helper = this.CreateHelper();
+
+        _ = await helper.GetPagedWithETagAsync(
+            url: "repos/owner/repo/events",
+            jsonTypeInfo: NotificationSerializerContext.Default.ApiUserRepoArray,
+            eTag: "\"stored-etag\"",
+            cancellationToken: this.CancellationToken()
+        );
+
+        Assert.Equal(expected: "\"stored-etag\"", actual: handler.LastRequestIfNoneMatch);
+    }
+
+    [Fact]
+    public async Task GetPagedWithETagAsync_WhenNotModified_ReturnsNotModifiedWithNoItemsAsync()
+    {
+        this._httpClientFactory.CreateClient("GitHub")
+            .Returns(HttpClientTestFactory.Create(HttpStatusCode.NotModified));
+
+        GitHubRepoHelper helper = this.CreateHelper();
+
+        PagedETagResult<ApiUserRepo> result = await helper.GetPagedWithETagAsync(
+            url: "repos/owner/repo/events",
+            jsonTypeInfo: NotificationSerializerContext.Default.ApiUserRepoArray,
+            eTag: "\"stored-etag\"",
+            cancellationToken: this.CancellationToken()
+        );
+
+        Assert.Null(result.Items);
+        Assert.Null(result.NextUrl);
+        Assert.Null(result.ETag);
+        Assert.True(result.NotModified, userMessage: "Expected response to be reported as not modified");
+        Assert.Null(result.PollIntervalSeconds);
+    }
+
+    [Fact]
+    public async Task GetPagedWithETagAsync_WhenSuccessful_ReturnsResponseETagAndPollIntervalAsync()
+    {
+        (HttpClient client, FixedResponseHandler _) = HttpClientTestFactory.CreateWithHandler(
+            statusCode: HttpStatusCode.OK,
+            content: EMPTY_JSON,
+            eTag: "\"new-etag\"",
+            pollIntervalSeconds: 90
+        );
+        this._httpClientFactory.CreateClient("GitHub").Returns(client);
+
+        GitHubRepoHelper helper = this.CreateHelper();
+
+        PagedETagResult<ApiUserRepo> result = await helper.GetPagedWithETagAsync(
+            url: "repos/owner/repo/events",
+            jsonTypeInfo: NotificationSerializerContext.Default.ApiUserRepoArray,
+            eTag: null,
+            cancellationToken: this.CancellationToken()
+        );
+
+        Assert.NotNull(result.Items);
+        Assert.Null(result.NextUrl);
+        Assert.Equal(expected: "\"new-etag\"", actual: result.ETag);
+        Assert.False(result.NotModified, userMessage: "Expected response to not be reported as not modified");
+        Assert.Equal(expected: 90, actual: result.PollIntervalSeconds);
     }
 }

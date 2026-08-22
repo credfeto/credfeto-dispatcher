@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
@@ -47,11 +47,11 @@ public sealed class RepoEventPoller : IRepoEventPoller
         this._logger = logger;
     }
 
-    public async ValueTask PollAsync(CancellationToken cancellationToken)
+    public async ValueTask<int?> PollAsync(CancellationToken cancellationToken)
     {
         if (!this._options.Filter.PollEvents)
         {
-            return;
+            return null;
         }
 
         IReadOnlyList<string> repos = await this._activeRepoTracker.GetActiveReposAsync(cancellationToken);
@@ -66,56 +66,123 @@ public sealed class RepoEventPoller : IRepoEventPoller
 
         if (repos.Count == 0)
         {
-            return;
+            return null;
         }
 
         IReadOnlyList<string> owners = [.. repos.Select(GetOwner).Distinct(StringComparer.OrdinalIgnoreCase)];
 
-        foreach (string repo in repos)
+        IEnumerable<(string Url, string LastIdKey, string EtagKey, string FeedDescription)> feeds = BuildFeeds(
+            repos: repos,
+            owners: owners
+        );
+
+        int? suggestedPollIntervalSeconds = null;
+
+        foreach ((string url, string lastIdKey, string etagKey, string feedDescription) in feeds)
         {
-            await this.PollFeedAsync(
-                url: $"repos/{repo}/events?per_page=30",
-                lastIdKey: $"events.repo.lastid:{repo}",
-                feedDescription: repo,
+            int? feedPollIntervalSeconds = await this.PollFeedAsync(
+                url: url,
+                lastIdKey: lastIdKey,
+                etagKey: etagKey,
+                feedDescription: feedDescription,
                 cancellationToken: cancellationToken
             );
-        }
-
-        foreach (string owner in owners)
-        {
-            await this.PollFeedAsync(
-                url: $"users/{owner}/events?per_page=30",
-                lastIdKey: $"events.owner.lastid:{owner}",
-                feedDescription: $"@{owner}",
-                cancellationToken: cancellationToken
+            suggestedPollIntervalSeconds = ETagHeaderUtility.MaxPollIntervalSeconds(
+                suggestedPollIntervalSeconds,
+                feedPollIntervalSeconds
             );
         }
 
         this._logger.LogEventPollComplete(repoCount: repos.Count, ownerCount: owners.Count);
+
+        return suggestedPollIntervalSeconds;
     }
 
-    private async Task PollFeedAsync(
+    private static IEnumerable<(string Url, string LastIdKey, string EtagKey, string FeedDescription)> BuildFeeds(
+        IReadOnlyList<string> repos,
+        IReadOnlyList<string> owners
+    )
+    {
+        return repos
+            .Select(repo =>
+                ($"repos/{repo}/events?per_page=30", $"events.repo.lastid:{repo}", $"events.repo.etag:{repo}", repo)
+            )
+            .Concat(
+                owners.Select(owner =>
+                    (
+                        $"users/{owner}/events?per_page=30",
+                        $"events.owner.lastid:{owner}",
+                        $"events.owner.etag:{owner}",
+                        $"@{owner}"
+                    )
+                )
+            );
+    }
+
+    private async Task<int?> PollFeedAsync(
         string url,
         string lastIdKey,
+        string etagKey,
         string feedDescription,
         CancellationToken cancellationToken
     )
     {
-        long lastId = await this.LoadLastIdAsync(key: lastIdKey, cancellationToken: cancellationToken);
+        string? storedETag = await this._eTagStore.GetETagAsync(key: etagKey, cancellationToken: cancellationToken);
 
-        (ApiEvent[]? events, _, _) = await this._helper.GetPagedAsync(
+        PagedETagResult<ApiEvent> result = await this._helper.GetPagedWithETagAsync(
             url: url,
             jsonTypeInfo: NotificationSerializerContext.Default.ApiEventArray,
+            eTag: storedETag,
             cancellationToken: cancellationToken
         );
 
-        if (events is null || events.Length == 0)
+        if (result.NotModified)
         {
-            return;
+            this._logger.LogFeedNotModified(feed: feedDescription);
+
+            return result.PollIntervalSeconds;
         }
 
+        if (result.Items is null || result.Items.Length == 0)
+        {
+            await this.SaveETagIfChangedAsync(
+                etagKey: etagKey,
+                newETag: result.ETag,
+                storedETag: storedETag,
+                cancellationToken: cancellationToken
+            );
+
+            return result.PollIntervalSeconds;
+        }
+
+        await this.ProcessFeedItemsAsync(
+            items: result.Items,
+            lastIdKey: lastIdKey,
+            etagKey: etagKey,
+            newETag: result.ETag,
+            storedETag: storedETag,
+            feedDescription: feedDescription,
+            cancellationToken: cancellationToken
+        );
+
+        return result.PollIntervalSeconds;
+    }
+
+    private async Task ProcessFeedItemsAsync(
+        ApiEvent[] items,
+        string lastIdKey,
+        string etagKey,
+        string? newETag,
+        string? storedETag,
+        string feedDescription,
+        CancellationToken cancellationToken
+    )
+    {
+        string? lastIdString = await this._eTagStore.GetETagAsync(key: lastIdKey, cancellationToken: cancellationToken);
+        long lastId = ParseLastId(lastIdString);
+
         (long newestId, int processed) = await this.ProcessNewEventsAsync(
-            events: events,
+            events: items,
             lastId: lastId,
             cancellationToken: cancellationToken
         );
@@ -129,16 +196,35 @@ public sealed class RepoEventPoller : IRepoEventPoller
             );
         }
 
+        // Saved after processing so a failure mid-processing re-fetches the same events next poll instead of skipping them via 304.
+        await this.SaveETagIfChangedAsync(
+            etagKey: etagKey,
+            newETag: newETag,
+            storedETag: storedETag,
+            cancellationToken: cancellationToken
+        );
+
         if (processed > 0)
         {
             this._logger.LogFeedProcessed(feed: feedDescription, count: processed);
         }
     }
 
-    private async ValueTask<long> LoadLastIdAsync(string key, CancellationToken cancellationToken)
+    private async Task SaveETagIfChangedAsync(
+        string etagKey,
+        string? newETag,
+        string? storedETag,
+        CancellationToken cancellationToken
+    )
     {
-        string? lastIdStr = await this._eTagStore.GetETagAsync(key: key, cancellationToken: cancellationToken);
+        if (newETag is not null && !StringComparer.Ordinal.Equals(newETag, storedETag))
+        {
+            await this._eTagStore.SaveETagAsync(key: etagKey, eTag: newETag, cancellationToken: cancellationToken);
+        }
+    }
 
+    private static long ParseLastId(string? lastIdStr)
+    {
         return
             lastIdStr is not null
             && long.TryParse(

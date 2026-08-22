@@ -5,5 +5,5 @@ namespace Credfeto.Dispatcher.GitHub.Interfaces;
 
 public interface IRepoEventPoller
 {
-    ValueTask PollAsync(CancellationToken cancellationToken);
+    ValueTask<int?> PollAsync(CancellationToken cancellationToken);
 }

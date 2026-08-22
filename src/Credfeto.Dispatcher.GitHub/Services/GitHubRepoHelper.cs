@@ -74,26 +74,76 @@ public sealed class GitHubRepoHelper
     )
         where T : class
     {
+        PagedETagResult<T> result = await this.GetPagedWithETagAsync(
+            url: url,
+            jsonTypeInfo: jsonTypeInfo,
+            eTag: null,
+            cancellationToken: cancellationToken
+        );
+
+        return (result.Items, result.NextUrl, result.FailureStatus);
+    }
+
+    internal async ValueTask<PagedETagResult<T>> GetPagedWithETagAsync<T>(
+        string url,
+        JsonTypeInfo<T[]> jsonTypeInfo,
+        string? eTag,
+        CancellationToken cancellationToken
+    )
+        where T : class
+    {
         HttpClient httpClient = this._httpClientFactory.CreateClient("GitHub");
 
         using HttpRequestMessage request = new(method: HttpMethod.Get, requestUri: url);
+
+        ETagHeaderUtility.ApplyIfNoneMatch(request: request, eTag: eTag);
+
         using HttpResponseMessage response = await httpClient.SendAsync(
             request: request,
             cancellationToken: cancellationToken
         );
 
+        int? pollIntervalSeconds = ETagHeaderUtility.ExtractPollIntervalSeconds(response.Headers);
+        string? responseETag = ETagHeaderUtility.ExtractETag(response.Headers);
+
+        if (response.StatusCode == HttpStatusCode.NotModified)
+        {
+            return new(
+                Items: null,
+                NextUrl: null,
+                FailureStatus: null,
+                ETag: responseETag,
+                NotModified: true,
+                PollIntervalSeconds: pollIntervalSeconds
+            );
+        }
+
         if (!response.IsSuccessStatusCode)
         {
             this._logger.LogPageFetchFailed(url: url);
 
-            return (null, null, response.StatusCode);
+            return new(
+                Items: null,
+                NextUrl: null,
+                FailureStatus: response.StatusCode,
+                ETag: null,
+                NotModified: false,
+                PollIntervalSeconds: pollIntervalSeconds
+            );
         }
 
         string json = await response.Content.ReadAsStringAsync(cancellationToken);
         T[]? items = JsonSerializer.Deserialize(json: json, jsonTypeInfo: jsonTypeInfo);
         string? nextUrl = ParseNextLink(response.Headers);
 
-        return (items, nextUrl, null);
+        return new(
+            Items: items,
+            NextUrl: nextUrl,
+            FailureStatus: null,
+            ETag: responseETag,
+            NotModified: false,
+            PollIntervalSeconds: pollIntervalSeconds
+        );
     }
 
     private static string? ParseNextLink(HttpResponseHeaders headers)

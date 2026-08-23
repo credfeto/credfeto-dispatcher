@@ -10,5 +10,5 @@ internal sealed record GraphQlReviewNode(
     [property: JsonPropertyName("body")] string? Body,
     [property: JsonPropertyName("author")] GraphQlActor? Author,
     [property: JsonPropertyName("url")] string Url,
-    [property: JsonPropertyName("submittedAt")] DateTimeOffset SubmittedAt
+    [property: JsonPropertyName("submittedAt")] DateTimeOffset? SubmittedAt
 );

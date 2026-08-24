@@ -224,6 +224,32 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         }
         """;
 
+    private const string OPEN_PR_WITH_PENDING_REVIEW_JSON = """
+        {
+          "data": {
+            "repository": {
+              "pullRequest": {
+                "number": 42,
+                "title": "Test PR",
+                "state": "OPEN",
+                "isDraft": false,
+                "url": "https://github.com/owner/repo/pull/42",
+                "body": null,
+                "headRefOid": "abc123",
+                "baseRef": {"name": "main"},
+                "assignees": {"nodes": []},
+                "labels": {"nodes": []},
+                "comments": {"nodes": []},
+                "reviews": {"nodes": [
+                  {"state": "APPROVED", "body": "Looks good", "author": {"login": "reviewer"}, "url": "https://github.com/owner/repo/pull/42#pullrequestreview-1", "submittedAt": "2024-01-01T00:00:00Z"},
+                  {"state": "PENDING", "body": null, "author": {"login": "owner"}, "url": "https://github.com/owner/repo/pull/42#pullrequestreview-2", "submittedAt": null}
+                ]}
+              }
+            }
+          }
+        }
+        """;
+
     private const string OPEN_PR_WITH_LINKED_ITEMS_JSON = """
         {
           "data": {
@@ -642,6 +668,25 @@ public sealed class PullRequestDetailFetcherTests : TestBase
     public async Task ReturnsApprovedReviewInReviewsListAsync()
     {
         using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OPEN_PR_WITH_APPROVED_REVIEW_JSON);
+        using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
+        this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
+
+        GitHubNotification notification = BuildNotification(type: "PullRequest", reason: "mention");
+
+        PullRequestDetails? result = await this._fetcher.FetchAsync(
+            notification: notification,
+            cancellationToken: this.CancellationToken()
+        );
+
+        Assert.NotNull(result);
+        Assert.Single(result.Reviews);
+        Assert.Equal(expected: "APPROVED", actual: result.Reviews[0].State);
+    }
+
+    [Fact]
+    public async Task SkipsPendingReviewWithNullSubmittedAtAsync()
+    {
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OPEN_PR_WITH_PENDING_REVIEW_JSON);
         using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
         this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
 

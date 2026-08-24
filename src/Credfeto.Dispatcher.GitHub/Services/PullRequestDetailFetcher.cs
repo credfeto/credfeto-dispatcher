@@ -310,16 +310,23 @@ public sealed class PullRequestDetailFetcher : IPullRequestDetailFetcher
             return [];
         }
 
-        return
-        [
-            .. pr.Reviews.Nodes.Select(r => new PullRequestReview(
-                Author: r.Author?.Login ?? string.Empty,
-                State: r.State,
-                Body: r.Body is not null ? TruncateBody(r.Body) : null,
-                Url: new Uri(r.Url),
-                SubmittedAt: r.SubmittedAt
-            )),
-        ];
+        return [.. pr.Reviews.Nodes.Select(MapReview).OfType<PullRequestReview>()];
+    }
+
+    private static PullRequestReview? MapReview(GraphQlReviewNode r)
+    {
+        if (r.SubmittedAt is not { } submittedAt)
+        {
+            return null;
+        }
+
+        return new(
+            Author: r.Author?.Login ?? string.Empty,
+            State: r.State,
+            Body: r.Body is not null ? TruncateBody(r.Body) : null,
+            Url: new Uri(r.Url),
+            SubmittedAt: submittedAt
+        );
     }
 
     private static IReadOnlyList<LinkedItem> ExtractLinkedItems(GraphQlPullRequestData pr)

@@ -95,6 +95,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Repos_SetActive, PullRequests_RemoveForRepositories, and Issues_RemoveForRepositories now deduplicate the split repository CSV with SELECT DISTINCT, preventing a MERGE error or primary key violation when a repository name appears twice in the input (e.g. GitHub offset pagination shifting mid-scan); ActiveRepoTracker and WorkItemRepository also dedupe case-insensitively before building the CSV as defence in depth (#189)
 - Poll GitHub repo/owner event feeds conditionally using ETags and honour the X-Poll-Interval response header, avoiding rate-limit exhaustion at scale
 - Pending (unsubmitted) pull request reviews no longer abort notification processing
+- TBD - to be finalized after review
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934
@@ -130,9 +131,11 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Ben.Demystifier dependency (transitive via Serilog.Enrichers.Demystifier) as it uses reflection and is not AOT-compatible
 ### Deployment Changes
 - Removed Priorities configuration section; StuckDependabotTimeoutHours is now set under GitHub:Filter:StuckDependabotTimeoutHours and MaxIssues under GitHub:Filter:MaxIssues
+
 <!--
 Releases that have at least been deployed to staging, BUT NOT necessarily released to live.  Changes should be moved from [Unreleased] into here as they are merged into the appropriate release branch
 -->
+
 ## [0.0.1] - 2026-05-01
 ### Added
 - `GET /ping` lightweight health check endpoint returning `{"value":"Pong!"}` without touching the database

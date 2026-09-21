@@ -5,31 +5,23 @@ using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Interfaces;
 using Credfeto.Dispatcher.Storage.Database.Rows;
 using FunFair.Test.Common;
-using Microsoft.Extensions.Time.Testing;
+using FunFair.Test.Infrastructure.Mocks;
 using Xunit;
 
 namespace Credfeto.Dispatcher.Storage.Tests.Services;
 
 public sealed class WorkItemRepositoryTests : TestBase
 {
-    private static readonly DateTimeOffset BaseTime = new(
-        year: 2025,
-        month: 1,
-        day: 1,
-        hour: 0,
-        minute: 0,
-        second: 0,
-        offset: TimeSpan.Zero
-    );
+    private static readonly DateTimeOffset BaseTime = MockDateTimeSources.Past.GetUtcNow();
 
     private readonly TestDatabaseStub _database;
-    private readonly FakeTimeProvider _timeProvider;
+    private readonly TimeProvider _timeProvider;
     private readonly IWorkItemRepository _repository;
 
     public WorkItemRepositoryTests()
     {
         this._database = new TestDatabaseStub();
-        this._timeProvider = new FakeTimeProvider(BaseTime);
+        this._timeProvider = MockDateTimeSources.Past;
         this._repository = new WorkItemRepository(this._database, this._timeProvider);
     }
 

@@ -51,12 +51,12 @@
     Condition="Exists('$(SolutionDir)UnitTests.props')"
   />
   <ItemGroup>
-    <ProjectReference Include="..\Credfeto.Dispatcher.Shared\Credfeto.Dispatcher.Shared.csproj" />
+    <ProjectReference Include="../Credfeto.Dispatcher.Shared/Credfeto.Dispatcher.Shared.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="FunFair.Test.Common" Version="6.2.22.2198" />
-    <PackageReference Include="NSubstitute" Version="5.3.0" />
-    <PackageReference Include="xunit.v3.mtp-v2" Version="3.2.2" />
+    <PackageReference Include="FunFair.Test.Common" Version="6.4.6.2749" IncludeAssets="compile;runtime" />
+    <PackageReference Include="NSubstitute" Version="6.2.0" IncludeAssets="compile;runtime" />
+    <PackageReference Include="xunit.v3.aot.mtp-v2" Version="4.0.1" IncludeAssets="all" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference
@@ -85,7 +85,7 @@
     />
     <PackageReference
       Include="FunFair.Test.Source.Generator"
-      Version="6.2.22.2198"
+      Version="6.4.6.2749"
       PrivateAssets="All"
       ExcludeAssets="runtime"
     />
@@ -163,7 +163,7 @@
     />
     <PackageReference
       Include="xunit.analyzers"
-      Version="1.27.0"
+      Version="2.1.0"
       PrivateAssets="All"
       ExcludeAssets="runtime"
     />

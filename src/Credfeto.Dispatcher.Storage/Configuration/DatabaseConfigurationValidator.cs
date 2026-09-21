@@ -8,7 +8,9 @@ public sealed class DatabaseConfigurationValidator : IValidateOptions<DatabaseCo
     {
         if (options.Provider == DatabaseProvider.SqlServer && string.IsNullOrWhiteSpace(options.ConnectionString))
         {
-            return ValidateOptionsResult.Fail("Database ConnectionString must be configured when Provider is SqlServer.");
+            return ValidateOptionsResult.Fail(
+                "Database ConnectionString must be configured when Provider is SqlServer."
+            );
         }
 
         return ValidateOptionsResult.Success;

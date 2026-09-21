@@ -8,7 +8,7 @@ using Credfeto.Dispatcher.GitHub.Interfaces;
 using Credfeto.Dispatcher.GitHub.Services;
 using Credfeto.Dispatcher.GitHub.Tests.Helpers;
 using FunFair.Test.Common;
-using FunFair.Test.Common.Extensions;
+using FunFair.Test.Infrastructure.Extensions;
 using NSubstitute;
 using Xunit;
 

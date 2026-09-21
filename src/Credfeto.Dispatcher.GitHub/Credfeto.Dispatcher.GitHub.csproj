@@ -43,18 +43,19 @@
     <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-xhfc-gr8f-ffwc" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Credfeto.Dispatcher.GitHub.Interfaces\Credfeto.Dispatcher.GitHub.Interfaces.csproj" />
-    <ProjectReference Include="..\Credfeto.Dispatcher.Shared\Credfeto.Dispatcher.Shared.csproj" />
+    <ProjectReference Include="../Credfeto.Dispatcher.GitHub.Interfaces/Credfeto.Dispatcher.GitHub.Interfaces.csproj" />
+    <ProjectReference Include="../Credfeto.Dispatcher.Shared/Credfeto.Dispatcher.Shared.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Credfeto.Services.Startup.Interfaces" Version="1.1.145.1592" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.7" />
-    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.7" />
-    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.5.0" />
-    <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.7" />
+    <PackageReference Include="Credfeto.Services.Startup.Interfaces" Version="1.1.145.1592" IncludeAssets="compile;runtime" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.7" IncludeAssets="compile;runtime" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.7" IncludeAssets="compile;runtime" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.5.0" IncludeAssets="compile;runtime;buildTransitive" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.7" IncludeAssets="compile;runtime" />
     <PackageReference
       Include="Microsoft.Extensions.Options.ConfigurationExtensions"
       Version="10.0.7"
+      IncludeAssets="compile;runtime"
     />
   </ItemGroup>
   <ItemGroup>

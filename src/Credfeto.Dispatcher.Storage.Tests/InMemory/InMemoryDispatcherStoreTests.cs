@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using Credfeto.Dispatcher.Storage.Database.Rows;
 using Credfeto.Dispatcher.Storage.InMemory;
 using FunFair.Test.Common;
-using FunFair.Test.Common.Mocks;
+using FunFair.Test.Infrastructure.Mocks;
 using Microsoft.Extensions.Time.Testing;
 using Xunit;
 

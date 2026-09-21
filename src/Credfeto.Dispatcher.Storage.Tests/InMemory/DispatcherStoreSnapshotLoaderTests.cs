@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 using Credfeto.Dispatcher.Storage.Configuration;
 using Credfeto.Dispatcher.Storage.InMemory;
 using FunFair.Test.Common;
-using FunFair.Test.Common.Mocks;
+using FunFair.Test.Infrastructure.Mocks;
 using Microsoft.Extensions.Options;
 using Xunit;
 

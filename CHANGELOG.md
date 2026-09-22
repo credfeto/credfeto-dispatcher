@@ -95,7 +95,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Repos_SetActive, PullRequests_RemoveForRepositories, and Issues_RemoveForRepositories now deduplicate the split repository CSV with SELECT DISTINCT, preventing a MERGE error or primary key violation when a repository name appears twice in the input (e.g. GitHub offset pagination shifting mid-scan); ActiveRepoTracker and WorkItemRepository also dedupe case-insensitively before building the CSV as defence in depth (#189)
 - Poll GitHub repo/owner event feeds conditionally using ETags and honour the X-Poll-Interval response header, avoiding rate-limit exhaustion at scale
 - Pending (unsubmitted) pull request reviews no longer abort notification processing
-- TBD - to be finalized after review
+- RepoEventPoller now applies polled GitHub repo/owner events oldest-first, so the newest event's state wins the upsert instead of the oldest (#181)
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934

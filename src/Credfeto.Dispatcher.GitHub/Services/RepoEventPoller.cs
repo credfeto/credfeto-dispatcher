@@ -244,7 +244,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
     )
     {
         long newestId = 0;
-        int processed = 0;
+        List<ApiEvent> newEvents = new(events.Length);
 
         foreach (ApiEvent ev in events)
         {
@@ -270,11 +270,16 @@ public sealed class RepoEventPoller : IRepoEventPoller
                 break;
             }
 
-            await this.ProcessEventAsync(ev: ev, cancellationToken: cancellationToken);
-            processed++;
+            newEvents.Add(ev);
         }
 
-        return (newestId, processed);
+        // Feed is newest-first; apply oldest-first so the newest event's state wins the upsert.
+        for (int i = newEvents.Count - 1; i >= 0; --i)
+        {
+            await this.ProcessEventAsync(ev: newEvents[i], cancellationToken: cancellationToken);
+        }
+
+        return (newestId, newEvents.Count);
     }
 
     private async ValueTask ProcessEventAsync(ApiEvent ev, CancellationToken cancellationToken)

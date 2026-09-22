@@ -1,9 +1,9 @@
+using System;
 using System.Collections.Generic;
 using Credfeto.Dispatcher.Storage.Database.Rows;
 using Credfeto.Dispatcher.Storage.InMemory;
 using FunFair.Test.Common;
-using FunFair.Test.Common.Mocks;
-using Microsoft.Extensions.Time.Testing;
+using FunFair.Test.Infrastructure.Mocks;
 using Xunit;
 
 namespace Credfeto.Dispatcher.Storage.Tests.InMemory;
@@ -12,7 +12,7 @@ public sealed class InMemoryDispatcherStoreTests : TestBase
 {
     private const string REPOSITORY = "owner/repo";
 
-    private readonly FakeTimeProvider _timeProvider;
+    private readonly TimeProvider _timeProvider;
     private readonly InMemoryDispatcherStore _store;
 
     public InMemoryDispatcherStoreTests()

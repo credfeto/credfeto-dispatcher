@@ -43,7 +43,7 @@
     <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-xhfc-gr8f-ffwc" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Credfeto.Dispatcher.GitHub.DataTypes\Credfeto.Dispatcher.GitHub.DataTypes.csproj" />
+    <ProjectReference Include="../Credfeto.Dispatcher.GitHub.DataTypes/Credfeto.Dispatcher.GitHub.DataTypes.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference

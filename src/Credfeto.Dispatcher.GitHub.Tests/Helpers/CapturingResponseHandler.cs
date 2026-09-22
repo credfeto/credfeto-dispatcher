@@ -22,7 +22,10 @@ internal sealed class CapturingResponseHandler : HttpMessageHandler
 
     public HttpRequestMessage? CapturedRequest { get; private set; }
 
-    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    protected override Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken
+    )
     {
         this.CapturedRequest = request;
 
@@ -30,7 +33,11 @@ internal sealed class CapturingResponseHandler : HttpMessageHandler
 
         if (this._content is not null)
         {
-            response.Content = new StringContent(content: this._content, encoding: Encoding.UTF8, mediaType: "application/json");
+            response.Content = new StringContent(
+                content: this._content,
+                encoding: Encoding.UTF8,
+                mediaType: "application/json"
+            );
         }
 
         if (this._eTag is not null)

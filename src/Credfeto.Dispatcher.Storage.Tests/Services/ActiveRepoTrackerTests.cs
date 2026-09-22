@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.Interfaces;
 using FunFair.Test.Common;
-using FunFair.Test.Common.Mocks;
 using Xunit;
 
 namespace Credfeto.Dispatcher.Storage.Tests.Services;

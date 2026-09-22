@@ -120,6 +120,8 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Rename StorageSetup.AddStorage to AddSqlServerStorage; AddStorage now dispatches to the SQL Server or in-memory backend based on DatabaseConfiguration.Provider
 - Dependencies - Updated Credfeto.Docker.HealthCheck.Http.Client to 0.0.76.1094
 - Shrink dbo.PullRequests.Status and dbo.Issues.Status from NVARCHAR(MAX) to NVARCHAR(16) and add filtered covering indexes (IX_PullRequests_Active, IX_Issues_Active) so PullRequests_GetActive, Issues_GetActive, and the *_CloseStale procedures seek active rows instead of full-scanning ever-growing tables
+- Updated MSBuild.Sdk.SqlProj SDK to 4.4.0 in the database project to satisfy the SDK version check
+- Updated test dependencies (NSubstitute 6.2.0, xunit.v3.aot.mtp-v2 4.0.1 replacing xunit.v3.mtp-v2, xunit.analyzers 2.1.0, FunFair.Test.Common 6.4.6 with tests moved to the FunFair.Test.Infrastructure namespaces), removed the unused direct Microsoft.Extensions.TimeProvider.Testing reference and added IncludeAssets to package references to satisfy the build checks
 ### Deprecated
 ### Removed
 - Removed IsUpToDate field from WorkItem and PullRequestDetails as it was never populated in production
@@ -130,9 +132,11 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Ben.Demystifier dependency (transitive via Serilog.Enrichers.Demystifier) as it uses reflection and is not AOT-compatible
 ### Deployment Changes
 - Removed Priorities configuration section; StuckDependabotTimeoutHours is now set under GitHub:Filter:StuckDependabotTimeoutHours and MaxIssues under GitHub:Filter:MaxIssues
+
 <!--
 Releases that have at least been deployed to staging, BUT NOT necessarily released to live.  Changes should be moved from [Unreleased] into here as they are merged into the appropriate release branch
 -->
+
 ## [0.0.1] - 2026-05-01
 ### Added
 - `GET /ping` lightweight health check endpoint returning `{"value":"Pong!"}` without touching the database

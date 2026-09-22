@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
@@ -15,7 +15,10 @@ public sealed class StartupGitHubAuthCheckService : BackgroundService
     private readonly IGitHubAuthVerifier _authVerifier;
     private readonly ILogger<StartupGitHubAuthCheckService> _logger;
 
-    public StartupGitHubAuthCheckService(IGitHubAuthVerifier authVerifier, ILogger<StartupGitHubAuthCheckService> logger)
+    public StartupGitHubAuthCheckService(
+        IGitHubAuthVerifier authVerifier,
+        ILogger<StartupGitHubAuthCheckService> logger
+    )
     {
         this._authVerifier = authVerifier;
         this._logger = logger;

@@ -46,10 +46,7 @@ public sealed class WorkItemScannerServiceTests : TestBase
 
         using WorkItemScannerService service = this.CreateService();
         await service.StartAsync(token);
-        await scanStarted.Task.WaitAsync(
-            timeout: TimeSpan.FromSeconds(5),
-            cancellationToken: token
-        );
+        await scanStarted.Task.WaitAsync(timeout: TimeSpan.FromSeconds(5), cancellationToken: token);
         await service.StopAsync(token);
 
         await this._scanner.Received(1).ScanAsync(Arg.Any<CancellationToken>());
@@ -93,7 +90,9 @@ public sealed class WorkItemScannerServiceTests : TestBase
 
         CancellationToken token = TestContext.Current.CancellationToken;
 
-        using WorkItemScannerService service = this.CreateService(new GitHubOptions { Scan = new GitHubScanOptions { ScanIntervalSeconds = 0 } });
+        using WorkItemScannerService service = this.CreateService(
+            new GitHubOptions { Scan = new GitHubScanOptions { ScanIntervalSeconds = 0 } }
+        );
         await service.StartAsync(token);
         await scanStarted.Task.WaitAsync(timeout: TimeSpan.FromSeconds(5), cancellationToken: token);
         await service.StopAsync(token);
@@ -118,10 +117,7 @@ public sealed class WorkItemScannerServiceTests : TestBase
 
         using WorkItemScannerService service = this.CreateService();
         await service.StartAsync(token);
-        await exceptionThrown.Task.WaitAsync(
-            timeout: TimeSpan.FromSeconds(5),
-            cancellationToken: token
-        );
+        await exceptionThrown.Task.WaitAsync(timeout: TimeSpan.FromSeconds(5), cancellationToken: token);
         await service.StopAsync(token);
 
         await this._scanner.Received(1).ScanAsync(Arg.Any<CancellationToken>());

@@ -4,6 +4,7 @@ using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Interfaces;
 using Credfeto.Dispatcher.GitHub.Services;
 using FunFair.Test.Common;
+using FunFair.Test.Infrastructure.Mocks;
 using Microsoft.Extensions.Options;
 using Xunit;
 
@@ -34,7 +35,7 @@ public sealed class NotificationFilterTests : TestBase
             Reason: reason,
             Subject: DefaultSubject,
             Repository: repository,
-            UpdatedAt: TimeSources.Past.UtcNowAsOffset,
+            UpdatedAt: MockDateTimeSources.Past.GetUtcNow(),
             Unread: true
         );
     }
@@ -137,7 +138,7 @@ public sealed class NotificationFilterTests : TestBase
             Reason: "mention",
             Subject: DefaultSubject,
             Repository: repository,
-            UpdatedAt: TimeSources.Past.UtcNowAsOffset,
+            UpdatedAt: MockDateTimeSources.Past.GetUtcNow(),
             Unread: true
         );
 

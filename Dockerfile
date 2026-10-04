@@ -2,11 +2,11 @@ FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble
 
 WORKDIR /usr/src/app
 
+RUN apt-get update && apt-get upgrade -y && apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/*
+
 # Bundle App Source
 COPY Credfeto.Dispatcher.Server .
 COPY appsettings.json .
-
-RUN apt-get update && apt-get upgrade -y && apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 EXPOSE 8080
 EXPOSE 8081

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
@@ -84,6 +85,49 @@ public sealed class RepoEventPollerTests : TestBase
               "assignees": [],
               "labels": [{"name": "auto-pr"}],
               "head": {"sha": "ccc333"},
+              "user": {"login": "dnyw4l3n13"}
+            }
+          },
+          "created_at": "2024-01-01T00:00:00Z"
+        }]
+        """;
+
+    private const string PR_CLOSED_THEN_OPENED_SAME_PR_JSON = """
+        [{
+          "id": "101",
+          "type": "PullRequestEvent",
+          "repo": {"name": "owner/repo"},
+          "payload": {
+            "action": "closed",
+            "pull_request": {
+              "number": 40,
+              "title": "AI Work PR",
+              "state": "closed",
+              "draft": false,
+              "html_url": "https://github.com/owner/repo/pull/40",
+              "assignees": [],
+              "labels": [{"name": "AI-Work"}],
+              "head": {"sha": "aaa111"},
+              "user": {"login": "dnyw4l3n13"}
+            }
+          },
+          "created_at": "2024-01-01T00:05:00Z"
+        },
+        {
+          "id": "100",
+          "type": "PullRequestEvent",
+          "repo": {"name": "owner/repo"},
+          "payload": {
+            "action": "opened",
+            "pull_request": {
+              "number": 40,
+              "title": "AI Work PR",
+              "state": "open",
+              "draft": false,
+              "html_url": "https://github.com/owner/repo/pull/40",
+              "assignees": [],
+              "labels": [{"name": "AI-Work"}],
+              "head": {"sha": "aaa111"},
               "user": {"login": "dnyw4l3n13"}
             }
           },
@@ -255,6 +299,30 @@ public sealed class RepoEventPollerTests : TestBase
                 isOnHold: Arg.Any<bool>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
+    }
+
+    [Fact]
+    public async Task PollAsync_WithPrClosedThenOpenedEventsInSameBatch_AppliesEventsOldestFirstSoClosedStateWinsAsync()
+    {
+        using HttpClient repoFeedClient = CreateClient(HttpStatusCode.OK, PR_CLOSED_THEN_OPENED_SAME_PR_JSON);
+        using HttpClient ownerFeedClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoFeedClient, ownerFeedClient);
+
+        GitHubOptions options = new() { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } };
+        RepoEventPoller poller = this.CreatePoller(options);
+
+        await poller.PollAsync(this.CancellationToken());
+
+        List<string> statusesInCallOrder =
+        [
+            .. this
+                ._notificationStateTracker.ReceivedCalls()
+                .Select(call => call.GetArguments()[1])
+                .OfType<PullRequestDetails>()
+                .Select(details => details.Status),
+        ];
+
+        Assert.Equal(expected: ["Open", "Closed"], actual: statusesInCallOrder);
     }
 
     [Fact]

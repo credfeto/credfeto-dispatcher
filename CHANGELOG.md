@@ -123,6 +123,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Updated MSBuild.Sdk.SqlProj SDK to 4.4.0 in the database project to satisfy the SDK version check
 - Updated test dependencies (NSubstitute 6.2.0, xunit.v3.aot.mtp-v2 4.0.1 replacing xunit.v3.mtp-v2, xunit.analyzers 2.1.0, FunFair.Test.Common 6.4.6 with tests moved to the FunFair.Test.Infrastructure namespaces), removed the unused direct Microsoft.Extensions.TimeProvider.Testing reference and added IncludeAssets to package references to satisfy the build checks
 - SDK - Updated DotNet SDK to 10.0.401
+- Move the Dockerfile apt-get layer above the COPY of freshly published binaries so it stays cached between builds
 ### Deprecated
 ### Removed
 - Removed IsUpToDate field from WorkItem and PullRequestDetails as it was never populated in production

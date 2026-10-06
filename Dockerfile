@@ -1,12 +1,10 @@
-FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble
+FROM mcr.microsoft.com/dotnet/runtime-deps:11.0-azurelinux3.0-distroless-extra@sha256:7b917d924b0e953c9db5909efae21539590af25fd8cf7a35eb8a472ef115ed36
 
 WORKDIR /usr/src/app
 
 # Bundle App Source
 COPY Credfeto.Dispatcher.Server .
 COPY appsettings.json .
-
-RUN apt-get update && apt-get upgrade -y && apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 EXPOSE 8080
 EXPOSE 8081

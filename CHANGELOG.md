@@ -123,6 +123,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Updated MSBuild.Sdk.SqlProj SDK to 4.4.0 in the database project to satisfy the SDK version check
 - Updated test dependencies (NSubstitute 6.2.0, xunit.v3.aot.mtp-v2 4.0.1 replacing xunit.v3.mtp-v2, xunit.analyzers 2.1.0, FunFair.Test.Common 6.4.6 with tests moved to the FunFair.Test.Infrastructure namespaces), removed the unused direct Microsoft.Extensions.TimeProvider.Testing reference and added IncludeAssets to package references to satisfy the build checks
 - SDK - Updated DotNet SDK to 10.0.401
+- Docker image now uses the Azure Linux 3.0 distroless-extra runtime-deps base and runs as a non-root user, removing the apt-get upgrade layer
 ### Deprecated
 ### Removed
 - Removed IsUpToDate field from WorkItem and PullRequestDetails as it was never populated in production
@@ -131,6 +132,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Removed Discord integration and the notification queue; matching GitHub notifications now update stored work-item state directly
 - Serilog.Enrichers.Demystifier package as it is not AOT-compatible
 - Ben.Demystifier dependency (transitive via Serilog.Enrichers.Demystifier) as it uses reflection and is not AOT-compatible
+- Removed the unused src/FunFair.props file
 ### Deployment Changes
 - Removed Priorities configuration section; StuckDependabotTimeoutHours is now set under GitHub:Filter:StuckDependabotTimeoutHours and MaxIssues under GitHub:Filter:MaxIssues
 

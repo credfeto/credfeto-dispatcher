@@ -4,7 +4,9 @@ using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.BackgroundServices;
 using Credfeto.Dispatcher.GitHub.Configuration;
 using Credfeto.Dispatcher.GitHub.Interfaces;
+using Credfeto.Dispatcher.GitHub.Tests.Helpers;
 using FunFair.Test.Common;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Xunit;
 
@@ -12,12 +14,20 @@ namespace Credfeto.Dispatcher.GitHub.Tests.BackgroundServices;
 
 public sealed class RepoEventPollerServiceTests : TestBase
 {
+    private readonly ILogger<RepoEventPollerService> _logger;
+
+    public RepoEventPollerServiceTests()
+    {
+        this._logger = GetSubstitute<ILogger<RepoEventPollerService>>();
+        this._logger.MockLoggerIsEnabled();
+    }
+
     private RepoEventPollerService CreateService(IRepoEventPoller poller, GitHubOptions? options = null)
     {
         return new RepoEventPollerService(
             poller: poller,
             options: Options.Create(options ?? new GitHubOptions()),
-            logger: this.GetTypedLogger<RepoEventPollerService>()
+            logger: this._logger
         );
     }
 
@@ -39,22 +49,50 @@ public sealed class RepoEventPollerServiceTests : TestBase
     }
 
     [Fact]
-    public async Task StopsGracefullyWhenPollerThrowsOperationCanceledExceptionAsync()
+    public async Task ContinuesPollingWhenPollerThrowsOperationCanceledExceptionWithoutShutdownAsync()
     {
-        TaskCompletionSource pollCalled = new();
-        FakePoller poller = new(onPoll: () => pollCalled.TrySetResult(), exception: new OperationCanceledException());
+        TaskCompletionSource polledAgain = new();
+        int pollCount = 0;
+        FakePoller poller = new(
+            onPoll: () =>
+            {
+                if (Interlocked.Increment(ref pollCount) >= 2)
+                {
+                    polledAgain.TrySetResult();
+                }
+            },
+            exception: new OperationCanceledException()
+        );
+
+        CancellationToken token = TestContext.Current.CancellationToken;
+
+        using RepoEventPollerService service = this.CreateService(
+            poller,
+            new GitHubOptions { PollIntervalSeconds = 1 }
+        );
+        await service.StartAsync(token);
+        await polledAgain.Task.WaitAsync(timeout: TimeSpan.FromSeconds(5), cancellationToken: token);
+        await service.StopAsync(token);
+
+        Assert.Contains(this._logger.LoggedErrors(), exception => exception is OperationCanceledException);
+    }
+
+    [Fact]
+    public async Task StopsWhenStoppingTokenIsCancelledDuringPollAsync()
+    {
+        TaskCompletionSource pollStarted = new();
+        FakePoller poller = new(onPoll: () => pollStarted.TrySetResult(), waitForCancellation: true);
 
         CancellationToken token = TestContext.Current.CancellationToken;
 
         using RepoEventPollerService service = this.CreateService(poller);
         await service.StartAsync(token);
-        await pollCalled.Task.WaitAsync(timeout: TimeSpan.FromSeconds(5), cancellationToken: token);
+        await pollStarted.Task.WaitAsync(timeout: TimeSpan.FromSeconds(5), cancellationToken: token);
         await service.StopAsync(token);
 
-        Assert.True(
-            poller.PollCount == 1,
-            "Expected poller to have been called exactly once before stopping due to OperationCanceledException"
-        );
+        Assert.True(service.ExecuteTask?.IsCompletedSuccessfully, "Expected the poll loop to exit cleanly on shutdown");
+        Assert.Empty(this._logger.LoggedErrors());
+        Assert.Equal(expected: 1, actual: poller.PollCount);
     }
 
     [Fact]
@@ -136,13 +174,20 @@ public sealed class RepoEventPollerServiceTests : TestBase
         private readonly Exception? _exception;
         private readonly Action _onPoll;
         private readonly int? _suggestedPollIntervalSeconds;
+        private readonly bool _waitForCancellation;
         private int _pollCount;
 
-        public FakePoller(Action onPoll, Exception? exception = null, int? suggestedPollIntervalSeconds = null)
+        public FakePoller(
+            Action onPoll,
+            Exception? exception = null,
+            int? suggestedPollIntervalSeconds = null,
+            bool waitForCancellation = false
+        )
         {
             this._onPoll = onPoll;
             this._exception = exception;
             this._suggestedPollIntervalSeconds = suggestedPollIntervalSeconds;
+            this._waitForCancellation = waitForCancellation;
         }
 
         public int PollCount => this._pollCount;
@@ -157,7 +202,19 @@ public sealed class RepoEventPollerServiceTests : TestBase
                 return ValueTask.FromException<int?>(this._exception);
             }
 
+            if (this._waitForCancellation)
+            {
+                return WaitForCancellationAsync(cancellationToken);
+            }
+
             return ValueTask.FromResult(this._suggestedPollIntervalSeconds);
+        }
+
+        private static async ValueTask<int?> WaitForCancellationAsync(CancellationToken cancellationToken)
+        {
+            await Task.Delay(millisecondsDelay: Timeout.Infinite, cancellationToken: cancellationToken);
+
+            return null;
         }
     }
 }

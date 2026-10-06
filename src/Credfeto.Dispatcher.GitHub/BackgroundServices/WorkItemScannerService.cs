@@ -37,7 +37,7 @@ public sealed class WorkItemScannerService : BackgroundService
             {
                 await this._scanner.ScanAsync(stoppingToken);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
                 break;
             }

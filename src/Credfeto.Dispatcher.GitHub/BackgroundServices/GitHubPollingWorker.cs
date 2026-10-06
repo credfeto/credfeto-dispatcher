@@ -58,7 +58,7 @@ public sealed class GitHubPollingWorker : BackgroundService
             {
                 await this.PollAndProcessAsync(stoppingToken);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
                 break;
             }

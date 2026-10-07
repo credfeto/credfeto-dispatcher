@@ -1,5 +1,4 @@
 --- # Runs super-linter with the settings appropriate to the calling context
-# Maintain in repo: funfair-server-template
 name: "Run Super-Linter"
 description: "Runs super-linter/super-linter with the validation matrix and GITHUB_SHA handling appropriate to the caller"
 inputs:
@@ -26,9 +25,12 @@ runs:
     # checkout pattern, so encoding it here (rather than trusting every caller to pass the right
     # expression) is what actually prevents the two call sites drifting apart again (#995).
     #   - sql: reached via build/action.yml's dotnet build path, called from
-    #     build-and-publish-pre-release.yml, which checks out an explicit ref that can differ
-    #     from the default GITHUB_SHA on pull_request runs (the ref is the PR head commit, not
-    #     the ephemeral merge commit GITHUB_SHA points at), so it must be overridden to match.
+    #     build-and-publish-pre-release.yml, which on pull_request runs checks out the PR head
+    #     commit, so GITHUB_SHA (the merge commit) is never fetched and super-linter's Git mode
+    #     fails validating it. Step env cannot override GITHUB_SHA for a docker action, so the
+    #     find algorithm is used instead, which skips Git variable initialisation and SHA
+    #     validation. Find mode ignores .gitignore by default, so build output folders (where SQL
+    #     projects emit generated scripts) are excluded explicitly.
     #   - pr: pr-lint.yml's checkout never overrides `ref:`, so its default checkout already
     #     agrees with the default GITHUB_SHA; overriding it here would break that agreement.
 
@@ -68,10 +70,11 @@ runs:
       uses: super-linter/super-linter@4ce20838b8ab83717e78138c5b3a1407148e0918 # v8.7.0
       env:
         GITHUB_TOKEN: ${{inputs.github-token}}
-        GITHUB_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
         ENABLE_GITHUB_ACTIONS_STEP_SUMMARY: false
         ENABLE_GITHUB_PULL_REQUEST_SUMMARY_COMMENT: false
+        FILTER_REGEX_EXCLUDE: '(^|/)([Bb]in|[Oo]bj)/'
         MULTI_STATUS: false
         SAVE_SUPER_LINTER_SUMMARY: false
         SQLFLUFF_CONFIG_FILE: .sqlfluff
+        USE_FIND_ALGORITHM: true
         VALIDATE_SQLFLUFF: true

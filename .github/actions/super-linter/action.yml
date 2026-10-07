@@ -1,6 +1,6 @@
 --- # Runs super-linter with the settings appropriate to the calling context
 name: "Run Super-Linter"
-description: "Runs super-linter/super-linter with the validation matrix and GITHUB_SHA handling appropriate to the caller"
+description: "Runs super-linter/super-linter with the validation matrix and file discovery mode appropriate to the caller"
 inputs:
   mode:
     description: "Which validation matrix to apply: 'pr' (full PR lint pass) or 'sql' (SQLFluff-only, minimal scope, see #869)"
@@ -21,9 +21,8 @@ runs:
         echo "::error::Unsupported mode '$MODE' (expected 'pr' or 'sql')"
         exit 1
 
-    # GITHUB_SHA handling is mode-specific, not a caller input: each mode has a fixed, known
-    # checkout pattern, so encoding it here (rather than trusting every caller to pass the right
-    # expression) is what actually prevents the two call sites drifting apart again (#995).
+    # File discovery is fixed per mode, not a caller input: each mode has a known checkout
+    # pattern, so the discovery settings that suit it are encoded here rather than left to callers.
     #   - sql: reached via build/action.yml's dotnet build path, called from
     #     build-and-publish-pre-release.yml, which on pull_request runs checks out the PR head
     #     commit, so GITHUB_SHA (the merge commit) is never fetched and super-linter's Git mode

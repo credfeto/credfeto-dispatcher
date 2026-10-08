@@ -3,7 +3,7 @@ name: "Run Super-Linter"
 description: "Runs super-linter/super-linter with the validation matrix and file discovery mode appropriate to the caller"
 inputs:
   mode:
-    description: "Which validation matrix to apply: 'pr' (full PR lint pass) or 'sql' (SQLFluff-only, minimal scope, see #869)"
+    description: "Which validation matrix to apply: 'pr' (full PR lint pass) or 'sql' (SQLFluff only, whole workspace via find mode, see #869)"
     required: true
   github-token:
     description: "GitHub token"
@@ -21,17 +21,21 @@ runs:
         echo "::error::Unsupported mode '$MODE' (expected 'pr' or 'sql')"
         exit 1
 
-    # File discovery is fixed per mode, not a caller input: each mode has a known checkout
-    # pattern, so the discovery settings that suit it are encoded here rather than left to callers.
+    # File discovery is fixed per mode rather than a caller input, as each mode has a known
+    # checkout pattern.
     #   - sql: reached via build/action.yml's dotnet build path, called from
-    #     build-and-publish-pre-release.yml, which on pull_request runs checks out the PR head
-    #     commit, so GITHUB_SHA (the merge commit) is never fetched and super-linter's Git mode
-    #     fails validating it. Step env cannot override GITHUB_SHA for a docker action, so the
-    #     find algorithm is used instead, which skips Git variable initialisation and SHA
-    #     validation. Find mode ignores .gitignore by default, so build output folders (where SQL
-    #     projects emit generated scripts) are excluded explicitly.
-    #   - pr: pr-lint.yml's checkout never overrides `ref:`, so its default checkout already
-    #     agrees with the default GITHUB_SHA; overriding it here would break that agreement.
+    #     build-and-publish-pre-release.yml. Git-based discovery needs GITHUB_SHA in the clone,
+    #     which is not guaranteed: pull_request runs check out the PR head, so the merge commit is
+    #     never fetched, and push runs check out the branch tip, which may no longer contain
+    #     GITHUB_SHA after a force-push. Step env cannot override GITHUB_SHA for a docker action,
+    #     so USE_FIND_ALGORITHM is used on every event; find mode cannot be combined with
+    #     VALIDATE_ALL_CODEBASE: false, so it is set to true explicitly.
+    #     Find mode does not honour .gitignore by itself, so IGNORE_GITIGNORED_FILES skips anything
+    #     Git ignores; this needs only a valid local Git repository, not GITHUB_SHA.
+    #     FILTER_REGEX_EXCLUDE pre-filters bin/obj, where SQL projects emit generated scripts, so
+    #     those trees are not checked against Git file by file.
+    #   - pr: pr-lint.yml's checkout never overrides `ref:`, so its default checkout contains
+    #     GITHUB_SHA and super-linter's default Git-based discovery of changed files works as-is.
 
     - name: "Run Linter (PR)"
       if: inputs.mode == 'pr'
@@ -71,9 +75,11 @@ runs:
         GITHUB_TOKEN: ${{inputs.github-token}}
         ENABLE_GITHUB_ACTIONS_STEP_SUMMARY: false
         ENABLE_GITHUB_PULL_REQUEST_SUMMARY_COMMENT: false
-        FILTER_REGEX_EXCLUDE: '(^|/)([Bb]in|[Oo]bj)/'
+        FILTER_REGEX_EXCLUDE: "(^|/)([Bb]in|[Oo]bj)/"
+        IGNORE_GITIGNORED_FILES: true
         MULTI_STATUS: false
         SAVE_SUPER_LINTER_SUMMARY: false
         SQLFLUFF_CONFIG_FILE: .sqlfluff
         USE_FIND_ALGORITHM: true
+        VALIDATE_ALL_CODEBASE: true
         VALIDATE_SQLFLUFF: true

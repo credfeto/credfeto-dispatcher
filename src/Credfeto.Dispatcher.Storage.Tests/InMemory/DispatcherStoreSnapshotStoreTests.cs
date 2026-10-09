@@ -32,7 +32,9 @@ public sealed class DispatcherStoreSnapshotStoreTests : LoggingFolderCleanupTest
             Repos: new Dictionary<string, bool>(StringComparer.Ordinal) { ["owner/repo"] = true },
             PullRequests: [],
             Issues: [],
-            PollingStates: new Dictionary<string, string>(StringComparer.Ordinal) { ["poll-key"] = "\"abc123\"" }
+            PollingStates: new Dictionary<string, string>(StringComparer.Ordinal) { ["poll-key"] = "\"abc123\"" },
+            PullRequestAssignees: [new AssigneeSnapshotRow(Repository: "owner/repo", Id: 1, Logins: ["octocat"])],
+            IssueAssignees: []
         );
     }
 
@@ -65,6 +67,11 @@ public sealed class DispatcherStoreSnapshotStoreTests : LoggingFolderCleanupTest
         KeyValuePair<string, string> pollingState = Assert.Single(loaded.PollingStates);
         Assert.Equal(expected: "poll-key", actual: pollingState.Key);
         Assert.Equal(expected: "\"abc123\"", actual: pollingState.Value);
+        Assert.NotNull(loaded.PullRequestAssignees);
+        AssigneeSnapshotRow assignee = Assert.Single(loaded.PullRequestAssignees);
+        Assert.Equal(expected: "owner/repo", actual: assignee.Repository);
+        Assert.Equal(expected: 1, actual: assignee.Id);
+        Assert.Equal(expected: ["octocat"], actual: assignee.Logins);
     }
 
     [Fact]
@@ -105,7 +112,9 @@ public sealed class DispatcherStoreSnapshotStoreTests : LoggingFolderCleanupTest
             PollingStates: new Dictionary<string, string>(StringComparer.Ordinal)
             {
                 ["different-key"] = "different-etag",
-            }
+            },
+            PullRequestAssignees: [],
+            IssueAssignees: []
         );
         await this._store.SaveAsync(data: updated, cancellationToken: this.CancellationToken());
 

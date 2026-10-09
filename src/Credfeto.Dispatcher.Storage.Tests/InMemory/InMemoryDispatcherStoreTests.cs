@@ -35,7 +35,7 @@ public sealed class InMemoryDispatcherStoreTests : TestBase
 
         this._store.GetActiveRepos();
         this._store.GetETag("key");
-        this._store.GetActiveWorkItems();
+        this._store.GetActiveWorkItems(user: null);
 
         Assert.Equal(expected: versionAfterWrite, actual: this._store.Version);
     }
@@ -65,7 +65,8 @@ public sealed class InMemoryDispatcherStoreTests : TestBase
             status: "Open",
             priority: 1,
             isOnHold: false,
-            linkedPrNumber: null
+            linkedPrNumber: null,
+            assignees: null
         );
         int versionAfterUpsert = this._store.Version;
 
@@ -115,7 +116,9 @@ public sealed class InMemoryDispatcherStoreTests : TestBase
             failedCheckCount: 0,
             failedCheckNames: null,
             failedCheckSha: null,
-            author: "octocat"
+            author: "octocat",
+            isAdopted: null,
+            assignees: null
         );
         this._store.UpsertIssue(
             repository: REPOSITORY,
@@ -123,7 +126,8 @@ public sealed class InMemoryDispatcherStoreTests : TestBase
             status: "Open",
             priority: 1,
             isOnHold: false,
-            linkedPrNumber: null
+            linkedPrNumber: null,
+            assignees: null
         );
         this._store.LinkIssueToPullRequest(repository: REPOSITORY, id: 20, linkedPrNumber: 10);
 
@@ -134,7 +138,9 @@ public sealed class InMemoryDispatcherStoreTests : TestBase
 
         Assert.Equal(expected: "\"abc123\"", actual: target.GetETag("poll-key"));
 
-        (IReadOnlyList<PullRequestRow> pullRequests, IReadOnlyList<IssueRow> issues) = target.GetActiveWorkItems();
+        (IReadOnlyList<PullRequestRow> pullRequests, IReadOnlyList<IssueRow> issues) = target.GetActiveWorkItems(
+            user: null
+        );
 
         // The linked issue is suppressed by an active linked pull request - see
         // InMemoryDispatcherStore.IsLinkedPullRequestActiveNoLock - so only the pull request is
@@ -161,7 +167,9 @@ public sealed class InMemoryDispatcherStoreTests : TestBase
             failedCheckCount: 3,
             failedCheckNames: "build,test",
             failedCheckSha: "abc123",
-            author: "octocat"
+            author: "octocat",
+            isAdopted: null,
+            assignees: null
         );
 
         this._store.UpsertPullRequest(
@@ -176,10 +184,12 @@ public sealed class InMemoryDispatcherStoreTests : TestBase
             failedCheckCount: 0,
             failedCheckNames: null,
             failedCheckSha: null,
-            author: author
+            author: author,
+            isAdopted: null,
+            assignees: null
         );
 
-        (IReadOnlyList<PullRequestRow> pullRequests, _) = this._store.GetActiveWorkItems();
+        (IReadOnlyList<PullRequestRow> pullRequests, _) = this._store.GetActiveWorkItems(user: null);
         PullRequestRow pullRequest = Assert.Single(pullRequests);
 
         Assert.Equal(expected: 2, actual: pullRequest.Priority);
@@ -197,11 +207,184 @@ public sealed class InMemoryDispatcherStoreTests : TestBase
         this._store.SetActiveRepos(["stale/repo"]);
         this._store.SaveETag(key: "stale-key", eTag: "stale-etag");
 
-        DispatcherStoreSnapshotData emptySnapshot = new(Repos: [], PullRequests: [], Issues: [], PollingStates: []);
+        DispatcherStoreSnapshotData emptySnapshot = new(
+            Repos: [],
+            PullRequests: [],
+            Issues: [],
+            PollingStates: [],
+            PullRequestAssignees: [],
+            IssueAssignees: []
+        );
 
         this._store.ImportSnapshot(emptySnapshot);
 
         Assert.Empty(this._store.GetActiveRepos());
         Assert.Null(this._store.GetETag("stale-key"));
+    }
+
+    [Theory]
+    [InlineData(null, null, true)]
+    [InlineData("", "octocat", true)]
+    [InlineData("octocat", "octocat", true)]
+    [InlineData("OCTOCAT", "octocat", true)]
+    [InlineData("someone-else", "octocat", false)]
+    [InlineData("octocat,someone-else", "octocat", true)]
+    [InlineData("someone-else", null, true)]
+    public void GetActiveWorkItemsFiltersIssuesByAssignee(string? assignees, string? user, bool expectedVisible)
+    {
+        this._store.UpsertIssue(
+            repository: REPOSITORY,
+            id: 20,
+            status: "Open",
+            priority: 1,
+            isOnHold: false,
+            linkedPrNumber: null,
+            assignees: SplitAssignees(assignees)
+        );
+
+        (_, IReadOnlyList<IssueRow> issues) = this._store.GetActiveWorkItems(user: user);
+
+        Assert.Equal(expected: expectedVisible ? 1 : 0, actual: issues.Count);
+    }
+
+    [Theory]
+    [InlineData(null, false, "octocat", true)]
+    [InlineData("octocat", false, "octocat", true)]
+    [InlineData("OctoCat", false, "octocat", true)]
+    [InlineData("someone-else", false, "octocat", false)]
+    [InlineData("octocat,someone-else", false, "octocat", true)]
+    [InlineData("someone-else", true, "octocat", true)]
+    [InlineData("someone-else", false, null, true)]
+    public void GetActiveWorkItemsFiltersPullRequestsByAssigneeUnlessAdopted(
+        string? assignees,
+        bool isAdopted,
+        string? user,
+        bool expectedVisible
+    )
+    {
+        this.UpsertOpenPullRequest(id: 10, isAdopted: isAdopted, assignees: SplitAssignees(assignees));
+
+        (IReadOnlyList<PullRequestRow> pullRequests, _) = this._store.GetActiveWorkItems(user: user);
+
+        Assert.Equal(expected: expectedVisible ? 1 : 0, actual: pullRequests.Count);
+    }
+
+    [Fact]
+    public void UpsertPullRequestWithNullAssigneesAndAdoptionKeepsExistingValues()
+    {
+        this.UpsertOpenPullRequest(id: 10, isAdopted: true, assignees: ["someone-else"]);
+        this.UpsertOpenPullRequest(id: 11, isAdopted: false, assignees: ["someone-else"]);
+
+        this.UpsertOpenPullRequest(id: 10, isAdopted: null, assignees: null);
+        this.UpsertOpenPullRequest(id: 11, isAdopted: null, assignees: null);
+
+        (IReadOnlyList<PullRequestRow> pullRequests, _) = this._store.GetActiveWorkItems(user: "octocat");
+
+        PullRequestRow pullRequest = Assert.Single(pullRequests);
+        Assert.Equal(expected: 10, actual: pullRequest.Id);
+        Assert.True(condition: pullRequest.IsAdopted, userMessage: "A null isAdopted should keep the stored value");
+    }
+
+    [Fact]
+    public void UpsertIssueWithEmptyAssigneesClearsExistingAssignees()
+    {
+        this._store.UpsertIssue(
+            repository: REPOSITORY,
+            id: 20,
+            status: "Open",
+            priority: 1,
+            isOnHold: false,
+            linkedPrNumber: null,
+            assignees: ["someone-else"]
+        );
+        this._store.UpsertIssue(
+            repository: REPOSITORY,
+            id: 20,
+            status: "Open",
+            priority: 1,
+            isOnHold: false,
+            linkedPrNumber: null,
+            assignees: []
+        );
+
+        (_, IReadOnlyList<IssueRow> issues) = this._store.GetActiveWorkItems(user: "octocat");
+
+        Assert.Single(issues);
+    }
+
+    [Fact]
+    public void ExportSnapshotThenImportSnapshotRoundTripsAssignees()
+    {
+        this.UpsertOpenPullRequest(id: 10, isAdopted: false, assignees: ["someone-else"]);
+        this._store.UpsertIssue(
+            repository: REPOSITORY,
+            id: 20,
+            status: "Open",
+            priority: 4,
+            isOnHold: false,
+            linkedPrNumber: null,
+            assignees: ["someone-else"]
+        );
+
+        DispatcherStoreSnapshotData snapshot = this._store.ExportSnapshot();
+
+        InMemoryDispatcherStore target = new(this._timeProvider);
+        target.ImportSnapshot(snapshot);
+
+        (IReadOnlyList<PullRequestRow> filteredPullRequests, IReadOnlyList<IssueRow> filteredIssues) =
+            target.GetActiveWorkItems(user: "octocat");
+        (IReadOnlyList<PullRequestRow> visiblePullRequests, IReadOnlyList<IssueRow> visibleIssues) =
+            target.GetActiveWorkItems(user: "someone-else");
+
+        Assert.Empty(filteredPullRequests);
+        Assert.Empty(filteredIssues);
+        Assert.Single(visiblePullRequests);
+        Assert.Single(visibleIssues);
+    }
+
+    [Fact]
+    public void ImportSnapshotToleratesMissingAssigneeArrays()
+    {
+        DispatcherStoreSnapshotData snapshot = new(
+            Repos: [],
+            PullRequests: [],
+            Issues: [],
+            PollingStates: [],
+            PullRequestAssignees: null,
+            IssueAssignees: null
+        );
+
+        this._store.ImportSnapshot(snapshot);
+
+        (IReadOnlyList<PullRequestRow> pullRequests, IReadOnlyList<IssueRow> issues) = this._store.GetActiveWorkItems(
+            user: "octocat"
+        );
+        Assert.Empty(pullRequests);
+        Assert.Empty(issues);
+    }
+
+    private void UpsertOpenPullRequest(int id, bool? isAdopted, IReadOnlyList<string>? assignees)
+    {
+        this._store.UpsertPullRequest(
+            repository: REPOSITORY,
+            id: id,
+            status: "Open",
+            priority: 1,
+            isOnHold: false,
+            hasDetail: false,
+            commentCount: 0,
+            reviewDecision: null,
+            failedCheckCount: 0,
+            failedCheckNames: null,
+            failedCheckSha: null,
+            author: null,
+            isAdopted: isAdopted,
+            assignees: assignees
+        );
+    }
+
+    private static IReadOnlyList<string>? SplitAssignees(string? assignees)
+    {
+        return assignees?.Split(',', StringSplitOptions.RemoveEmptyEntries);
     }
 }

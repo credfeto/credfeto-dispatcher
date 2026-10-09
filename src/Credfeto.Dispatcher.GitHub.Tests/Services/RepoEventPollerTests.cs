@@ -297,6 +297,7 @@ public sealed class RepoEventPollerTests : TestBase
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 40 && !d.HasDetail),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -344,6 +345,7 @@ public sealed class RepoEventPollerTests : TestBase
                 details: Arg.Any<PullRequestDetails>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -375,6 +377,7 @@ public sealed class RepoEventPollerTests : TestBase
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 42),
                 priority: WorkPriority.URGENT,
                 isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -406,6 +409,7 @@ public sealed class RepoEventPollerTests : TestBase
                 details: Arg.Any<PullRequestDetails>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }

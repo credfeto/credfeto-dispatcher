@@ -15,6 +15,12 @@ BEGIN
     FROM STRING_SPLIT(@repositories, N',')
   ) AS [Source]
   WHERE [Source].[Repository] > N'';
+  DELETE FROM [dbo].[IssueAssignees]
+  WHERE EXISTS (
+      SELECT 1
+      FROM @RepositoriesToRemove AS [Source]
+      WHERE [Source].[Repository] = [dbo].[IssueAssignees].[Repository]
+    );
   DELETE FROM [dbo].[Issues]
   WHERE EXISTS (
       SELECT 1

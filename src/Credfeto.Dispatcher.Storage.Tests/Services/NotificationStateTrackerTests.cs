@@ -115,6 +115,7 @@ public sealed class NotificationStateTrackerTests : TestBase
             details: details,
             priority: WorkPriority.MEDIUM,
             isOnHold: false,
+            isAdopted: false,
             cancellationToken: this.CancellationToken()
         );
 
@@ -131,6 +132,7 @@ public sealed class NotificationStateTrackerTests : TestBase
             details: details,
             priority: WorkPriority.MEDIUM,
             isOnHold: false,
+            isAdopted: false,
             cancellationToken: this.CancellationToken()
         );
 
@@ -147,6 +149,7 @@ public sealed class NotificationStateTrackerTests : TestBase
             details: details,
             priority: WorkPriority.MEDIUM,
             isOnHold: false,
+            isAdopted: false,
             cancellationToken: this.CancellationToken()
         );
 

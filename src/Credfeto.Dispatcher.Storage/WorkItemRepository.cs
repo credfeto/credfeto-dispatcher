@@ -25,16 +25,19 @@ public sealed class WorkItemRepository : IWorkItemRepository
         IReadOnlyList<string> owners,
         int maxIssues,
         IReadOnlyList<string> boostedRepos,
+        string? user,
         CancellationToken cancellationToken
     )
     {
         IReadOnlyList<PullRequestRow> prRows = await this._database.ExecuteAsync(
-            action: DispatcherDatabase.PullRequests_GetActiveAsync,
+            action: (c, ct) =>
+                DispatcherDatabase.PullRequests_GetActiveAsync(connection: c, user: user, cancellationToken: ct),
             cancellationToken: cancellationToken
         );
 
         IReadOnlyList<IssueRow> issueRows = await this._database.ExecuteAsync(
-            action: DispatcherDatabase.Issues_GetActiveAsync,
+            action: (c, ct) =>
+                DispatcherDatabase.Issues_GetActiveAsync(connection: c, user: user, cancellationToken: ct),
             cancellationToken: cancellationToken
         );
 

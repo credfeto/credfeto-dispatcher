@@ -14,5 +14,6 @@ CREATE TABLE [dbo].[PullRequests] (
   [FailedCheckSha] NVARCHAR(MAX) NULL,
   [Author] NVARCHAR(MAX) NULL,
   [DateStatusChanged] DATETIMEOFFSET NULL,
+  [IsAdopted] BIT NOT NULL DEFAULT 0,
   CONSTRAINT [PK_PullRequests] PRIMARY KEY ([Repository], [Id])
 );

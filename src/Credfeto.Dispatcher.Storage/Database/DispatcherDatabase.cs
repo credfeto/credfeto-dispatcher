@@ -12,12 +12,14 @@ internal static partial class DispatcherDatabase
     [SqlObjectMap("PullRequests_GetActive", SqlObjectType.STORED_PROCEDURE, SqlDialect.MICROSOFT_SQL_SERVER)]
     public static partial ValueTask<IReadOnlyList<PullRequestRow>> PullRequests_GetActiveAsync(
         DbConnection connection,
+        string? user,
         CancellationToken cancellationToken
     );
 
     [SqlObjectMap("Issues_GetActive", SqlObjectType.STORED_PROCEDURE, SqlDialect.MICROSOFT_SQL_SERVER)]
     public static partial ValueTask<IReadOnlyList<IssueRow>> Issues_GetActiveAsync(
         DbConnection connection,
+        string? user,
         CancellationToken cancellationToken
     );
 
@@ -49,6 +51,8 @@ internal static partial class DispatcherDatabase
         string? failedCheckNames,
         string? failedCheckSha,
         string? author,
+        bool? isAdopted,
+        string? assignees,
         CancellationToken cancellationToken
     );
 
@@ -61,6 +65,7 @@ internal static partial class DispatcherDatabase
         int priority,
         bool isOnHold,
         int? linkedPrNumber,
+        string? assignees,
         CancellationToken cancellationToken
     );
 

@@ -11,6 +11,7 @@ public interface IWorkItemRepository
         IReadOnlyList<string> owners,
         int maxIssues,
         IReadOnlyList<string> boostedRepos,
+        string? user,
         CancellationToken cancellationToken
     );
 

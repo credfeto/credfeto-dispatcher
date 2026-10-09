@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -23,10 +23,13 @@ public sealed class InMemoryWorkItemRepository : IWorkItemRepository
         IReadOnlyList<string> owners,
         int maxIssues,
         IReadOnlyList<string> boostedRepos,
+        string? user,
         CancellationToken cancellationToken
     )
     {
-        (IReadOnlyList<PullRequestRow> prRows, IReadOnlyList<IssueRow> issueRows) = this._store.GetActiveWorkItems();
+        (IReadOnlyList<PullRequestRow> prRows, IReadOnlyList<IssueRow> issueRows) = this._store.GetActiveWorkItems(
+            user
+        );
 
         PrioritiesResponse response = WorkItemMapping.BuildResponse(
             prRows: prRows,

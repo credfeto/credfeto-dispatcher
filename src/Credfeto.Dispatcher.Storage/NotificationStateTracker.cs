@@ -23,6 +23,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         PullRequestDetails details,
         WorkPriority priority,
         bool isOnHold,
+        bool? isAdopted,
         CancellationToken cancellationToken
     )
     {
@@ -31,6 +32,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
             details: details,
             priority: priority,
             isOnHold: isOnHold,
+            isAdopted: isAdopted,
             cancellationToken: cancellationToken
         );
     }
@@ -40,6 +42,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
         PullRequestDetails details,
         WorkPriority priority,
         bool isOnHold,
+        bool? isAdopted,
         CancellationToken cancellationToken
     )
     {
@@ -59,6 +62,8 @@ public sealed class NotificationStateTracker : INotificationStateTracker
                     failedCheckNames: NotificationDetailMapping.BuildFailedCheckNames(details.Runs),
                     failedCheckSha: NotificationDetailMapping.BuildFailedCheckSha(details.Runs),
                     author: details.Author,
+                    isAdopted: isAdopted,
+                    assignees: RepositoryCsv.Build(details.Assignees),
                     cancellationToken: ct
                 ),
             cancellationToken: cancellationToken
@@ -100,6 +105,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
                     priority: (int)priority,
                     isOnHold: isOnHold,
                     linkedPrNumber: NotificationDetailMapping.ExtractPrNumber(details.LinkedPullRequestUrl),
+                    assignees: RepositoryCsv.Build(details.Assignees),
                     cancellationToken: ct
                 ),
             cancellationToken: cancellationToken

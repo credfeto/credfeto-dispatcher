@@ -20,6 +20,8 @@ public sealed class InMemoryDispatcherStore
     private readonly Dictionary<string, bool> _repos = new(StringComparer.Ordinal);
     private readonly Dictionary<(string Repository, int Id), PullRequestRow> _pullRequests = [];
     private readonly Dictionary<(string Repository, int Id), IssueRow> _issues = [];
+    private readonly Dictionary<(string Repository, int Id), string[]> _pullRequestAssignees = [];
+    private readonly Dictionary<(string Repository, int Id), string[]> _issueAssignees = [];
     private readonly Dictionary<string, string> _pollingStates = new(StringComparer.Ordinal);
     private readonly TimeProvider _timeProvider;
 
@@ -101,16 +103,20 @@ public sealed class InMemoryDispatcherStore
         int failedCheckCount,
         string? failedCheckNames,
         string? failedCheckSha,
-        string? author
+        string? author,
+        bool? isAdopted,
+        IReadOnlyList<string>? assignees
     )
     {
         lock (this._gate)
         {
-            this._version++;
-
-            DateTimeOffset now = this._timeProvider.GetUtcNow();
-            bool isClosed = string.Equals(status, CLOSED_STATUS, StringComparison.Ordinal);
             (string Repository, int Id) key = (repository, id);
+            (DateTimeOffset now, bool isClosed) = this.BeginUpsertNoLock(
+                status: status,
+                assigneeTarget: this._pullRequestAssignees,
+                key: key,
+                assignees: assignees
+            );
 
             if (this._pullRequests.TryGetValue(key, out PullRequestRow? existing))
             {
@@ -125,6 +131,7 @@ public sealed class InMemoryDispatcherStore
                     FailedCheckNames = hasDetail ? failedCheckNames : existing.FailedCheckNames,
                     FailedCheckSha = hasDetail ? failedCheckSha : existing.FailedCheckSha,
                     Author = author ?? existing.Author,
+                    IsAdopted = isAdopted ?? existing.IsAdopted,
                     LastUpdated = now,
                     WhenClosed = isClosed ? existing.WhenClosed ?? now : null,
                 };
@@ -146,20 +153,31 @@ public sealed class InMemoryDispatcherStore
                 FailedCheckCount: failedCheckCount,
                 FailedCheckNames: failedCheckNames,
                 FailedCheckSha: failedCheckSha,
-                Author: author
+                Author: author,
+                IsAdopted: isAdopted ?? false
             );
         }
     }
 
-    public void UpsertIssue(string repository, int id, string status, int priority, bool isOnHold, int? linkedPrNumber)
+    public void UpsertIssue(
+        string repository,
+        int id,
+        string status,
+        int priority,
+        bool isOnHold,
+        int? linkedPrNumber,
+        IReadOnlyList<string>? assignees
+    )
     {
         lock (this._gate)
         {
-            this._version++;
-
-            DateTimeOffset now = this._timeProvider.GetUtcNow();
-            bool isClosed = string.Equals(status, CLOSED_STATUS, StringComparison.Ordinal);
             (string Repository, int Id) key = (repository, id);
+            (DateTimeOffset now, bool isClosed) = this.BeginUpsertNoLock(
+                status: status,
+                assigneeTarget: this._issueAssignees,
+                key: key,
+                assignees: assignees
+            );
 
             if (this._issues.TryGetValue(key, out IssueRow? existing))
             {
@@ -190,6 +208,20 @@ public sealed class InMemoryDispatcherStore
         }
     }
 
+    private (DateTimeOffset Now, bool IsClosed) BeginUpsertNoLock(
+        string status,
+        Dictionary<(string Repository, int Id), string[]> assigneeTarget,
+        (string Repository, int Id) key,
+        IReadOnlyList<string>? assignees
+    )
+    {
+        this._version++;
+
+        ReplaceAssignees(target: assigneeTarget, key: key, assignees: assignees);
+
+        return (this._timeProvider.GetUtcNow(), string.Equals(status, CLOSED_STATUS, StringComparison.Ordinal));
+    }
+
     public void LinkIssueToPullRequest(string repository, int id, int linkedPrNumber)
     {
         lock (this._gate)
@@ -212,14 +244,25 @@ public sealed class InMemoryDispatcherStore
         }
     }
 
-    internal (IReadOnlyList<PullRequestRow> PullRequests, IReadOnlyList<IssueRow> Issues) GetActiveWorkItems()
+    internal (IReadOnlyList<PullRequestRow> PullRequests, IReadOnlyList<IssueRow> Issues) GetActiveWorkItems(
+        string? user
+    )
     {
         lock (this._gate)
         {
             IReadOnlyList<PullRequestRow> activePullRequests =
             [
                 .. this._pullRequests.Values.Where(pr =>
-                    IsOpenOrDraft(pr.Status) && !pr.IsOnHold && !this.IsRepoExplicitlyInactiveNoLock(pr.Repository)
+                    IsOpenOrDraft(pr.Status)
+                    && !pr.IsOnHold
+                    && !this.IsRepoExplicitlyInactiveNoLock(pr.Repository)
+                    && (
+                        pr.IsAdopted
+                        || IsVisibleTo(
+                            user: user,
+                            assignees: this._pullRequestAssignees.GetValueOrDefault((pr.Repository, pr.Id))
+                        )
+                    )
                 ),
             ];
 
@@ -232,6 +275,10 @@ public sealed class InMemoryDispatcherStore
                     && !this.IsLinkedPullRequestActiveNoLock(issue.Repository, issue.LinkedPrNumber)
                     && (
                         issue.Priority >= (int)WorkPriority.URGENT || !this.HasActivePullRequestNoLock(issue.Repository)
+                    )
+                    && IsVisibleTo(
+                        user: user,
+                        assignees: this._issueAssignees.GetValueOrDefault((issue.Repository, issue.Id))
                     )
                 ),
             ];
@@ -318,21 +365,21 @@ public sealed class InMemoryDispatcherStore
 
             HashSet<string> repos = new(repositories, StringComparer.Ordinal);
 
-            foreach (
-                (string Repository, int Id) key in this
-                    ._pullRequests.Keys.Where(k => repos.Contains(k.Repository))
-                    .ToArray()
-            )
-            {
-                this._pullRequests.Remove(key);
-            }
+            RemoveForRepositories(target: this._pullRequests, repos: repos);
+            RemoveForRepositories(target: this._issues, repos: repos);
+            RemoveForRepositories(target: this._pullRequestAssignees, repos: repos);
+            RemoveForRepositories(target: this._issueAssignees, repos: repos);
+        }
+    }
 
-            foreach (
-                (string Repository, int Id) key in this._issues.Keys.Where(k => repos.Contains(k.Repository)).ToArray()
-            )
-            {
-                this._issues.Remove(key);
-            }
+    private static void RemoveForRepositories<TValue>(
+        Dictionary<(string Repository, int Id), TValue> target,
+        HashSet<string> repos
+    )
+    {
+        foreach ((string Repository, int Id) key in target.Keys.Where(k => repos.Contains(k.Repository)).ToArray())
+        {
+            target.Remove(key);
         }
     }
 
@@ -347,7 +394,9 @@ public sealed class InMemoryDispatcherStore
                 Repos: new Dictionary<string, bool>(this._repos, StringComparer.Ordinal),
                 PullRequests: [.. this._pullRequests.Values],
                 Issues: [.. this._issues.Values],
-                PollingStates: new Dictionary<string, string>(this._pollingStates, StringComparer.Ordinal)
+                PollingStates: new Dictionary<string, string>(this._pollingStates, StringComparer.Ordinal),
+                PullRequestAssignees: ExportAssignees(this._pullRequestAssignees),
+                IssueAssignees: ExportAssignees(this._issueAssignees)
             );
         }
     }
@@ -371,7 +420,64 @@ public sealed class InMemoryDispatcherStore
                 keySelector: static row => (row.Repository, row.Id)
             );
             ReplaceAll(target: this._pollingStates, source: snapshot.PollingStates);
+            ImportAssignees(target: this._pullRequestAssignees, source: snapshot.PullRequestAssignees);
+            ImportAssignees(target: this._issueAssignees, source: snapshot.IssueAssignees);
         }
+    }
+
+    private static AssigneeSnapshotRow[] ExportAssignees(Dictionary<(string Repository, int Id), string[]> source)
+    {
+        return
+        [
+            .. source.Select(static entry => new AssigneeSnapshotRow(entry.Key.Repository, entry.Key.Id, entry.Value)),
+        ];
+    }
+
+    // Snapshots written before assignees were tracked have no assignee arrays, so a null source
+    // loads as "nothing assigned" rather than being rejected.
+    private static void ImportAssignees(
+        Dictionary<(string Repository, int Id), string[]> target,
+        AssigneeSnapshotRow[]? source
+    )
+    {
+        target.Clear();
+
+        foreach (AssigneeSnapshotRow row in (source ?? []).Where(static row => row.Logins is { Length: > 0 }))
+        {
+            target[(row.Repository, row.Id)] = row.Logins;
+        }
+    }
+
+    // A null list means the caller had no assignee information, so the stored set is left alone;
+    // an empty list means the item is genuinely unassigned.
+    private static void ReplaceAssignees(
+        Dictionary<(string Repository, int Id), string[]> target,
+        (string Repository, int Id) key,
+        IReadOnlyList<string>? assignees
+    )
+    {
+        if (assignees is null)
+        {
+            return;
+        }
+
+        string[] logins = [.. assignees.Distinct(StringComparer.OrdinalIgnoreCase)];
+
+        if (logins.Length == 0)
+        {
+            target.Remove(key);
+
+            return;
+        }
+
+        target[key] = logins;
+    }
+
+    private static bool IsVisibleTo(string? user, string[]? assignees)
+    {
+        return user is null
+            || assignees is null
+            || assignees.Contains(value: user, comparer: StringComparer.OrdinalIgnoreCase);
     }
 
     private static void ReplaceAll<TKey, TValue>(Dictionary<TKey, TValue> target, Dictionary<TKey, TValue> source)

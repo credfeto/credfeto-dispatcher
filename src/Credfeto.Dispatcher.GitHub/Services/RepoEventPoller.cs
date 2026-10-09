@@ -365,6 +365,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
             details: details,
             priority: priority,
             isOnHold: isOnHold,
+            isAdopted: null,
             cancellationToken: cancellationToken
         );
 

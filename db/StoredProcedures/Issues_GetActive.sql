@@ -1,4 +1,5 @@
 CREATE PROCEDURE [dbo].[Issues_GetActive]
+  @user NVARCHAR(100)
 AS
 BEGIN
   SET NOCOUNT ON;
@@ -33,6 +34,19 @@ BEGIN
       OR NOT EXISTS (
         SELECT 1 FROM [dbo].[PullRequests] AS Pr2
         WHERE Pr2.[Repository] = Iss.[Repository] AND (Pr2.[Status] = N'Open' OR Pr2.[Status] = N'Draft')
+      )
+    )
+    AND (
+      @user IS NULL
+      OR NOT EXISTS (
+        SELECT 1 FROM [dbo].[IssueAssignees] AS Assignee
+        WHERE Assignee.[Repository] = Iss.[Repository] AND Assignee.[Id] = Iss.[Id]
+      )
+      OR EXISTS (
+        SELECT 1 FROM [dbo].[IssueAssignees] AS Assignee
+        WHERE Assignee.[Repository] = Iss.[Repository]
+          AND Assignee.[Id] = Iss.[Id]
+          AND Assignee.[Login] = @user
       )
     );
 END;

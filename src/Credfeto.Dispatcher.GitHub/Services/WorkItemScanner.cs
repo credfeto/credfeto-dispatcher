@@ -314,6 +314,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
             ),
             priority: priority,
             isOnHold: isOnHold,
+            isAdopted: this.IsAdoptedBotPr(pr),
             cancellationToken: cancellationToken
         );
 
@@ -519,7 +520,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
             Title: issue.Title,
             Status: "Open",
             HtmlUrl: htmlUrl,
-            Assignees: [],
+            Assignees: issue.Assignees is null ? [] : [.. issue.Assignees.Select(a => a.Login)],
             Labels: labelNames,
             LinkedPullRequestUrl: null,
             Repository: new ItemRepository(Owner: owner, Name: name, Url: repoUri),

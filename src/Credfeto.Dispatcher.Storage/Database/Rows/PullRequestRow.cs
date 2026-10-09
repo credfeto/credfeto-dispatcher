@@ -18,5 +18,6 @@ internal sealed record PullRequestRow(
     int FailedCheckCount,
     string? FailedCheckNames,
     string? FailedCheckSha,
-    string? Author
+    string? Author,
+    bool IsAdopted
 );

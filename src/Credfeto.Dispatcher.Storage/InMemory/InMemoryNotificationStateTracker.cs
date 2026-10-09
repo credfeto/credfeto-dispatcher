@@ -20,11 +20,14 @@ public sealed class InMemoryNotificationStateTracker : INotificationStateTracker
         PullRequestDetails details,
         WorkPriority priority,
         bool isOnHold,
+        bool? isAdopted,
         CancellationToken cancellationToken
     )
     {
+        string repository = notification.Repository.FullName;
+
         this._store.UpsertPullRequest(
-            repository: notification.Repository.FullName,
+            repository: repository,
             id: details.Number,
             status: details.Status,
             priority: (int)priority,
@@ -35,13 +38,15 @@ public sealed class InMemoryNotificationStateTracker : INotificationStateTracker
             failedCheckCount: NotificationDetailMapping.CountFailedChecks(details.Runs),
             failedCheckNames: NotificationDetailMapping.BuildFailedCheckNames(details.Runs),
             failedCheckSha: NotificationDetailMapping.BuildFailedCheckSha(details.Runs),
-            author: details.Author
+            author: details.Author,
+            isAdopted: isAdopted,
+            assignees: details.Assignees
         );
 
         foreach (int linkedIssueNumber in details.LinkedItems.Select(static item => item.Number).Distinct())
         {
             this._store.LinkIssueToPullRequest(
-                repository: notification.Repository.FullName,
+                repository: repository,
                 id: linkedIssueNumber,
                 linkedPrNumber: details.Number
             );
@@ -64,7 +69,8 @@ public sealed class InMemoryNotificationStateTracker : INotificationStateTracker
             status: details.Status,
             priority: (int)priority,
             isOnHold: isOnHold,
-            linkedPrNumber: NotificationDetailMapping.ExtractPrNumber(details.LinkedPullRequestUrl)
+            linkedPrNumber: NotificationDetailMapping.ExtractPrNumber(details.LinkedPullRequestUrl),
+            assignees: details.Assignees
         );
 
         return ValueTask.CompletedTask;

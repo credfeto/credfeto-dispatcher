@@ -14,5 +14,7 @@ internal sealed record DispatcherStoreSnapshotData(
     Dictionary<string, bool> Repos,
     PullRequestRow[] PullRequests,
     IssueRow[] Issues,
-    Dictionary<string, string> PollingStates
+    Dictionary<string, string> PollingStates,
+    AssigneeSnapshotRow[]? PullRequestAssignees,
+    AssigneeSnapshotRow[]? IssueAssignees
 );

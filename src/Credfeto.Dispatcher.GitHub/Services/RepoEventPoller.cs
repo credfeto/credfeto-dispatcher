@@ -479,7 +479,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
             Title: issue.Title,
             Status: MapIssueStatus(issue),
             HtmlUrl: htmlUrl,
-            Assignees: issue.Assignees is null ? [] : [.. issue.Assignees.Select(a => a.Login)],
+            Assignees: [.. issue.Assignees?.Select(a => a.Login) ?? []],
             Labels: labelNames,
             LinkedPullRequestUrl: null,
             Repository: new ItemRepository(Owner: owner, Name: name, Url: repoUri),

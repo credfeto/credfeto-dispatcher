@@ -260,7 +260,8 @@ public sealed class InMemoryDispatcherStore
                         pr.IsAdopted
                         || IsVisibleTo(
                             user: user,
-                            assignees: this._pullRequestAssignees.GetValueOrDefault((pr.Repository, pr.Id))
+                            assigneesByItem: this._pullRequestAssignees,
+                            key: (pr.Repository, pr.Id)
                         )
                     )
                 ),
@@ -276,10 +277,7 @@ public sealed class InMemoryDispatcherStore
                     && (
                         issue.Priority >= (int)WorkPriority.URGENT || !this.HasActivePullRequestNoLock(issue.Repository)
                     )
-                    && IsVisibleTo(
-                        user: user,
-                        assignees: this._issueAssignees.GetValueOrDefault((issue.Repository, issue.Id))
-                    )
+                    && IsVisibleTo(user: user, assigneesByItem: this._issueAssignees, key: (issue.Repository, issue.Id))
                 ),
             ];
 
@@ -473,10 +471,14 @@ public sealed class InMemoryDispatcherStore
         target[key] = logins;
     }
 
-    private static bool IsVisibleTo(string? user, string[]? assignees)
+    private static bool IsVisibleTo(
+        string? user,
+        Dictionary<(string Repository, int Id), string[]> assigneesByItem,
+        (string Repository, int Id) key
+    )
     {
         return user is null
-            || assignees is null
+            || !assigneesByItem.TryGetValue(key: key, out string[]? assignees)
             || assignees.Contains(value: user, comparer: StringComparer.OrdinalIgnoreCase);
     }
 

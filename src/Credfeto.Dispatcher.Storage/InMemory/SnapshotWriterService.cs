@@ -45,7 +45,7 @@ public sealed class SnapshotWriterService : BackgroundService
             {
                 await this.WriteIfChangedAsync(stoppingToken);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
                 break;
             }

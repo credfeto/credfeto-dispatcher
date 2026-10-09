@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -6,7 +6,9 @@ using Credfeto.Dispatcher.GitHub.BackgroundServices;
 using Credfeto.Dispatcher.GitHub.Configuration;
 using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Interfaces;
+using Credfeto.Dispatcher.GitHub.Tests.Helpers;
 using FunFair.Test.Common;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using Xunit;
@@ -16,12 +18,15 @@ namespace Credfeto.Dispatcher.GitHub.Tests.BackgroundServices;
 public sealed class GitHubPollingWorkerTests : TestBase
 {
     private readonly INotificationFilter _filter;
+    private readonly ILogger<GitHubPollingWorker> _logger;
     private readonly INotificationStateTracker _stateTracker;
 
     public GitHubPollingWorkerTests()
     {
         this._filter = GetSubstitute<INotificationFilter>();
         this._stateTracker = GetSubstitute<INotificationStateTracker>();
+        this._logger = GetSubstitute<ILogger<GitHubPollingWorker>>();
+        this._logger.MockLoggerIsEnabled();
     }
 
     private static GitHubNotification BuildPrNotification(string reason)
@@ -158,7 +163,7 @@ public sealed class GitHubPollingWorkerTests : TestBase
             issueDetailFetcher: issueFetcher ?? new FakeIssueFetcher(result: null),
             notificationStateTracker: this._stateTracker,
             options: Options.Create(options ?? new GitHubOptions { PollIntervalSeconds = 30 }),
-            logger: this.GetTypedLogger<GitHubPollingWorker>()
+            logger: this._logger
         );
     }
 
@@ -457,6 +462,65 @@ public sealed class GitHubPollingWorkerTests : TestBase
         Assert.Null(poller.CommittedETag);
     }
 
+    [Fact]
+    public async Task ContinuesPollingWhenPollerThrowsOperationCanceledExceptionWithoutShutdownAsync()
+    {
+        TaskCompletionSource polledAgain = new();
+        int pollCount = 0;
+        FakeCallbackPoller poller = new(_ =>
+        {
+            if (Interlocked.Increment(ref pollCount) >= 2)
+            {
+                polledAgain.TrySetResult();
+            }
+
+            return ValueTask.FromException<NotificationPollResult>(new OperationCanceledException());
+        });
+
+        CancellationToken token = TestContext.Current.CancellationToken;
+
+        using GitHubPollingWorker worker = this.CreateWorker(
+            poller: poller,
+            fetcher: new FakeFetcher(result: null),
+            options: new GitHubOptions { PollIntervalSeconds = 1 }
+        );
+        await worker.StartAsync(token);
+        await polledAgain.Task.WaitAsync(timeout: TimeSpan.FromSeconds(5), cancellationToken: token);
+        await worker.StopAsync(token);
+
+        Assert.Contains(this._logger.LoggedErrors(), exception => exception is OperationCanceledException);
+    }
+
+    [Fact]
+    public async Task StopsWhenStoppingTokenIsCancelledDuringPollAsync()
+    {
+        TaskCompletionSource pollStarted = new();
+        FakeCallbackPoller poller = new(cancellationToken =>
+        {
+            pollStarted.TrySetResult();
+
+            return WaitForCancellationAsync(cancellationToken);
+        });
+
+        CancellationToken token = TestContext.Current.CancellationToken;
+
+        using GitHubPollingWorker worker = this.CreateWorker(poller: poller, fetcher: new FakeFetcher(result: null));
+        await worker.StartAsync(token);
+        await pollStarted.Task.WaitAsync(timeout: TimeSpan.FromSeconds(5), cancellationToken: token);
+        await worker.StopAsync(token);
+
+        Assert.True(worker.ExecuteTask?.IsCompletedSuccessfully, "Expected the poll loop to exit cleanly on shutdown");
+        Assert.Empty(this._logger.LoggedErrors());
+        Assert.Equal(expected: 1, actual: poller.PollCount);
+    }
+
+    private static async ValueTask<NotificationPollResult> WaitForCancellationAsync(CancellationToken cancellationToken)
+    {
+        await Task.Delay(millisecondsDelay: Timeout.Infinite, cancellationToken: cancellationToken);
+
+        return new NotificationPollResult(Notifications: [], CandidateETag: null);
+    }
+
     private sealed class FakeMentionPoller : IModifiedIssueMentionPoller
     {
         private readonly IReadOnlyList<GitHubNotification> _notifications;
@@ -496,6 +560,31 @@ public sealed class GitHubPollingWorkerTests : TestBase
         {
             this.CommittedETag = candidateETag;
 
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed class FakeCallbackPoller : INotificationPoller
+    {
+        private readonly Func<CancellationToken, ValueTask<NotificationPollResult>> _onPoll;
+        private int _pollCount;
+
+        public FakeCallbackPoller(Func<CancellationToken, ValueTask<NotificationPollResult>> onPoll)
+        {
+            this._onPoll = onPoll;
+        }
+
+        public int PollCount => this._pollCount;
+
+        public ValueTask<NotificationPollResult> PollAsync(CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref this._pollCount);
+
+            return this._onPoll(cancellationToken);
+        }
+
+        public ValueTask CommitETagAsync(string candidateETag, CancellationToken cancellationToken)
+        {
             return ValueTask.CompletedTask;
         }
     }

@@ -39,7 +39,7 @@ public sealed class RepoEventPollerService : BackgroundService
             {
                 suggestedPollIntervalSeconds = await this._poller.PollAsync(stoppingToken);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
                 break;
             }

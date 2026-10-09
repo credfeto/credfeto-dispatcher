@@ -381,7 +381,7 @@ public sealed class InMemoryDispatcherStore
         }
     }
 
-    // Copies all four dictionaries to a snapshot under _gate, so a concurrent mutation during
+    // Copies all store state to a snapshot under _gate, so a concurrent mutation during
     // the caller's later async serialisation can't race the unsynchronised source dictionaries.
     // Called periodically by SnapshotWriterService.
     internal DispatcherStoreSnapshotData ExportSnapshot()
@@ -399,7 +399,7 @@ public sealed class InMemoryDispatcherStore
         }
     }
 
-    // Replaces all four dictionaries' contents from a previously exported snapshot. Only ever
+    // Replaces all store state from a previously exported snapshot. Only ever
     // safe to call once, at startup, before any other caller can observe or mutate the store -
     // see DispatcherStoreSnapshotLoader and the synchronous load ordering in ServerStartup.
     internal void ImportSnapshot(DispatcherStoreSnapshotData snapshot)

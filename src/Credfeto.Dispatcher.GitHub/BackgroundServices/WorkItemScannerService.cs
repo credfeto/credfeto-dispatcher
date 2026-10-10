@@ -4,16 +4,16 @@ using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.BackgroundServices.LoggingExtensions;
 using Credfeto.Dispatcher.GitHub.Configuration;
 using Credfeto.Dispatcher.GitHub.Interfaces;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Credfeto.Dispatcher.GitHub.BackgroundServices;
 
-public sealed class WorkItemScannerService : BackgroundService
+public sealed class WorkItemScannerService : PollingBackgroundService
 {
+    private const int DEFAULT_SCAN_INTERVAL_SECONDS = 1800;
+
     private readonly ILogger<WorkItemScannerService> _logger;
-    private readonly GitHubScanOptions _scanOptions;
     private readonly IWorkItemScanner _scanner;
 
     public WorkItemScannerService(
@@ -21,44 +21,34 @@ public sealed class WorkItemScannerService : BackgroundService
         IOptions<GitHubOptions> options,
         ILogger<WorkItemScannerService> logger
     )
+        : base(
+            configuredIntervalSeconds: options.Value.Scan.ScanIntervalSeconds,
+            defaultIntervalSeconds: DEFAULT_SCAN_INTERVAL_SECONDS
+        )
     {
         this._scanner = scanner;
-        this._scanOptions = options.Value.Scan;
         this._logger = logger;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async ValueTask<int?> DoWorkAsync(CancellationToken cancellationToken)
+    {
+        await this._scanner.ScanAsync(cancellationToken);
+
+        return null;
+    }
+
+    protected override void LogStarting()
     {
         this._logger.LogScannerStarting();
+    }
 
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            try
-            {
-                await this._scanner.ScanAsync(stoppingToken);
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception exception)
-            {
-                this._logger.LogScanError(exception: exception);
-            }
-
-            int intervalSeconds =
-                this._scanOptions.ScanIntervalSeconds > 0 ? this._scanOptions.ScanIntervalSeconds : 1800;
-
-            try
-            {
-                await Task.Delay(millisecondsDelay: intervalSeconds * 1000, cancellationToken: stoppingToken);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-        }
-
+    protected override void LogStopping()
+    {
         this._logger.LogScannerStopping();
+    }
+
+    protected override void LogError(Exception exception)
+    {
+        this._logger.LogScanError(exception: exception);
     }
 }

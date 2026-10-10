@@ -53,6 +53,7 @@ Tracks which repositories are currently active (discovered by the scanner).
 | `FirstSeen` | `DATETIMEOFFSET` | When the PR was first stored |
 | `LastUpdated` | `DATETIMEOFFSET` | Most recent upsert timestamp |
 | `WhenClosed` | `DATETIMEOFFSET` | Set when status first becomes `Closed`; `NULL` otherwise |
+| `IsAdopted` | `BIT` | `1` when the PR is a bot PR matched by an `AdoptionRules` entry; kept unchanged when the upsert passes `NULL` |
 
 ### `dbo.Issues`
 
@@ -68,25 +69,29 @@ Tracks which repositories are currently active (discovered by the scanner).
 | `LastUpdated` | `DATETIMEOFFSET` | |
 | `WhenClosed` | `DATETIMEOFFSET` | |
 
+### `dbo.PullRequestAssignees` / `dbo.IssueAssignees`
+
+One row per assignee of a PR or issue: `Repository` `NVARCHAR(450)`, `Id` `INT` and `Login` `NVARCHAR(100)` (case-insensitive through the database's default collation), with a non-clustered primary key on all three and a clustered index on `Repository` and `Id`. The upsert procedures replace an item's rows when `@assignees` (comma-separated logins) is not `NULL`; an empty string clears them and `NULL` leaves them untouched.
+
 ### `dbo.PollingStates`
 
 Stores ETags for GitHub notification polling endpoints to support conditional requests.
 
 ## Indexes
 
-- `IX_PullRequests_Active`: filtered nonclustered index on `dbo.PullRequests` (`Repository`, `Id`) covering `PullRequests_GetActive`'s select list, `WHERE [Status] IN (N'Open', N'Draft')`. Keeps `PullRequests_GetActive` and `PullRequests_CloseStale` seeking/scanning only active rows instead of the whole (ever-growing) table.
+- `IX_PullRequests_Active`: filtered nonclustered index on `dbo.PullRequests` (`Repository`, `Id`) covering `PullRequests_GetActive`'s select list (including `IsAdopted`), `WHERE [Status] IN (N'Open', N'Draft')`. Keeps `PullRequests_GetActive` and `PullRequests_CloseStale` seeking/scanning only active rows instead of the whole (ever-growing) table.
 - `IX_Issues_Active`: filtered nonclustered index on `dbo.Issues` (`Repository`, `Id`) covering `Issues_GetActive`'s select list, `WHERE [Status] = N'Open'`. Same rationale for `Issues_GetActive` and `Issues_CloseStale`.
 
 ## Key Stored Procedures
 
 | Procedure | Purpose |
 | --- | --- |
-| `PullRequests_GetActive` | Returns open/draft PRs for active repos |
-| `Issues_GetActive` | Returns open issues for active repos (suppresses lower-priority issues when an open PR exists for the repo) |
+| `PullRequests_GetActive` | Returns open/draft PRs for active repos; a non-null `@user` keeps only unassigned PRs, PRs assigned to that login and adopted PRs |
+| `Issues_GetActive` | Returns open issues for active repos (suppresses lower-priority issues when an open PR exists for the repo); a non-null `@user` keeps only unassigned issues and issues assigned to that login |
 | `Repos_SetActive` | MERGE to mark discovered repos active and all others inactive |
-| `PullRequests_Upsert` / `Issues_Upsert` | Insert or update a single item |
+| `PullRequests_Upsert` / `Issues_Upsert` | Insert or update a single item, plus its assignee rows (and `IsAdopted` for PRs) |
 | `PullRequests_CloseStale` / `Issues_CloseStale` | Close items no longer present in a scan |
-| `PullRequests_RemoveForRepositories` / `Issues_RemoveForRepositories` | Hard-delete all items for given repos |
+| `PullRequests_RemoveForRepositories` / `Issues_RemoveForRepositories` | Hard-delete all items, and their assignee rows, for given repos |
 | `PollingStates_GetByKey` / `_Upsert` | ETag persistence |
 
 ## Pending Refactor

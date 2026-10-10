@@ -206,6 +206,7 @@ public sealed class GitHubPollingWorkerTests : TestBase
                 details: details,
                 priority: WorkPriority.UNKNOWN,
                 isOnHold: false,
+                isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -286,6 +287,7 @@ public sealed class GitHubPollingWorkerTests : TestBase
                 details: details,
                 priority: WorkPriority.UNKNOWN,
                 isOnHold: false,
+                isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -376,6 +378,7 @@ public sealed class GitHubPollingWorkerTests : TestBase
                 details: details,
                 priority: WorkPriority.UNKNOWN,
                 isOnHold: false,
+                isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }

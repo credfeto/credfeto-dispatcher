@@ -45,6 +45,7 @@ public sealed class WorkItemRepositoryTests : TestBase
             owners: owners,
             maxIssues: maxIssues,
             boostedRepos: boostedRepos ?? [],
+            user: null,
             cancellationToken: this.CancellationToken()
         );
 
@@ -75,7 +76,8 @@ public sealed class WorkItemRepositoryTests : TestBase
             FailedCheckCount: 0,
             FailedCheckNames: null,
             FailedCheckSha: null,
-            Author: author
+            Author: author,
+            IsAdopted: false
         );
     }
 

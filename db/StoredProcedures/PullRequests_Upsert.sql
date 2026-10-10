@@ -10,11 +10,15 @@ CREATE PROCEDURE [dbo].[PullRequests_Upsert]
   @failedCheckCount INT,
   @failedCheckNames NVARCHAR(MAX),
   @failedCheckSha NVARCHAR(MAX),
-  @author NVARCHAR(MAX)
+  @author NVARCHAR(MAX),
+  @isAdopted BIT,
+  @assignees NVARCHAR(MAX)
 AS
 BEGIN
   SET NOCOUNT ON;
+  SET XACT_ABORT ON;
   DECLARE @now DATETIMEOFFSET = GETUTCDATE();
+  BEGIN TRANSACTION;
   MERGE [dbo].[PullRequests] WITH (HOLDLOCK) AS [Target]
   USING (
     SELECT
@@ -35,6 +39,7 @@ BEGIN
         [FailedCheckNames] = CASE WHEN @hasDetail = 1 THEN @failedCheckNames ELSE [Target].[FailedCheckNames] END,
         [FailedCheckSha] = CASE WHEN @hasDetail = 1 THEN @failedCheckSha ELSE [Target].[FailedCheckSha] END,
         [Author] = ISNULL(@author, [Target].[Author]),
+        [IsAdopted] = ISNULL(@isAdopted, [Target].[IsAdopted]),
         [LastUpdated] = @now,
         [WhenClosed] = CASE WHEN @status = N'Closed' THEN ISNULL([Target].[WhenClosed], @now) END,
         [DateStatusChanged] = CASE WHEN [Target].[Status] <> @status THEN @now ELSE [Target].[DateStatusChanged] END
@@ -43,13 +48,29 @@ BEGIN
     INSERT (
       [Repository], [Id], [Status], [Priority], [IsOnHold], [CommentCount],
       [ReviewDecision], [FailedCheckCount], [FailedCheckNames], [FailedCheckSha],
-      [Author], [FirstSeen], [LastUpdated], [WhenClosed], [DateStatusChanged]
+      [Author], [IsAdopted], [FirstSeen], [LastUpdated], [WhenClosed], [DateStatusChanged]
     )
     VALUES (
       @repository, @id, @status, @priority, @isOnHold, @commentCount,
       @reviewDecision, @failedCheckCount, @failedCheckNames, @failedCheckSha,
-      @author, @now, @now,
+      @author, CASE WHEN @isAdopted IS NULL THEN CAST(0 AS BIT) ELSE @isAdopted END, @now, @now,
       CASE WHEN @status = N'Closed' THEN @now END,
       @now
     );
+  IF @assignees IS NOT NULL
+    BEGIN
+      DELETE FROM [dbo].[PullRequestAssignees] WITH (HOLDLOCK)
+      WHERE [Repository] = @repository AND [Id] = @id;
+      INSERT INTO [dbo].[PullRequestAssignees] ([Repository], [Id], [Login])
+      SELECT DISTINCT
+        @repository AS [Repository],
+        @id         AS [Id],
+        [Source].[Login]
+      FROM (
+        SELECT TRIM([value]) AS [Login]
+        FROM STRING_SPLIT(@assignees, N',')
+      ) AS [Source]
+      WHERE [Source].[Login] > N'';
+    END;
+  COMMIT TRANSACTION;
 END;

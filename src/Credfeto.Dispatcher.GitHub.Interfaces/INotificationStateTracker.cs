@@ -11,6 +11,7 @@ public interface INotificationStateTracker
         PullRequestDetails details,
         WorkPriority priority,
         bool isOnHold,
+        bool? isAdopted,
         CancellationToken cancellationToken
     );
 

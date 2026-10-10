@@ -41,6 +41,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Add DatabaseConfiguration.Provider (SqlServer or InMemory) to select the storage backend at startup
 - Order priorities globally into Security/Urgent PRs, other PRs, Security/Urgent issues, then other issues, with named owner/repo combinations boosted to the front of their band; within each band fall back to owner (alphabetically or configured order), repository, issue priority, and age
 - Persist the in-memory dispatcher store to a periodic JSON snapshot and reload it at startup, so a container restart no longer wipes /priorities back to empty (#210)
+- Optional `user` query parameter on GET /priorities to exclude items assigned to other users (adopted bot PRs kept); persist pull request assignees and IsAdopted status in database
 ### Fixed
 - EF Core change-tracking comparers trimmed away at publish time causing MissingMethodException at startup; preserve EF Core and Ben.Demystifier assemblies as trimmer roots
 - preserve EF Core migration types as trimmer roots to prevent missing-table errors at runtime on trimmed binaries

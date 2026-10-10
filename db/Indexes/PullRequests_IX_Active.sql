@@ -12,6 +12,7 @@ CREATE INDEX [IX_PullRequests_Active]
     [FailedCheckCount],
     [FailedCheckNames],
     [FailedCheckSha],
-    [Author]
+    [Author],
+    [IsAdopted]
   )
   WHERE [Status] IN (N'Open', N'Draft');

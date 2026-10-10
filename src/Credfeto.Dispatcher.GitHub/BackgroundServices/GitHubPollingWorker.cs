@@ -188,6 +188,7 @@ public sealed class GitHubPollingWorker : BackgroundService
             details: details,
             priority: priority,
             isOnHold: isOnHold,
+            isAdopted: null,
             cancellationToken: cancellationToken
         );
     }

@@ -4,11 +4,14 @@ CREATE PROCEDURE [dbo].[Issues_Upsert]
   @status NVARCHAR(16),
   @priority INT,
   @isOnHold BIT,
-  @linkedPrNumber INT
+  @linkedPrNumber INT,
+  @assignees NVARCHAR(MAX)
 AS
 BEGIN
   SET NOCOUNT ON;
+  SET XACT_ABORT ON;
   DECLARE @now DATETIMEOFFSET = GETUTCDATE();
+  BEGIN TRANSACTION;
   MERGE [dbo].[Issues] WITH (HOLDLOCK) AS [Target]
   USING (
     SELECT
@@ -39,4 +42,20 @@ BEGIN
       CASE WHEN @status = N'Closed' THEN @now END,
       @now
     );
+  IF @assignees IS NOT NULL
+    BEGIN
+      DELETE FROM [dbo].[IssueAssignees] WITH (HOLDLOCK)
+      WHERE [Repository] = @repository AND [Id] = @id;
+      INSERT INTO [dbo].[IssueAssignees] ([Repository], [Id], [Login])
+      SELECT DISTINCT
+        @repository AS [Repository],
+        @id         AS [Id],
+        [Source].[Login]
+      FROM (
+        SELECT TRIM([value]) AS [Login]
+        FROM STRING_SPLIT(@assignees, N',')
+      ) AS [Source]
+      WHERE [Source].[Login] > N'';
+    END;
+  COMMIT TRANSACTION;
 END;

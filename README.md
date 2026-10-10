@@ -84,6 +84,14 @@ When `DatabaseConfiguration:Provider` is `InMemory`, the in-memory store is peri
 
 Returns the current prioritised work item list with freshness metadata.
 
+Optional query parameter:
+
+| Parameter | Description |
+| --- | --- |
+| `user` | GitHub login to filter for. Keeps items with no assignees, items assigned to that login (matched case-insensitively) and bot PRs adopted through `GitHub:Filter:PullRequests:AdoptionRules`, whatever their assignees. Only each item's own assignees count; a linked PR's assignees are ignored. Omit it to get every item. A value that is not a valid GitHub login returns `400 Bad Request`. |
+
+For example, `GET /priorities?user=octocat`.
+
 ```json
 {
   "as_of": "2026-05-13T14:32:18Z",

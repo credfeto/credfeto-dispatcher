@@ -2,6 +2,7 @@ using System;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Credfeto.Dispatcher.GitHub;
 using Credfeto.Dispatcher.GitHub.Configuration;
 using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Interfaces;
@@ -27,9 +28,17 @@ internal static partial class Endpoints
         [FromServices] IWorkItemRepository workItemRepository,
         [FromServices] IOptions<GitHubOptions> options,
         [FromServices] ILoggerFactory loggerFactory,
+        [FromQuery] string? user,
         CancellationToken cancellationToken
     )
     {
+        string? userFilter = string.IsNullOrWhiteSpace(user) ? null : user.Trim();
+
+        if (userFilter is not null && !GitHubLoginValidator.IsValid(userFilter))
+        {
+            return Results.BadRequest();
+        }
+
         try
         {
             GitHubFilterOptions filter = options.Value.Filter;
@@ -37,6 +46,7 @@ internal static partial class Endpoints
                 owners: filter.AllowedOwners,
                 maxIssues: filter.MaxIssues,
                 boostedRepos: filter.BoostedRepos,
+                user: userFilter,
                 cancellationToken: cancellationToken
             );
 

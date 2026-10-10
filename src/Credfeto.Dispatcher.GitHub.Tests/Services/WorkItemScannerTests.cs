@@ -349,6 +349,31 @@ public sealed class WorkItemScannerTests : TestBase
         }]
         """;
 
+    private const string PR_WITH_ASSIGNEES_JSON = """
+        [{
+          "number": 60,
+          "title": "Assigned PR",
+          "state": "open",
+          "draft": false,
+          "html_url": "https://github.com/owner/repo/pull/60",
+          "assignees": [{"login": "octocat"}, {"login": "hubot"}],
+          "labels": [],
+          "head": {"sha": "fff666"}
+        }]
+        """;
+
+    private const string ISSUE_WITH_ASSIGNEES_JSON = """
+        [{
+          "number": 61,
+          "title": "Assigned Issue",
+          "state": "open",
+          "html_url": "https://github.com/owner/repo/issues/61",
+          "assignees": [{"login": "octocat"}],
+          "labels": [],
+          "pull_request": null
+        }]
+        """;
+
     private const string EMPTY_JSON = "[]";
 
     private readonly IActiveRepoTracker _activeRepoTracker;
@@ -453,6 +478,7 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Any<PullRequestDetails>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
 
@@ -484,6 +510,7 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Any<PullRequestDetails>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -505,6 +532,7 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Any<PullRequestDetails>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -546,6 +574,7 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Any<PullRequestDetails>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -569,6 +598,7 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Any<PullRequestDetails>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -592,6 +622,7 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 1 && d.Status == "Open" && !d.HasDetail),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -615,6 +646,7 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 2 && d.Status == "Draft"),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -638,6 +670,7 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 3),
                 priority: WorkPriority.URGENT,
                 isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -661,6 +694,7 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 9),
                 priority: WorkPriority.SECURITY,
                 isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -686,6 +720,7 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 4),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: true,
+                isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -711,6 +746,7 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 5),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -736,6 +772,7 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Any<PullRequestDetails>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -769,6 +806,7 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 40),
                 priority: WorkPriority.URGENT,
                 isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -802,6 +840,7 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Any<PullRequestDetails>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -827,6 +866,7 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 7),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -852,6 +892,7 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 8),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -877,6 +918,7 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 9),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: true,
+                isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -900,6 +942,7 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Any<PullRequestDetails>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -1155,6 +1198,7 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 10),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
 
@@ -1165,6 +1209,7 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 11),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -1228,6 +1273,7 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 1),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -1459,6 +1505,117 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 30),
                 priority: WorkPriority.SECURITY,
                 isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Any<bool?>(),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WithStuckBotPr_PersistsAsAdoptedAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, BOT_PR_STUCK_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        BotPrRule rule = new()
+        {
+            Author = "app/github-actions[bot]",
+            BranchPrefix = "depends/",
+            TimeoutHours = 24,
+        };
+        GitHubOptions options = new()
+        {
+            Filter = new GitHubFilterOptions { PullRequests = new() { AdoptionRules = [rule] } },
+        };
+
+        WorkItemScanner scanner = this.CreateScanner(options: options, timeProvider: MockDateTimeSources.Past);
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._notificationStateTracker.Received(1)
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Is<PullRequestDetails>(d => d.Number == 30),
+                priority: Arg.Any<WorkPriority>(),
+                isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Is<bool?>(true),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WithOrdinaryPullRequest_PersistsAsNotAdoptedAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, OPEN_PR_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        WorkItemScanner scanner = this.CreateScanner();
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._notificationStateTracker.Received(1)
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Is<PullRequestDetails>(d => d.Number == 1),
+                priority: Arg.Any<WorkPriority>(),
+                isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Is<bool?>(false),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WithAssignedPullRequest_PersistsAssigneesAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, PR_WITH_ASSIGNEES_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        WorkItemScanner scanner = this.CreateScanner();
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._notificationStateTracker.Received(1)
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Is<PullRequestDetails>(d =>
+                    d.Number == 60 && d.Assignees.Count == 2 && d.Assignees[0] == "octocat" && d.Assignees[1] == "hubot"
+                ),
+                priority: Arg.Any<WorkPriority>(),
+                isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Is<bool?>(false),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WithAssignedIssue_PersistsAssigneesAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, ISSUE_WITH_ASSIGNEES_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        WorkItemScanner scanner = this.CreateScanner();
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._notificationStateTracker.Received(1)
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Is<IssueDetails>(d =>
+                    d.Number == 61 && d.Assignees.Count == 1 && d.Assignees[0] == "octocat"
+                ),
+                priority: Arg.Any<WorkPriority>(),
+                isOnHold: Arg.Any<bool>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -1493,6 +1650,7 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Any<PullRequestDetails>(),
                 priority: WorkPriority.SECURITY,
                 isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -1527,6 +1685,7 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Any<PullRequestDetails>(),
                 priority: WorkPriority.SECURITY,
                 isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -1550,6 +1709,7 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Any<PullRequestDetails>(),
                 priority: WorkPriority.SECURITY,
                 isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -1634,6 +1794,7 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 33),
                 priority: WorkPriority.SECURITY,
                 isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -1673,6 +1834,7 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 34),
                 priority: WorkPriority.LOW,
                 isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }
@@ -1711,6 +1873,7 @@ public sealed class WorkItemScannerTests : TestBase
                 details: Arg.Any<PullRequestDetails>(),
                 priority: Arg.Any<WorkPriority>(),
                 isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
     }

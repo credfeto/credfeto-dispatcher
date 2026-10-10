@@ -98,6 +98,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Pending (unsubmitted) pull request reviews no longer abort notification processing
 - RepoEventPoller now applies polled GitHub repo/owner events oldest-first, so the newest event's state wins the upsert instead of the oldest (#181)
 - Background polling loops (GitHubPollingWorker, WorkItemScannerService, RepoEventPollerService, SnapshotWriterService) now exit only when stopping token is cancelled; other OperationCanceledExceptions are logged and the loop continues (#196)
+- Bot-PR adoption timeout now keeps the higher of the rule priority and the label-derived priority (#195)
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934

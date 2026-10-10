@@ -4,16 +4,16 @@ using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.BackgroundServices.LoggingExtensions;
 using Credfeto.Dispatcher.GitHub.Configuration;
 using Credfeto.Dispatcher.GitHub.Interfaces;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Credfeto.Dispatcher.GitHub.BackgroundServices;
 
-public sealed class RepoEventPollerService : BackgroundService
+public sealed class RepoEventPollerService : PollingBackgroundService
 {
+    private const int DEFAULT_POLL_INTERVAL_SECONDS = 60;
+
     private readonly ILogger<RepoEventPollerService> _logger;
-    private readonly GitHubOptions _options;
     private readonly IRepoEventPoller _poller;
 
     public RepoEventPollerService(
@@ -21,50 +21,32 @@ public sealed class RepoEventPollerService : BackgroundService
         IOptions<GitHubOptions> options,
         ILogger<RepoEventPollerService> logger
     )
+        : base(
+            configuredIntervalSeconds: options.Value.PollIntervalSeconds,
+            defaultIntervalSeconds: DEFAULT_POLL_INTERVAL_SECONDS
+        )
     {
         this._poller = poller;
-        this._options = options.Value;
         this._logger = logger;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override ValueTask<int?> DoWorkAsync(CancellationToken cancellationToken)
+    {
+        return this._poller.PollAsync(cancellationToken);
+    }
+
+    protected override void LogStarting()
     {
         this._logger.LogEventPollerStarting();
+    }
 
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            int? suggestedPollIntervalSeconds = null;
-
-            try
-            {
-                suggestedPollIntervalSeconds = await this._poller.PollAsync(stoppingToken);
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception exception)
-            {
-                this._logger.LogEventPollerError(exception: exception);
-            }
-
-            int configuredPollIntervalSeconds =
-                this._options.PollIntervalSeconds > 0 ? this._options.PollIntervalSeconds : 60;
-            int pollIntervalSeconds = Math.Max(
-                configuredPollIntervalSeconds,
-                suggestedPollIntervalSeconds ?? configuredPollIntervalSeconds
-            );
-
-            try
-            {
-                await Task.Delay(millisecondsDelay: pollIntervalSeconds * 1000, cancellationToken: stoppingToken);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-        }
-
+    protected override void LogStopping()
+    {
         this._logger.LogEventPollerStopping();
+    }
+
+    protected override void LogError(Exception exception)
+    {
+        this._logger.LogEventPollerError(exception: exception);
     }
 }

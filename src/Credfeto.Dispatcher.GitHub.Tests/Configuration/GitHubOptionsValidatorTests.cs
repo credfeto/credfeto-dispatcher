@@ -75,6 +75,19 @@ public sealed class GitHubOptionsValidatorTests : TestBase
     }
 
     [Fact]
+    public void ValidationFailsWhenApiBaseUrlIsMissing()
+    {
+        GitHubOptions options = new() { Token = "valid-token", PollIntervalSeconds = 60 };
+
+        // Simulates configuration binding that leaves the non-nullable ApiBaseUrl unset
+        typeof(GitHubOptions).GetProperty(nameof(GitHubOptions.ApiBaseUrl))?.SetValue(obj: options, value: null);
+
+        ValidateOptionsResult result = this._validator.Validate(name: null, options: options);
+
+        Assert.True(result.Failed, "Expected validation to fail when ApiBaseUrl is missing");
+    }
+
+    [Fact]
     public void ValidationSucceedsWhenBoostedReposIsWellFormed()
     {
         GitHubOptions options = new()

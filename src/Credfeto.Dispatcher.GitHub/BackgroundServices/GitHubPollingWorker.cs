@@ -7,14 +7,14 @@ using Credfeto.Dispatcher.GitHub.BackgroundServices.LoggingExtensions;
 using Credfeto.Dispatcher.GitHub.Configuration;
 using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Interfaces;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Credfeto.Dispatcher.GitHub.BackgroundServices;
 
-public sealed class GitHubPollingWorker : BackgroundService
+public sealed class GitHubPollingWorker : PollingBackgroundService
 {
+    private const int DEFAULT_POLL_INTERVAL_SECONDS = 60;
     private const string PULL_REQUEST_TYPE = "PullRequest";
     private const string ISSUE_TYPE = "Issue";
 
@@ -37,6 +37,10 @@ public sealed class GitHubPollingWorker : BackgroundService
         IOptions<GitHubOptions> options,
         ILogger<GitHubPollingWorker> logger
     )
+        : base(
+            configuredIntervalSeconds: options.Value.PollIntervalSeconds,
+            defaultIntervalSeconds: DEFAULT_POLL_INTERVAL_SECONDS
+        )
     {
         this._poller = poller;
         this._modifiedIssueMentionPoller = modifiedIssueMentionPoller;
@@ -48,38 +52,26 @@ public sealed class GitHubPollingWorker : BackgroundService
         this._logger = logger;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async ValueTask<int?> DoWorkAsync(CancellationToken cancellationToken)
+    {
+        await this.PollAndProcessAsync(cancellationToken);
+
+        return null;
+    }
+
+    protected override void LogStarting()
     {
         this._logger.LogWorkerStarting();
+    }
 
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            try
-            {
-                await this.PollAndProcessAsync(stoppingToken);
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception exception)
-            {
-                this._logger.LogPollingError(exception: exception);
-            }
-
-            int pollIntervalSeconds = this._options.PollIntervalSeconds > 0 ? this._options.PollIntervalSeconds : 60;
-
-            try
-            {
-                await Task.Delay(millisecondsDelay: pollIntervalSeconds * 1000, cancellationToken: stoppingToken);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-        }
-
+    protected override void LogStopping()
+    {
         this._logger.LogWorkerStopping();
+    }
+
+    protected override void LogError(Exception exception)
+    {
+        this._logger.LogPollingError(exception: exception);
     }
 
     private async ValueTask PollAndProcessAsync(CancellationToken cancellationToken)

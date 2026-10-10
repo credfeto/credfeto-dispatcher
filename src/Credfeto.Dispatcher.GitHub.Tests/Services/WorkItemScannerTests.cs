@@ -261,6 +261,36 @@ public sealed class WorkItemScannerTests : TestBase
         }]
         """;
 
+    private const string BOT_PR_STUCK_SECURITY_LABEL_JSON = """
+        [{
+          "number": 36,
+          "title": "Bot Stuck PR (security label)",
+          "state": "open",
+          "draft": false,
+          "html_url": "https://github.com/owner/repo/pull/36",
+          "assignees": [],
+          "labels": [{"name": "Security"}],
+          "head": {"sha": "ggg777", "ref": "depends/update-thing"},
+          "user": {"login": "app/github-actions[bot]"},
+          "created_at": "1975-01-01T00:00:00Z"
+        }]
+        """;
+
+    private const string BOT_PR_STUCK_URGENT_LABEL_JSON = """
+        [{
+          "number": 37,
+          "title": "Bot Stuck PR (urgent label)",
+          "state": "open",
+          "draft": false,
+          "html_url": "https://github.com/owner/repo/pull/37",
+          "assignees": [],
+          "labels": [{"name": "priority: urgent"}],
+          "head": {"sha": "hhh888", "ref": "depends/update-thing"},
+          "user": {"login": "app/github-actions[bot]"},
+          "created_at": "1975-01-01T00:00:00Z"
+        }]
+        """;
+
     private const string BOT_PR_RECENT_JSON = """
         [{
           "number": 31,
@@ -1503,6 +1533,78 @@ public sealed class WorkItemScannerTests : TestBase
             .UpdateStateAsync(
                 notification: Arg.Any<GitHubNotification>(),
                 details: Arg.Is<PullRequestDetails>(d => d.Number == 30),
+                priority: WorkPriority.SECURITY,
+                isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Any<bool?>(),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WithStuckBotPrAndLabelPriorityAboveRulePriority_CallsUpdateWithLabelPriorityAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, BOT_PR_STUCK_SECURITY_LABEL_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        BotPrRule rule = new()
+        {
+            Author = "app/github-actions[bot]",
+            BranchPrefix = "depends/",
+            TimeoutHours = 24,
+            Priority = WorkPriority.HIGH,
+        };
+        GitHubOptions options = new()
+        {
+            Filter = new GitHubFilterOptions { PullRequests = new() { AdoptionRules = [rule] } },
+        };
+
+        WorkItemScanner scanner = this.CreateScanner(options: options, timeProvider: MockDateTimeSources.Past);
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._notificationStateTracker.Received(1)
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Is<PullRequestDetails>(d => d.Number == 36),
+                priority: WorkPriority.SECURITY,
+                isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Any<bool?>(),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WithStuckBotPrAndRulePriorityAboveLabelPriority_CallsUpdateWithRulePriorityAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, BOT_PR_STUCK_URGENT_LABEL_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        BotPrRule rule = new()
+        {
+            Author = "app/github-actions[bot]",
+            BranchPrefix = "depends/",
+            TimeoutHours = 24,
+            Priority = WorkPriority.SECURITY,
+        };
+        GitHubOptions options = new()
+        {
+            Filter = new GitHubFilterOptions { PullRequests = new() { AdoptionRules = [rule] } },
+        };
+
+        WorkItemScanner scanner = this.CreateScanner(options: options, timeProvider: MockDateTimeSources.Past);
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        await this
+            ._notificationStateTracker.Received(1)
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Is<PullRequestDetails>(d => d.Number == 37),
                 priority: WorkPriority.SECURITY,
                 isOnHold: Arg.Any<bool>(),
                 isAdopted: Arg.Any<bool?>(),

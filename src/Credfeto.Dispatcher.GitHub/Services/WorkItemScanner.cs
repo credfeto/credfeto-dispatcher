@@ -397,14 +397,18 @@ public sealed class WorkItemScanner : IWorkItemScanner
             return labelPriority;
         }
 
-        WorkPriority effectivePriority =
-            labelPriority < matchingRule.DefaultPriority ? matchingRule.DefaultPriority : labelPriority;
+        WorkPriority effectivePriority = HighestPriority(matchingRule.DefaultPriority, labelPriority);
 
         DateTimeOffset now = this._timeProvider.GetUtcNow();
 
         return now - pr.CreatedAt >= TimeSpan.FromHours(matchingRule.TimeoutHours)
-            ? matchingRule.Priority
+            ? HighestPriority(matchingRule.Priority, labelPriority)
             : effectivePriority;
+    }
+
+    private static WorkPriority HighestPriority(WorkPriority first, WorkPriority second)
+    {
+        return first < second ? second : first;
     }
 
     private static bool MatchesAdoptionRule(ApiPullRequest pr, BotPrRule rule)

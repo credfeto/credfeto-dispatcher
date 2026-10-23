@@ -5,6 +5,7 @@
     <CodeAnalysisTreatWarningsAsErrors>true</CodeAnalysisTreatWarningsAsErrors>
     <DebuggerSupport>true</DebuggerSupport>
     <DisableImplicitNuGetFallbackFolder>true</DisableImplicitNuGetFallbackFolder>
+    <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>

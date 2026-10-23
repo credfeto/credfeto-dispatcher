@@ -11,6 +11,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 ## [Unreleased]
 ### Security
 - Prevent raw exception details (including SQL connection info) leaking to unauthenticated clients from the /priorities handler; log exceptions server-side instead
+- Pin System.Security.Cryptography.Pkcs to 10.0.13 so the storage layer no longer ships the vulnerable 9.0.11 pulled in by Microsoft.Data.SqlClient (GHSA-846f-f764-76mx, GHSA-2fmv-rv2c-59x7)
 ### Added
 - Enable Native AOT publishing for the server project
 - Work item scanner background service that polls configured GitHub repositories for open pull requests and issues, updating notification state with priority, hold status, and linked PR information
@@ -128,6 +129,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Docker image now uses the Azure Linux 3.0 distroless-extra runtime-deps base and runs as a non-root user, removing the apt-get upgrade layer
 - Refactored polling background services to extract shared polling loop from RepoEventPollerService, WorkItemScannerService, and GitHubPollingWorker into PollingBackgroundService base class, eliminating code duplication
 - SDK - Updated DotNet SDK to 10.0.402
+- Enable the configuration binding source generator for the server so options binding is trim/AOT safe and the build check passes
 ### Deprecated
 ### Removed
 - Removed IsUpToDate field from WorkItem and PullRequestDetails as it was never populated in production

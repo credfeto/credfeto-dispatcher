@@ -11,7 +11,6 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 ## [Unreleased]
 ### Security
 - Prevent raw exception details (including SQL connection info) leaking to unauthenticated clients from the /priorities handler; log exceptions server-side instead
-- Issue detail fetches now always use a relative API path resolved against the configured ApiBaseUrl proxy instead of the absolute notification URL, and fail with logging if the request would leave the proxy base address (#180)
 ### Added
 - Enable Native AOT publishing for the server project
 - Work item scanner background service that polls configured GitHub repositories for open pull requests and issues, updating notification state with priority, hold status, and linked PR information
@@ -100,6 +99,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - RepoEventPoller now applies polled GitHub repo/owner events oldest-first, so the newest event's state wins the upsert instead of the oldest (#181)
 - Background polling loops (GitHubPollingWorker, WorkItemScannerService, RepoEventPollerService, SnapshotWriterService) now exit only when stopping token is cancelled; other OperationCanceledExceptions are logged and the loop continues (#196)
 - Bot-PR adoption timeout now keeps the higher of the rule priority and the label-derived priority (#195)
+- Issue detail fetching now requests a relative URL (repos/{owner/repo}/issues/{number}) so it goes through the ApiBaseUrl proxy instead of bypassing it with an absolute URL (401), logs a warning on failure, and errors if a request would leave the proxy base address (#180)
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934
@@ -129,6 +129,8 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - SDK - Updated DotNet SDK to 10.0.401
 - Docker image now uses the Azure Linux 3.0 distroless-extra runtime-deps base and runs as a non-root user, removing the apt-get upgrade layer
 - Refactored polling background services to extract shared polling loop from RepoEventPollerService, WorkItemScannerService, and GitHubPollingWorker into PollingBackgroundService base class, eliminating code duplication
+- Server project enables the configuration binding source generator (EnableConfigurationBindingGenerator), so options binding is generated at compile time and stays trim and Native AOT compatible
+- Dependencies - Pinned System.Security.Cryptography.Pkcs to 10.0.13 in the storage project to address security advisories (GHSA-2fmv-rv2c-59x7, GHSA-846f-f764-76mx) in the 9.0.11 version pulled in transitively by Microsoft.Data.SqlClient
 ### Deprecated
 ### Removed
 - Removed IsUpToDate field from WorkItem and PullRequestDetails as it was never populated in production

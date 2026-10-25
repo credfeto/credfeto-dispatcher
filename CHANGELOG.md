@@ -12,6 +12,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 ### Security
 - Prevent raw exception details (including SQL connection info) leaking to unauthenticated clients from the /priorities handler; log exceptions server-side instead
 - Pin System.Security.Cryptography.Pkcs to 10.0.13 so the storage layer no longer ships the vulnerable 9.0.11 pulled in by Microsoft.Data.SqlClient (GHSA-846f-f764-76mx, GHSA-2fmv-rv2c-59x7)
+- Issue detail fetches now always use a relative API path resolved against the configured ApiBaseUrl proxy instead of the absolute notification URL, and fail with logging if the request would leave the proxy base address (#180)
 ### Added
 - Enable Native AOT publishing for the server project
 - Work item scanner background service that polls configured GitHub repositories for open pull requests and issues, updating notification state with priority, hold status, and linked PR information

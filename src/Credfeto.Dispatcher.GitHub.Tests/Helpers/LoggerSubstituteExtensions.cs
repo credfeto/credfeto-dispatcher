@@ -21,9 +21,20 @@ internal static class LoggerSubstituteExtensions
         return [.. logger.ReceivedCalls().Where(IsErrorLogCall).Select(call => call.GetArguments()[3] as Exception)];
     }
 
+    public static int LoggedCount(this ILogger logger, LogLevel logLevel)
+    {
+        return logger.ReceivedCalls().Count(call => IsLogCall(call: call, logLevel: logLevel));
+    }
+
     private static bool IsErrorLogCall(ICall call)
     {
+        return IsLogCall(call: call, logLevel: LogLevel.Error);
+    }
+
+    private static bool IsLogCall(ICall call, LogLevel logLevel)
+    {
         return StringComparer.Ordinal.Equals(x: call.GetMethodInfo().Name, y: nameof(ILogger.Log))
-            && call.GetArguments()[0] is LogLevel.Error;
+            && call.GetArguments()[0] is LogLevel level
+            && level == logLevel;
     }
 }

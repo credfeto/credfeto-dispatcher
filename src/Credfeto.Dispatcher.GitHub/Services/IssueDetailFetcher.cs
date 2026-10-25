@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
@@ -8,6 +10,8 @@ using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Interfaces;
 using Credfeto.Dispatcher.GitHub.Models;
+using Credfeto.Dispatcher.GitHub.Services.LoggingExtensions;
+using Microsoft.Extensions.Logging;
 
 namespace Credfeto.Dispatcher.GitHub.Services;
 
@@ -16,10 +20,12 @@ public sealed class IssueDetailFetcher : IIssueDetailFetcher
     private const string ISSUE_TYPE = "Issue";
 
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ILogger<IssueDetailFetcher> _logger;
 
-    public IssueDetailFetcher(IHttpClientFactory httpClientFactory)
+    public IssueDetailFetcher(IHttpClientFactory httpClientFactory, ILogger<IssueDetailFetcher> logger)
     {
         this._httpClientFactory = httpClientFactory;
+        this._logger = logger;
     }
 
     public async ValueTask<IssueDetails?> FetchAsync(
@@ -43,18 +49,24 @@ public sealed class IssueDetailFetcher : IIssueDetailFetcher
             return null;
         }
 
-        string apiUrl = notification.Subject.Url.ToString();
+        if (!TryGetIssueNumber(subjectUrl: notification.Subject.Url, out int issueNumber))
+        {
+            this._logger.LogIssueNumberNotFound(subjectUrl: notification.Subject.Url);
+
+            return null;
+        }
+
         ApiIssue? issue = await this.GetAsync<ApiIssue>(
-            url: apiUrl,
+            url: BuildIssueRelativeUrl(repoFullName: notification.Repository.FullName, issueNumber: issueNumber),
             jsonTypeInfo: NotificationSerializerContext.Default.ApiIssue,
             cancellationToken: cancellationToken
         );
 
-        if (issue is null)
-        {
-            return null;
-        }
+        return issue is null ? null : ToIssueDetails(notification: notification, issue: issue);
+    }
 
+    private static IssueDetails? ToIssueDetails(GitHubNotification notification, ApiIssue issue)
+    {
         IReadOnlyList<string> assignees = issue.Assignees?.Select(a => a.Login).ToList() ?? [];
 
         IReadOnlyList<string> labels = issue.Labels?.Select(l => l.Name).ToList() ?? [];
@@ -91,6 +103,56 @@ public sealed class IssueDetailFetcher : IIssueDetailFetcher
             : "Open";
     }
 
+    // Subject.Url may be an api.github.com URL or a github.com HTML URL; requesting it verbatim bypasses
+    // the proxy configured as the client's BaseAddress, so only the trailing issue number is taken from it.
+    private static bool TryGetIssueNumber(Uri subjectUrl, out int issueNumber)
+    {
+        // Uri.Segments throws on a relative Uri, and deserialised URLs are not guaranteed to be absolute.
+        if (!subjectUrl.IsAbsoluteUri)
+        {
+            issueNumber = 0;
+
+            return false;
+        }
+
+        string lastSegment = subjectUrl.Segments.Length == 0 ? string.Empty : subjectUrl.Segments[^1].TrimEnd('/');
+
+        return int.TryParse(
+                s: lastSegment,
+                style: NumberStyles.None,
+                provider: CultureInfo.InvariantCulture,
+                result: out issueNumber
+            )
+            && issueNumber > 0;
+    }
+
+    private static string BuildIssueRelativeUrl(string repoFullName, int issueNumber)
+    {
+        return string.Create(provider: CultureInfo.InvariantCulture, $"repos/{repoFullName}/issues/{issueNumber}");
+    }
+
+    internal static bool TryResolveOnBaseAddress(
+        Uri? baseAddress,
+        string relativeUrl,
+        [NotNullWhen(true)] out Uri? requestUri
+    )
+    {
+        if (
+            baseAddress is not null
+            && Uri.TryCreate(baseUri: baseAddress, relativeUri: relativeUrl, result: out Uri? resolved)
+            && baseAddress.IsBaseOf(resolved)
+        )
+        {
+            requestUri = resolved;
+
+            return true;
+        }
+
+        requestUri = null;
+
+        return false;
+    }
+
     private async ValueTask<T?> GetAsync<T>(
         string url,
         System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> jsonTypeInfo,
@@ -100,7 +162,14 @@ public sealed class IssueDetailFetcher : IIssueDetailFetcher
     {
         HttpClient httpClient = this._httpClientFactory.CreateClient("GitHub");
 
-        using HttpRequestMessage request = new(method: HttpMethod.Get, requestUri: url);
+        if (!TryResolveOnBaseAddress(baseAddress: httpClient.BaseAddress, relativeUrl: url, out Uri? requestUri))
+        {
+            this._logger.LogRequestNotOnApiBaseAddress(url: url, baseAddress: httpClient.BaseAddress);
+
+            return null;
+        }
+
+        using HttpRequestMessage request = new(method: HttpMethod.Get, requestUri: requestUri);
         using HttpResponseMessage response = await httpClient.SendAsync(
             request: request,
             cancellationToken: cancellationToken
@@ -108,6 +177,8 @@ public sealed class IssueDetailFetcher : IIssueDetailFetcher
 
         if (!response.IsSuccessStatusCode)
         {
+            this._logger.LogIssueFetchFailed(url: url, statusCode: response.StatusCode);
+
             return null;
         }
 

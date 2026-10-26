@@ -32,7 +32,7 @@ internal static partial class Endpoints
         CancellationToken cancellationToken
     )
     {
-        string? userFilter = string.IsNullOrWhiteSpace(user) ? null : user.Trim();
+        string? userFilter = WorkItemQueries.NormaliseFilter(user);
 
         if (userFilter is not null && !GitHubLoginValidator.IsValid(userFilter))
         {

@@ -43,6 +43,25 @@ public sealed class InMemoryWorkItemRepository : IWorkItemRepository
         return Task.FromResult(response);
     }
 
+    public Task<DbStateResponse> GetDatabaseStateAsync(
+        string? owner,
+        string? repo,
+        string? user,
+        CancellationToken cancellationToken
+    )
+    {
+        (IReadOnlyList<PullRequestStateRow> prRows, IReadOnlyList<IssueStateRow> issueRows) =
+            this._store.GetAllWorkItems(owner: owner, repo: repo, user: user);
+
+        DbStateResponse response = WorkItemMapping.BuildDatabaseState(
+            prRows: prRows,
+            issueRows: issueRows,
+            now: this._timeProvider.GetUtcNow()
+        );
+
+        return Task.FromResult(response);
+    }
+
     public ValueTask RemoveItemsForRepositoriesAsync(
         IReadOnlyList<string> repositories,
         CancellationToken cancellationToken

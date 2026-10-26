@@ -51,6 +51,77 @@ internal static class WorkItemMapping
         return new PrioritiesResponse(Priorities: ordered, AsOf: asOf, LagSeconds: lagSeconds);
     }
 
+    public static DbStateResponse BuildDatabaseState(
+        IReadOnlyList<PullRequestStateRow> prRows,
+        IReadOnlyList<IssueStateRow> issueRows,
+        in DateTimeOffset now
+    )
+    {
+        IReadOnlyList<PullRequestState> pullRequests = [.. prRows.Select(MapPullRequestState)];
+        IReadOnlyList<IssueState> issues = [.. issueRows.Select(MapIssueState)];
+
+        DateTimeOffset asOf = pullRequests
+            .Select(static p => p.LastUpdated)
+            .Concat(issues.Select(static i => i.LastUpdated))
+            .DefaultIfEmpty(now)
+            .Max();
+
+        return new DbStateResponse(PullRequests: pullRequests, Issues: issues, AsOf: asOf);
+    }
+
+    private static PullRequestState MapPullRequestState(PullRequestStateRow row)
+    {
+        (string owner, string repo) = SplitRepository(row.Repository);
+
+        return new PullRequestState(
+            Owner: owner,
+            Repo: repo,
+            Repository: row.Repository,
+            Number: row.Id,
+            Status: row.Status,
+            Priority: (WorkPriority)row.Priority,
+            IsOnHold: row.IsOnHold,
+            FirstSeen: row.FirstSeen,
+            LastUpdated: row.LastUpdated,
+            WhenClosed: row.WhenClosed,
+            Assignees: SplitNames(row.Assignees),
+            CommentCount: row.CommentCount,
+            ReviewDecision: MapReviewDecision(row.ReviewDecision, isPullRequest: true),
+            FailedCheckCount: row.FailedCheckCount,
+            FailedCheckNames: SplitNames(row.FailedCheckNames),
+            FailedCheckSha: row.FailedCheckSha,
+            Author: row.Author,
+            IsAdopted: row.IsAdopted
+        );
+    }
+
+    private static IssueState MapIssueState(IssueStateRow row)
+    {
+        (string owner, string repo) = SplitRepository(row.Repository);
+
+        return new IssueState(
+            Owner: owner,
+            Repo: repo,
+            Repository: row.Repository,
+            Number: row.Id,
+            Status: row.Status,
+            Priority: (WorkPriority)row.Priority,
+            IsOnHold: row.IsOnHold,
+            FirstSeen: row.FirstSeen,
+            LastUpdated: row.LastUpdated,
+            WhenClosed: row.WhenClosed,
+            Assignees: SplitNames(row.Assignees),
+            LinkedPrNumber: row.LinkedPrNumber
+        );
+    }
+
+    private static (string Owner, string Repo) SplitRepository(string repository)
+    {
+        int slash = repository.IndexOf(value: '/', comparisonType: StringComparison.Ordinal);
+
+        return slash >= 0 ? (repository[..slash], repository[(slash + 1)..]) : (repository, string.Empty);
+    }
+
     private static Dictionary<string, int> BuildIndex(IReadOnlyList<string> values)
     {
         Dictionary<string, int> index = new(values.Count, StringComparer.OrdinalIgnoreCase);

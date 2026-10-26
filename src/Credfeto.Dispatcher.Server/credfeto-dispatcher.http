@@ -16,3 +16,51 @@ GET {{credfeto_dispatcher_HostAddress}}/priorities?user=octocat
 Accept: application/json
 
 ###
+
+POST {{credfeto_dispatcher_HostAddress}}/mcp
+Content-Type: application/json
+Accept: application/json, text/event-stream
+
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"http-file","version":"1.0.0"}}}
+
+###
+
+POST {{credfeto_dispatcher_HostAddress}}/mcp
+Content-Type: application/json
+Accept: application/json, text/event-stream
+
+{"jsonrpc":"2.0","id":2,"method":"tools/list"}
+
+###
+
+POST {{credfeto_dispatcher_HostAddress}}/mcp
+Content-Type: application/json
+Accept: application/json, text/event-stream
+
+{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"priorities","arguments":{}}}
+
+###
+
+POST {{credfeto_dispatcher_HostAddress}}/mcp
+Content-Type: application/json
+Accept: application/json, text/event-stream
+
+{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"priorities","arguments":{"user":"octocat"}}}
+
+###
+
+POST {{credfeto_dispatcher_HostAddress}}/mcp
+Content-Type: application/json
+Accept: application/json, text/event-stream
+
+{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"db","arguments":{}}}
+
+###
+
+POST {{credfeto_dispatcher_HostAddress}}/mcp
+Content-Type: application/json
+Accept: application/json, text/event-stream
+
+{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"db","arguments":{"owner":"credfeto","repo":"credfeto-dispatcher","user":"octocat"}}}
+
+###

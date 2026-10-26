@@ -51,6 +51,44 @@ public sealed class WorkItemRepository : IWorkItemRepository
         );
     }
 
+    public async Task<DbStateResponse> GetDatabaseStateAsync(
+        string? owner,
+        string? repo,
+        string? user,
+        CancellationToken cancellationToken
+    )
+    {
+        IReadOnlyList<PullRequestStateRow> prRows = await this._database.ExecuteAsync(
+            action: (c, ct) =>
+                DispatcherDatabase.PullRequests_GetAllAsync(
+                    connection: c,
+                    owner: owner,
+                    repo: repo,
+                    user: user,
+                    cancellationToken: ct
+                ),
+            cancellationToken: cancellationToken
+        );
+
+        IReadOnlyList<IssueStateRow> issueRows = await this._database.ExecuteAsync(
+            action: (c, ct) =>
+                DispatcherDatabase.Issues_GetAllAsync(
+                    connection: c,
+                    owner: owner,
+                    repo: repo,
+                    user: user,
+                    cancellationToken: ct
+                ),
+            cancellationToken: cancellationToken
+        );
+
+        return WorkItemMapping.BuildDatabaseState(
+            prRows: prRows,
+            issueRows: issueRows,
+            now: this._timeProvider.GetUtcNow()
+        );
+    }
+
     public async ValueTask RemoveItemsForRepositoriesAsync(
         IReadOnlyList<string> repositories,
         CancellationToken cancellationToken

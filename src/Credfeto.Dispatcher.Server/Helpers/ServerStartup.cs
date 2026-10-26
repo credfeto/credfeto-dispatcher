@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub;
 using Credfeto.Dispatcher.GitHub.Configuration;
+using Credfeto.Dispatcher.Server.Mcp;
 using Credfeto.Dispatcher.Shared;
 using Credfeto.Dispatcher.Shared.Middleware;
 using Credfeto.Dispatcher.Storage;
@@ -121,6 +122,7 @@ internal static class ServerStartup
             .AddStorage(databaseConfiguration)
             .AddGitHub()
             .AddResources()
+            .AddDispatcherMcp()
             .ConfigureHttpJsonOptions(options =>
                 options.SerializerOptions.TypeInfoResolverChain.Insert(index: 0, item: AppJsonContexts.Default)
             );

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Routing;
 
 namespace Credfeto.Dispatcher.Server;
 
@@ -8,5 +9,6 @@ internal static partial class Endpoints
     {
         app.MapPingEndpoints();
         app.MapWorkItemEndpoints();
+        app.MapMcp(pattern: "/mcp");
     }
 }

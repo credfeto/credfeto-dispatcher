@@ -1,3 +1,4 @@
+using System;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
@@ -40,7 +41,7 @@ internal sealed class DispatcherMcpTools
         CancellationToken cancellationToken = default
     )
     {
-        string? userFilter = ValidateLogin(value: user, parameterName: "user");
+        string? userFilter = ValidateFilter(value: user, parameterName: "user", isValid: GitHubLoginValidator.IsValid);
 
         GitHubFilterOptions filter = this._options.Filter;
 
@@ -69,9 +70,17 @@ internal sealed class DispatcherMcpTools
         CancellationToken cancellationToken = default
     )
     {
-        string? ownerFilter = ValidateLogin(value: owner, parameterName: "owner");
-        string? repoFilter = ValidateRepositoryName(repo);
-        string? userFilter = ValidateLogin(value: user, parameterName: "user");
+        string? ownerFilter = ValidateFilter(
+            value: owner,
+            parameterName: "owner",
+            isValid: GitHubLoginValidator.IsValid
+        );
+        string? repoFilter = ValidateFilter(
+            value: repo,
+            parameterName: "repo",
+            isValid: GitHubRepositoryNameValidator.IsValid
+        );
+        string? userFilter = ValidateFilter(value: user, parameterName: "user", isValid: GitHubLoginValidator.IsValid);
 
         DbStateResponse response = await this._workItemRepository.GetDatabaseStateAsync(
             owner: ownerFilter,
@@ -83,25 +92,13 @@ internal sealed class DispatcherMcpTools
         return JsonSerializer.Serialize(value: response, jsonTypeInfo: AppJsonContexts.Default.DbStateResponse);
     }
 
-    private static string? ValidateLogin(string? value, string parameterName)
+    private static string? ValidateFilter(string? value, string parameterName, Func<string, bool> isValid)
     {
         string? filter = WorkItemQueries.NormaliseFilter(value);
 
-        if (filter is not null && !GitHubLoginValidator.IsValid(filter))
+        if (filter is not null && !isValid(filter))
         {
             throw new McpException($"Invalid {parameterName}");
-        }
-
-        return filter;
-    }
-
-    private static string? ValidateRepositoryName(string? value)
-    {
-        string? filter = WorkItemQueries.NormaliseFilter(value);
-
-        if (filter is not null && !GitHubRepositoryNameValidator.IsValid(filter))
-        {
-            throw new McpException("Invalid repo");
         }
 
         return filter;

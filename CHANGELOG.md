@@ -131,7 +131,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Docker image now uses the Azure Linux 3.0 distroless-extra runtime-deps base and runs as a non-root user, removing the apt-get upgrade layer
 - Refactored polling background services to extract shared polling loop from RepoEventPollerService, WorkItemScannerService, and GitHubPollingWorker into PollingBackgroundService base class, eliminating code duplication
 - Enable the configuration binding source generator for the server so options binding is trim/AOT safe and the build check passes
-- SDK - Updated DotNet SDK to 10.0.402
+- SDK - Updated DotNet SDK to 10.0.403
 ### Deprecated
 ### Removed
 - Removed IsUpToDate field from WorkItem and PullRequestDetails as it was never populated in production

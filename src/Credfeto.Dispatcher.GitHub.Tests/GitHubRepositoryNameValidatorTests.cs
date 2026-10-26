@@ -32,6 +32,7 @@ public sealed class GitHubRepositoryNameValidatorTests : TestBase
     [InlineData("a/b")]
     [InlineData("a'b")]
     [InlineData("a%b")]
+    [InlineData("repo\n")]
     [InlineData(MAX_LENGTH_NAME + "2")]
     public static void IsValidRejectsMalformedNames(string name)
     {

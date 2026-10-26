@@ -1,6 +1,5 @@
 using System;
 using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,12 +14,7 @@ using ModelContextProtocol.Server;
 namespace Credfeto.Dispatcher.Server.Mcp;
 
 [McpServerToolType]
-[SuppressMessage(
-    category: "Microsoft.Performance",
-    checkId: "CA1812:AvoidUninstantiatedInternalClasses",
-    Justification = "Instantiated by the MCP SDK via WithTools"
-)]
-internal sealed class DispatcherMcpTools
+public sealed class DispatcherMcpTools
 {
     private const string USER_FILTER_DESCRIPTION =
         "Optional GitHub login; keeps items with no assignees, items assigned to that login (case-insensitive) and adopted bot PRs, whatever their assignees.";

@@ -12,6 +12,7 @@ namespace Credfeto.Dispatcher.Storage.Tests.InMemory;
 public sealed class InMemoryDispatcherStoreTests : TestBase
 {
     private const string REPOSITORY = "owner/repo";
+    private const string OTHER_REPOSITORY = "other/repo";
 
     private readonly TimeProvider _timeProvider;
     private readonly InMemoryDispatcherStore _store;
@@ -591,10 +592,195 @@ public sealed class InMemoryDispatcherStoreTests : TestBase
         Assert.Null(pullRequest.WhenClosed);
     }
 
+    [Fact]
+    public void CloseStaleIssuesClosesOnlyInactiveOpenIssuesInTheNamedRepository()
+    {
+        this.UpsertOpenIssue(repository: REPOSITORY, id: 1);
+        this.UpsertOpenIssue(repository: REPOSITORY, id: 2);
+        this.UpsertOpenIssue(repository: OTHER_REPOSITORY, id: 3);
+
+        this._store.CloseStaleIssues(repository: REPOSITORY, activeIds: [1]);
+
+        (_, IReadOnlyList<IssueStateRow> issues) = this._store.GetAllWorkItems(owner: null, repo: null, user: null);
+
+        Assert.Equal(
+            expected: [$"{OTHER_REPOSITORY}#3:Open", $"{REPOSITORY}#1:Open", $"{REPOSITORY}#2:Closed"],
+            actual: [.. issues.Select(static issue => $"{issue.Repository}#{issue.Id}:{issue.Status}")]
+        );
+        Assert.NotNull(issues.Single(static issue => issue.Id == 2).WhenClosed);
+        Assert.Null(issues.Single(static issue => issue.Id == 1).WhenClosed);
+    }
+
+    [Fact]
+    public void CloseStaleIssuesWithNullActiveIdsClosesAllOpenIssuesInTheRepository()
+    {
+        this.UpsertOpenIssue(repository: REPOSITORY, id: 1);
+        this.UpsertOpenIssue(repository: REPOSITORY, id: 2);
+
+        this._store.CloseStaleIssues(repository: REPOSITORY, activeIds: null);
+
+        (_, IReadOnlyList<IssueStateRow> issues) = this._store.GetAllWorkItems(owner: null, repo: null, user: null);
+
+        Assert.All(collection: issues, action: static issue => Assert.Equal(expected: "Closed", actual: issue.Status));
+        Assert.Equal(expected: 2, actual: issues.Count);
+    }
+
+    [Fact]
+    public void CloseStaleIssuesSkipsAlreadyClosedIssues()
+    {
+        this.UpsertOpenIssue(repository: REPOSITORY, id: 1);
+        this._store.CloseStaleIssues(repository: REPOSITORY, activeIds: null);
+
+        (_, IReadOnlyList<IssueStateRow> before) = this._store.GetAllWorkItems(owner: null, repo: null, user: null);
+
+        this._store.CloseStaleIssues(repository: REPOSITORY, activeIds: null);
+
+        (_, IReadOnlyList<IssueStateRow> after) = this._store.GetAllWorkItems(owner: null, repo: null, user: null);
+
+        Assert.Equal(expected: Assert.Single(before), actual: Assert.Single(after));
+    }
+
+    [Fact]
+    public void CloseStalePullRequestsClosesOnlyInactiveOpenPullRequestsInTheNamedRepository()
+    {
+        this.UpsertOpenPullRequest(id: 10, isAdopted: false, assignees: null);
+        this.UpsertOpenPullRequest(id: 11, isAdopted: false, assignees: null);
+        this.UpsertOpenPullRequest(repository: OTHER_REPOSITORY, id: 12, isAdopted: false, assignees: null);
+
+        this._store.CloseStalePullRequests(repository: REPOSITORY, activeIds: [10]);
+
+        (IReadOnlyList<PullRequestStateRow> pullRequests, _) = this._store.GetAllWorkItems(
+            owner: null,
+            repo: null,
+            user: null
+        );
+
+        Assert.Equal(
+            expected: [$"{OTHER_REPOSITORY}#12:Open", $"{REPOSITORY}#10:Open", $"{REPOSITORY}#11:Closed"],
+            actual: [.. pullRequests.Select(static pr => $"{pr.Repository}#{pr.Id}:{pr.Status}")]
+        );
+    }
+
+    [Fact]
+    public void CloseStalePullRequestsWithNullActiveIdsClosesAllOpenPullRequestsInTheRepository()
+    {
+        this.UpsertOpenPullRequest(id: 10, isAdopted: false, assignees: null);
+        this.UpsertOpenPullRequest(id: 11, isAdopted: false, assignees: null);
+
+        this._store.CloseStalePullRequests(repository: REPOSITORY, activeIds: null);
+
+        (IReadOnlyList<PullRequestStateRow> pullRequests, _) = this._store.GetAllWorkItems(
+            owner: null,
+            repo: null,
+            user: null
+        );
+
+        Assert.All(collection: pullRequests, action: static pr => Assert.Equal(expected: "Closed", actual: pr.Status));
+        Assert.Equal(expected: 2, actual: pullRequests.Count);
+    }
+
+    [Fact]
+    public void RemoveForRepositoriesRemovesOnlyItemsInTheNamedRepositories()
+    {
+        this.UpsertOpenPullRequest(id: 10, isAdopted: false, assignees: ["octocat"]);
+        this.UpsertOpenPullRequest(repository: OTHER_REPOSITORY, id: 11, isAdopted: false, assignees: ["octocat"]);
+        this._store.UpsertIssue(
+            repository: REPOSITORY,
+            id: 20,
+            status: "Open",
+            priority: 1,
+            isOnHold: false,
+            linkedPrNumber: null,
+            assignees: ["octocat"]
+        );
+        this._store.UpsertIssue(
+            repository: OTHER_REPOSITORY,
+            id: 21,
+            status: "Open",
+            priority: 1,
+            isOnHold: false,
+            linkedPrNumber: null,
+            assignees: ["octocat"]
+        );
+        int versionBefore = this._store.Version;
+
+        this._store.RemoveForRepositories([REPOSITORY]);
+
+        (IReadOnlyList<PullRequestStateRow> pullRequests, IReadOnlyList<IssueStateRow> issues) =
+            this._store.GetAllWorkItems(owner: null, repo: null, user: null);
+
+        Assert.Equal(expected: versionBefore + 1, actual: this._store.Version);
+
+        PullRequestStateRow pullRequest = Assert.Single(pullRequests);
+        Assert.Equal(expected: OTHER_REPOSITORY, actual: pullRequest.Repository);
+        Assert.Equal(expected: "octocat", actual: pullRequest.Assignees);
+
+        IssueStateRow issue = Assert.Single(issues);
+        Assert.Equal(expected: OTHER_REPOSITORY, actual: issue.Repository);
+        Assert.Equal(expected: "octocat", actual: issue.Assignees);
+    }
+
+    [Fact]
+    public void RemoveForRepositoriesDropsAssigneesSoReaddedItemsHaveNone()
+    {
+        this.UpsertOpenPullRequest(id: 10, isAdopted: false, assignees: ["octocat"]);
+        this._store.UpsertIssue(
+            repository: REPOSITORY,
+            id: 20,
+            status: "Open",
+            priority: 1,
+            isOnHold: false,
+            linkedPrNumber: null,
+            assignees: ["octocat"]
+        );
+
+        this._store.RemoveForRepositories([REPOSITORY]);
+        this.UpsertOpenPullRequest(id: 10, isAdopted: false, assignees: null);
+        this.UpsertOpenIssue(repository: REPOSITORY, id: 20);
+
+        (IReadOnlyList<PullRequestStateRow> pullRequests, IReadOnlyList<IssueStateRow> issues) =
+            this._store.GetAllWorkItems(owner: null, repo: null, user: null);
+
+        Assert.Null(Assert.Single(pullRequests).Assignees);
+        Assert.Null(Assert.Single(issues).Assignees);
+    }
+
+    [Fact]
+    public void RemoveForRepositoriesWithNoRepositoriesChangesNothing()
+    {
+        this.UpsertOpenIssue(repository: REPOSITORY, id: 1);
+        int versionBefore = this._store.Version;
+
+        this._store.RemoveForRepositories([]);
+
+        (_, IReadOnlyList<IssueStateRow> issues) = this._store.GetAllWorkItems(owner: null, repo: null, user: null);
+
+        Assert.Equal(expected: versionBefore, actual: this._store.Version);
+        Assert.Single(issues);
+    }
+
+    private void UpsertOpenIssue(string repository, int id)
+    {
+        this._store.UpsertIssue(
+            repository: repository,
+            id: id,
+            status: "Open",
+            priority: 1,
+            isOnHold: false,
+            linkedPrNumber: null,
+            assignees: null
+        );
+    }
+
     private void UpsertOpenPullRequest(int id, bool? isAdopted, IReadOnlyList<string>? assignees)
     {
+        this.UpsertOpenPullRequest(repository: REPOSITORY, id: id, isAdopted: isAdopted, assignees: assignees);
+    }
+
+    private void UpsertOpenPullRequest(string repository, int id, bool? isAdopted, IReadOnlyList<string>? assignees)
+    {
         this._store.UpsertPullRequest(
-            repository: REPOSITORY,
+            repository: repository,
             id: id,
             status: "Open",
             priority: 1,

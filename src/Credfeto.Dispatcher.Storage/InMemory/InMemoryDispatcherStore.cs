@@ -334,9 +334,12 @@ public sealed class InMemoryDispatcherStore
 
     private static bool MatchesRepository(string repository, string? owner, string? repo)
     {
-        int slash = repository.IndexOf(value: '/', comparisonType: StringComparison.Ordinal);
-        string repositoryOwner = slash >= 0 ? repository[..slash] : repository;
-        string repositoryName = slash >= 0 ? repository[(slash + 1)..] : string.Empty;
+        if (owner is null && repo is null)
+        {
+            return true;
+        }
+
+        (string repositoryOwner, string repositoryName) = WorkItemMapping.SplitRepository(repository);
 
         return MatchesFilter(value: repositoryOwner, filter: owner)
             && MatchesFilter(value: repositoryName, filter: repo);

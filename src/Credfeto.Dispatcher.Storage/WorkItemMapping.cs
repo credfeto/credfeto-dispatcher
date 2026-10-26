@@ -115,7 +115,7 @@ internal static class WorkItemMapping
         );
     }
 
-    private static (string Owner, string Repo) SplitRepository(string repository)
+    internal static (string Owner, string Repo) SplitRepository(string repository)
     {
         int slash = repository.IndexOf(value: '/', comparisonType: StringComparison.Ordinal);
 
@@ -264,8 +264,6 @@ internal static class WorkItemMapping
 
     private static string GetOwner(string repository)
     {
-        int slash = repository.IndexOf(value: '/', comparisonType: StringComparison.Ordinal);
-
-        return slash >= 0 ? repository[..slash] : repository;
+        return SplitRepository(repository).Owner;
     }
 }

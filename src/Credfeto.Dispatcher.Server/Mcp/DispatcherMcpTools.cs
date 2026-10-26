@@ -22,6 +22,9 @@ namespace Credfeto.Dispatcher.Server.Mcp;
 )]
 internal sealed class DispatcherMcpTools
 {
+    private const string USER_FILTER_DESCRIPTION =
+        "Optional GitHub login; keeps items with no assignees, items assigned to that login (case-insensitive) and adopted bot PRs, whatever their assignees.";
+
     private readonly GitHubOptions _options;
     private readonly IWorkItemRepository _workItemRepository;
 
@@ -36,19 +39,15 @@ internal sealed class DispatcherMcpTools
         "Returns the prioritised list of open pull requests and issues, the same data as the /priorities endpoint."
     )]
     public async Task<string> GetPrioritiesAsync(
-        [Description("Optional GitHub login; only items assigned to this user, or unassigned, are returned.")]
-            string? user = null,
+        [Description(USER_FILTER_DESCRIPTION)] string? user = null,
         CancellationToken cancellationToken = default
     )
     {
         string? userFilter = ValidateFilter(value: user, parameterName: "user", isValid: GitHubLoginValidator.IsValid);
 
-        GitHubFilterOptions filter = this._options.Filter;
-
-        PrioritiesResponse response = await this._workItemRepository.GetPrioritisedWorkItemsAsync(
-            owners: filter.AllowedOwners,
-            maxIssues: filter.MaxIssues,
-            boostedRepos: filter.BoostedRepos,
+        PrioritiesResponse response = await WorkItemQueries.GetPrioritiesAsync(
+            workItemRepository: this._workItemRepository,
+            filter: this._options.Filter,
             user: userFilter,
             cancellationToken: cancellationToken
         );
@@ -65,8 +64,7 @@ internal sealed class DispatcherMcpTools
             string? owner = null,
         [Description("Optional repository name (the part after '/'); exact, case-insensitive match.")]
             string? repo = null,
-        [Description("Optional GitHub login; only items assigned to this user, or unassigned, are returned.")]
-            string? user = null,
+        [Description(USER_FILTER_DESCRIPTION)] string? user = null,
         CancellationToken cancellationToken = default
     )
     {

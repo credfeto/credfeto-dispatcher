@@ -41,11 +41,9 @@ internal static partial class Endpoints
 
         try
         {
-            GitHubFilterOptions filter = options.Value.Filter;
-            PrioritiesResponse response = await workItemRepository.GetPrioritisedWorkItemsAsync(
-                owners: filter.AllowedOwners,
-                maxIssues: filter.MaxIssues,
-                boostedRepos: filter.BoostedRepos,
+            PrioritiesResponse response = await WorkItemQueries.GetPrioritiesAsync(
+                workItemRepository: workItemRepository,
+                filter: options.Value.Filter,
                 user: userFilter,
                 cancellationToken: cancellationToken
             );

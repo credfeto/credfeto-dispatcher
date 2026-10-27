@@ -137,7 +137,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Enable the configuration binding source generator for the server so options binding is trim/AOT safe and the build check passes
 - SDK - Updated DotNet SDK to 10.0.403
 - Repo event poller logs per-feed event counts and each upserted item with its on-hold state at Information level
-- Compute the whitespace-filtered label filter list once instead of for every PR and issue on every scan (#199)
+- Label filter list is now whitespace-filtered once when the GitHub polling worker, work item scanner and repo event poller are created, instead of for every pull request and issue on every scan (#199)
 ### Deprecated
 ### Removed
 - Removed IsUpToDate field from WorkItem and PullRequestDetails as it was never populated in production

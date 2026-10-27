@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.Configuration;
@@ -19,6 +20,12 @@ public sealed class RepoEventPoller : IRepoEventPoller
 {
     private const string PULL_REQUEST_EVENT_TYPE = "PullRequestEvent";
     private const string ISSUES_EVENT_TYPE = "IssuesEvent";
+
+    // Bounds how far back a single poll follows the feed's next link when every event on a page is newer than lastId.
+    private const int MAX_PAGES_PER_FEED = 3;
+
+    // The seen-id list is stored in PollingStates.ETag, which is NVARCHAR(1024).
+    private const int MAX_SEEN_IDS_LENGTH = 1024;
 
     private readonly IActiveRepoTracker _activeRepoTracker;
     private readonly IETagStore _eTagStore;
@@ -71,22 +78,11 @@ public sealed class RepoEventPoller : IRepoEventPoller
 
         IReadOnlyList<string> owners = [.. repos.Select(GetOwner).Distinct(StringComparer.OrdinalIgnoreCase)];
 
-        IEnumerable<(string Url, string LastIdKey, string EtagKey, string FeedDescription)> feeds = BuildFeeds(
-            repos: repos,
-            owners: owners
-        );
-
         int? suggestedPollIntervalSeconds = null;
 
-        foreach ((string url, string lastIdKey, string etagKey, string feedDescription) in feeds)
+        foreach (RepoEventFeed feed in BuildFeeds(repos: repos, owners: owners))
         {
-            int? feedPollIntervalSeconds = await this.PollFeedAsync(
-                url: url,
-                lastIdKey: lastIdKey,
-                etagKey: etagKey,
-                feedDescription: feedDescription,
-                cancellationToken: cancellationToken
-            );
+            int? feedPollIntervalSeconds = await this.PollFeedAsync(feed: feed, cancellationToken: cancellationToken);
             suggestedPollIntervalSeconds = ETagHeaderUtility.MaxPollIntervalSeconds(
                 suggestedPollIntervalSeconds,
                 feedPollIntervalSeconds
@@ -98,39 +94,36 @@ public sealed class RepoEventPoller : IRepoEventPoller
         return suggestedPollIntervalSeconds;
     }
 
-    private static IEnumerable<(string Url, string LastIdKey, string EtagKey, string FeedDescription)> BuildFeeds(
-        IReadOnlyList<string> repos,
-        IReadOnlyList<string> owners
-    )
+    private static IEnumerable<RepoEventFeed> BuildFeeds(IReadOnlyList<string> repos, IReadOnlyList<string> owners)
     {
         return repos
-            .Select(repo =>
-                ($"repos/{repo}/events?per_page=30", $"events.repo.lastid:{repo}", $"events.repo.etag:{repo}", repo)
-            )
+            .Select(repo => new RepoEventFeed(
+                Url: $"repos/{repo}/events?per_page=30",
+                LastIdKey: $"events.repo.lastid:{repo}",
+                SeenIdsKey: $"events.repo.seen:{repo}",
+                ETagKey: $"events.repo.etag:{repo}",
+                Description: repo
+            ))
             .Concat(
-                owners.Select(owner =>
-                    (
-                        $"users/{owner}/events?per_page=30",
-                        $"events.owner.lastid:{owner}",
-                        $"events.owner.etag:{owner}",
-                        $"@{owner}"
-                    )
-                )
+                owners.Select(owner => new RepoEventFeed(
+                    Url: $"users/{owner}/events?per_page=30",
+                    LastIdKey: $"events.owner.lastid:{owner}",
+                    SeenIdsKey: $"events.owner.seen:{owner}",
+                    ETagKey: $"events.owner.etag:{owner}",
+                    Description: $"@{owner}"
+                ))
             );
     }
 
-    private async Task<int?> PollFeedAsync(
-        string url,
-        string lastIdKey,
-        string etagKey,
-        string feedDescription,
-        CancellationToken cancellationToken
-    )
+    private async Task<int?> PollFeedAsync(RepoEventFeed feed, CancellationToken cancellationToken)
     {
-        string? storedETag = await this._eTagStore.GetETagAsync(key: etagKey, cancellationToken: cancellationToken);
+        string? storedETag = await this._eTagStore.GetETagAsync(
+            key: feed.ETagKey,
+            cancellationToken: cancellationToken
+        );
 
         PagedETagResult<ApiEvent> result = await this._helper.GetPagedWithETagAsync(
-            url: url,
+            url: feed.Url,
             jsonTypeInfo: NotificationSerializerContext.Default.ApiEventArray,
             eTag: storedETag,
             cancellationToken: cancellationToken
@@ -138,30 +131,26 @@ public sealed class RepoEventPoller : IRepoEventPoller
 
         if (result.NotModified)
         {
-            this._logger.LogFeedNotModified(feed: feedDescription);
+            this._logger.LogFeedNotModified(feed: feed.Description);
 
             return result.PollIntervalSeconds;
         }
 
-        if (result.Items is null || result.Items.Length == 0)
+        if (result.Items is not null && result.Items.Length != 0)
         {
-            await this.SaveETagIfChangedAsync(
-                etagKey: etagKey,
-                newETag: result.ETag,
-                storedETag: storedETag,
+            await this.ProcessFeedItemsAsync(
+                feed: feed,
+                firstPageItems: result.Items,
+                nextUrl: result.NextUrl,
                 cancellationToken: cancellationToken
             );
-
-            return result.PollIntervalSeconds;
         }
 
-        await this.ProcessFeedItemsAsync(
-            items: result.Items,
-            lastIdKey: lastIdKey,
-            etagKey: etagKey,
-            newETag: result.ETag,
-            storedETag: storedETag,
-            feedDescription: feedDescription,
+        // Saved after processing so a failure mid-processing re-fetches the same events next poll instead of skipping them via 304.
+        await this.SaveIfChangedAsync(
+            key: feed.ETagKey,
+            newValue: result.ETag,
+            storedValue: storedETag,
             cancellationToken: cancellationToken
         );
 
@@ -169,151 +158,283 @@ public sealed class RepoEventPoller : IRepoEventPoller
     }
 
     private async Task ProcessFeedItemsAsync(
-        ApiEvent[] items,
-        string lastIdKey,
-        string etagKey,
-        string? newETag,
-        string? storedETag,
-        string feedDescription,
+        RepoEventFeed feed,
+        ApiEvent[] firstPageItems,
+        string? nextUrl,
         CancellationToken cancellationToken
     )
     {
-        string? lastIdString = await this._eTagStore.GetETagAsync(key: lastIdKey, cancellationToken: cancellationToken);
+        string? lastIdString = await this._eTagStore.GetETagAsync(
+            key: feed.LastIdKey,
+            cancellationToken: cancellationToken
+        );
         long lastId = ParseLastId(lastIdString);
 
-        (long newestId, int processed) = await this.ProcessNewEventsAsync(
-            events: items,
+        string? storedSeenIds = await this._eTagStore.GetETagAsync(
+            key: feed.SeenIdsKey,
+            cancellationToken: cancellationToken
+        );
+
+        (IReadOnlyList<(long Id, ApiEvent Event)> events, int pageCount) = await this.FetchEventsAsync(
+            firstPageItems: firstPageItems,
+            nextUrl: nextUrl,
             lastId: lastId,
             cancellationToken: cancellationToken
         );
 
+        (int newCount, int upsertedCount, int skippedSeenCount) = await this.ProcessNewEventsAsync(
+            events: events,
+            seenIds: ParseSeenIds(storedSeenIds),
+            cancellationToken: cancellationToken
+        );
+
+        long newestId = events.Count == 0 ? 0 : events.Max(e => e.Id);
+
         if (newestId > lastId)
         {
             await this._eTagStore.SaveETagAsync(
-                key: lastIdKey,
+                key: feed.LastIdKey,
                 eTag: newestId.ToString(CultureInfo.InvariantCulture),
                 cancellationToken: cancellationToken
             );
         }
 
-        // Saved after processing so a failure mid-processing re-fetches the same events next poll instead of skipping them via 304.
-        await this.SaveETagIfChangedAsync(
-            etagKey: etagKey,
-            newETag: newETag,
-            storedETag: storedETag,
+        await this.SaveIfChangedAsync(
+            key: feed.SeenIdsKey,
+            newValue: BuildSeenIds(events),
+            storedValue: storedSeenIds,
             cancellationToken: cancellationToken
         );
 
-        if (processed > 0)
+        if (newCount > 0)
         {
-            this._logger.LogFeedProcessed(feed: feedDescription, count: processed);
+            this._logger.LogFeedProcessed(
+                feed: feed.Description,
+                newCount: newCount,
+                upsertedCount: upsertedCount,
+                skippedSeenCount: skippedSeenCount,
+                pageCount: pageCount,
+                lastId: lastId
+            );
+        }
+        else
+        {
+            this._logger.LogFeedNoNewEvents(feed: feed.Description, skippedSeenCount: skippedSeenCount, lastId: lastId);
         }
     }
 
-    private async Task SaveETagIfChangedAsync(
-        string etagKey,
-        string? newETag,
-        string? storedETag,
+    // The feed is newest-first. A burst of more than one page of events between polls would otherwise be truncated,
+    // so keep reading while every event on the page is newer than lastId. With no lastId yet there is no gap to fill.
+    private async ValueTask<(IReadOnlyList<(long Id, ApiEvent Event)> Events, int PageCount)> FetchEventsAsync(
+        ApiEvent[] firstPageItems,
+        string? nextUrl,
+        long lastId,
         CancellationToken cancellationToken
     )
     {
-        if (newETag is not null && !StringComparer.Ordinal.Equals(newETag, storedETag))
+        List<(long Id, ApiEvent Event)> events = new(firstPageItems.Length);
+        bool followNext = AddParsedEvents(page: firstPageItems, lastId: lastId, events: events) && lastId > 0;
+        string? url = nextUrl;
+        int pageCount = 1;
+
+        while (followNext && url is not null && pageCount < MAX_PAGES_PER_FEED)
         {
-            await this._eTagStore.SaveETagAsync(key: etagKey, eTag: newETag, cancellationToken: cancellationToken);
+            PagedETagResult<ApiEvent> page = await this._helper.GetPagedWithETagAsync(
+                url: url,
+                jsonTypeInfo: NotificationSerializerContext.Default.ApiEventArray,
+                eTag: null,
+                cancellationToken: cancellationToken
+            );
+
+            if (page.Items is null)
+            {
+                break;
+            }
+
+            ++pageCount;
+            followNext = AddParsedEvents(page: page.Items, lastId: lastId, events: events);
+            url = page.NextUrl;
+        }
+
+        return (events, pageCount);
+    }
+
+    private static bool AddParsedEvents(ApiEvent[] page, long lastId, List<(long Id, ApiEvent Event)> events)
+    {
+        bool allNewerThanLastId = page.Length != 0;
+
+        foreach (ApiEvent ev in page)
+        {
+            if (!TryParseId(value: ev.Id, id: out long eventId))
+            {
+                continue;
+            }
+
+            if (eventId <= lastId)
+            {
+                allNewerThanLastId = false;
+            }
+
+            events.Add((eventId, ev));
+        }
+
+        return allNewerThanLastId;
+    }
+
+    private async Task SaveIfChangedAsync(
+        string key,
+        string? newValue,
+        string? storedValue,
+        CancellationToken cancellationToken
+    )
+    {
+        if (newValue is not null && !StringComparer.Ordinal.Equals(newValue, storedValue))
+        {
+            await this._eTagStore.SaveETagAsync(key: key, eTag: newValue, cancellationToken: cancellationToken);
         }
     }
 
     private static long ParseLastId(string? lastIdStr)
     {
-        return
-            lastIdStr is not null
-            && long.TryParse(
-                s: lastIdStr,
-                style: NumberStyles.Integer,
-                provider: CultureInfo.InvariantCulture,
-                result: out long parsed
-            )
-            ? parsed
-            : 0;
+        return TryParseId(value: lastIdStr, id: out long parsed) ? parsed : 0;
     }
 
-    private async ValueTask<(long newestId, int processed)> ProcessNewEventsAsync(
-        ApiEvent[] events,
-        long lastId,
-        CancellationToken cancellationToken
-    )
+    private static bool TryParseId(string? value, out long id)
     {
-        long newestId = 0;
-        List<ApiEvent> newEvents = new(events.Length);
+        return long.TryParse(
+            s: value,
+            style: NumberStyles.Integer,
+            provider: CultureInfo.InvariantCulture,
+            result: out id
+        );
+    }
 
-        foreach (ApiEvent ev in events)
+    private static IReadOnlySet<long> ParseSeenIds(string? storedSeenIds)
+    {
+        HashSet<long> ids = [];
+
+        if (string.IsNullOrEmpty(storedSeenIds))
         {
-            if (
-                !long.TryParse(
-                    s: ev.Id,
-                    style: NumberStyles.Integer,
-                    provider: CultureInfo.InvariantCulture,
-                    result: out long eventId
-                )
-            )
+            return ids;
+        }
+
+        foreach (string part in storedSeenIds.Split(separator: ',', options: StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (TryParseId(value: part, id: out long id))
+            {
+                ids.Add(id);
+            }
+        }
+
+        return ids;
+    }
+
+    // Everything read this poll is now either processed or already seen. Events that have dropped off the pages
+    // read cannot reappear above them, so only the ids read this poll are kept, newest-first, within the column limit.
+    private static string BuildSeenIds(IReadOnlyList<(long Id, ApiEvent Event)> events)
+    {
+        StringBuilder builder = new();
+        HashSet<long> added = [];
+
+        foreach ((long id, _) in events)
+        {
+            if (!added.Add(id))
             {
                 continue;
             }
 
-            if (newestId == 0)
-            {
-                newestId = eventId;
-            }
+            string text = id.ToString(CultureInfo.InvariantCulture);
+            int separatorLength = builder.Length == 0 ? 0 : 1;
 
-            if (eventId <= lastId)
+            if (builder.Length + separatorLength + text.Length > MAX_SEEN_IDS_LENGTH)
             {
                 break;
+            }
+
+            if (separatorLength != 0)
+            {
+                builder.Append(',');
+            }
+
+            builder.Append(text);
+        }
+
+        return builder.ToString();
+    }
+
+    // Processes every event read this poll that has not been seen before, rather than stopping at lastId: the
+    // Events API can deliver an event after a newer one has already been read, and upserts are idempotent.
+    private async ValueTask<(int NewCount, int UpsertedCount, int SkippedSeenCount)> ProcessNewEventsAsync(
+        IReadOnlyList<(long Id, ApiEvent Event)> events,
+        IReadOnlySet<long> seenIds,
+        CancellationToken cancellationToken
+    )
+    {
+        HashSet<long> considered = [];
+        List<ApiEvent> newEvents = new(events.Count);
+        int skippedSeenCount = 0;
+
+        foreach ((long id, ApiEvent ev) in events)
+        {
+            // Pages can overlap when new events arrive between page requests.
+            if (!considered.Add(id))
+            {
+                continue;
+            }
+
+            if (seenIds.Contains(id))
+            {
+                ++skippedSeenCount;
+
+                continue;
             }
 
             newEvents.Add(ev);
         }
 
+        int upsertedCount = 0;
+
         // Feed is newest-first; apply oldest-first so the newest event's state wins the upsert.
         for (int i = newEvents.Count - 1; i >= 0; --i)
         {
-            await this.ProcessEventAsync(ev: newEvents[i], cancellationToken: cancellationToken);
+            if (await this.ProcessEventAsync(ev: newEvents[i], cancellationToken: cancellationToken))
+            {
+                ++upsertedCount;
+            }
         }
 
-        return (newestId, newEvents.Count);
+        return (newEvents.Count, upsertedCount, skippedSeenCount);
     }
 
-    private async ValueTask ProcessEventAsync(ApiEvent ev, CancellationToken cancellationToken)
+    private async ValueTask<bool> ProcessEventAsync(ApiEvent ev, CancellationToken cancellationToken)
     {
         if (string.Equals(a: ev.Type, b: PULL_REQUEST_EVENT_TYPE, comparisonType: StringComparison.Ordinal))
         {
-            if (ev.Payload.PullRequest is { HtmlUrl: { } prHtmlUrl } pr)
-            {
-                await this.ProcessPullRequestEventAsync(
+            return ev.Payload.PullRequest is { HtmlUrl: { } prHtmlUrl } pr
+                && await this.ProcessPullRequestEventAsync(
                     ev: ev,
                     pr: pr,
                     htmlUrl: new Uri(prHtmlUrl),
                     cancellationToken: cancellationToken
                 );
-            }
-
-            return;
         }
 
         if (string.Equals(a: ev.Type, b: ISSUES_EVENT_TYPE, comparisonType: StringComparison.Ordinal))
         {
-            if (ev.Payload.Issue is { HtmlUrl: { } issueHtmlUrl } issue && issue.PullRequest is null)
-            {
-                await this.ProcessIssueEventAsync(
+            return ev.Payload.Issue is { HtmlUrl: { } issueHtmlUrl } issue
+                && issue.PullRequest is null
+                && await this.ProcessIssueEventAsync(
                     ev: ev,
                     issue: issue,
                     htmlUrl: new Uri(issueHtmlUrl),
                     cancellationToken: cancellationToken
                 );
-            }
         }
+
+        return false;
     }
 
-    private async ValueTask ProcessPullRequestEventAsync(
+    private async ValueTask<bool> ProcessPullRequestEventAsync(
         ApiEvent ev,
         ApiPullRequest pr,
         Uri htmlUrl,
@@ -333,7 +454,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
 
         if (!allowed)
         {
-            return;
+            return false;
         }
 
         GitHubNotification notification = BuildEventNotification(
@@ -372,8 +493,11 @@ public sealed class RepoEventPoller : IRepoEventPoller
         this._logger.LogProcessedPullRequestEvent(
             repo: repo,
             number: pr.Number,
-            action: ev.Payload.Action ?? string.Empty
+            action: ev.Payload.Action ?? string.Empty,
+            isOnHold: isOnHold
         );
+
+        return true;
     }
 
     private static PullRequestDetails BuildEventPullRequestDetails(
@@ -447,7 +571,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
         return trustedLinkedIssue is null ? (false, [], null) : (true, enriched.LinkedItems, trustedLinkedIssue);
     }
 
-    private async ValueTask ProcessIssueEventAsync(
+    private async ValueTask<bool> ProcessIssueEventAsync(
         ApiEvent ev,
         ApiIssue issue,
         Uri htmlUrl,
@@ -458,7 +582,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
 
         if (!this.PassesLabelFilter(labelNames))
         {
-            return;
+            return false;
         }
 
         string repo = ev.Repo.Name;
@@ -500,8 +624,11 @@ public sealed class RepoEventPoller : IRepoEventPoller
         this._logger.LogProcessedIssueEvent(
             repo: repo,
             number: issue.Number,
-            action: ev.Payload.Action ?? string.Empty
+            action: ev.Payload.Action ?? string.Empty,
+            isOnHold: isOnHold
         );
+
+        return true;
     }
 
     private static GitHubNotification BuildEventNotification(

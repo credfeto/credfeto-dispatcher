@@ -177,6 +177,10 @@ public sealed class RepoEventPollerTests : TestBase
         }]
         """;
 
+    private const string REPO_LAST_ID_KEY = "events.repo.lastid:owner/repo";
+
+    private const string REPO_SEEN_IDS_KEY = "events.repo.seen:owner/repo";
+
     private readonly IActiveRepoTracker _activeRepoTracker;
     private readonly IETagStore _eTagStore;
     private readonly System.Net.Http.IHttpClientFactory _httpClientFactory;
@@ -276,6 +280,53 @@ public sealed class RepoEventPollerTests : TestBase
             CommitAuthors: commitAuthors,
             HasDetail: true
         );
+    }
+
+    private static string BuildIssueEventJson(string id, string number)
+    {
+        return $$"""
+            {
+              "id": "{{id}}",
+              "type": "IssuesEvent",
+              "repo": {"name": "owner/repo"},
+              "payload": {
+                "action": "unlabeled",
+                "issue": {
+                  "number": {{number}},
+                  "title": "AI Work Issue {{number}}",
+                  "state": "open",
+                  "html_url": "https://github.com/owner/repo/issues/{{number}}",
+                  "assignees": [],
+                  "labels": [{"name": "AI-Work"}],
+                  "pull_request": null
+                }
+              },
+              "created_at": "2024-01-01T00:00:00Z"
+            }
+            """;
+    }
+
+    private static string BuildFeedJson(IReadOnlyList<string> events)
+    {
+        return "[" + string.Join(separator: ',', values: events) + "]";
+    }
+
+    private List<int> IssueNumbersUpdatedInCallOrder()
+    {
+        return
+        [
+            .. this
+                ._notificationStateTracker.ReceivedCalls()
+                .Select(call => call.GetArguments()[1])
+                .OfType<IssueDetails>()
+                .Select(details => details.Number),
+        ];
+    }
+
+    private void GivenStoredRepoFeedState(string lastId, string seenIds)
+    {
+        this._eTagStore.GetETagAsync(REPO_LAST_ID_KEY, Arg.Any<CancellationToken>()).Returns(lastId);
+        this._eTagStore.GetETagAsync(REPO_SEEN_IDS_KEY, Arg.Any<CancellationToken>()).Returns(seenIds);
     }
 
     [Fact]
@@ -595,5 +646,203 @@ public sealed class RepoEventPollerTests : TestBase
             repoFeedClient.Dispose();
             ownerFeedClient.Dispose();
         }
+    }
+
+    [Fact]
+    public async Task PollAsync_WithLateEventOlderThanLastIdButNotSeen_ProcessesItAsync()
+    {
+        this.GivenStoredRepoFeedState(lastId: "300", seenIds: "300");
+
+        string feed = BuildFeedJson([
+            BuildIssueEventJson(id: "300", number: "60"),
+            BuildIssueEventJson(id: "250", number: "61"),
+        ]);
+        using HttpClient repoFeedClient = HttpClientTestFactory.Create(HttpStatusCode.OK, feed);
+        using HttpClient ownerFeedClient = HttpClientTestFactory.Create(HttpStatusCode.OK, EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoFeedClient, ownerFeedClient);
+
+        GitHubOptions options = new() { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } };
+        RepoEventPoller poller = this.CreatePoller(options);
+
+        await poller.PollAsync(this.CancellationToken());
+
+        Assert.Equal(expected: [61], actual: this.IssueNumbersUpdatedInCallOrder());
+        await this
+            ._eTagStore.Received(1)
+            .SaveETagAsync(key: REPO_SEEN_IDS_KEY, eTag: "300,250", cancellationToken: Arg.Any<CancellationToken>());
+        await this
+            ._eTagStore.DidNotReceive()
+            .SaveETagAsync(
+                key: REPO_LAST_ID_KEY,
+                eTag: Arg.Any<string>(),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task PollAsync_WithEventsAlreadySeen_DoesNotProcessThemAgainAsync()
+    {
+        this.GivenStoredRepoFeedState(lastId: "300", seenIds: "300,250");
+
+        string feed = BuildFeedJson([
+            BuildIssueEventJson(id: "300", number: "60"),
+            BuildIssueEventJson(id: "250", number: "61"),
+        ]);
+        using HttpClient repoFeedClient = HttpClientTestFactory.Create(HttpStatusCode.OK, feed);
+        using HttpClient ownerFeedClient = HttpClientTestFactory.Create(HttpStatusCode.OK, EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoFeedClient, ownerFeedClient);
+
+        GitHubOptions options = new() { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } };
+        RepoEventPoller poller = this.CreatePoller(options);
+
+        await poller.PollAsync(this.CancellationToken());
+
+        Assert.Empty(this.IssueNumbersUpdatedInCallOrder());
+        await this
+            ._eTagStore.DidNotReceive()
+            .SaveETagAsync(
+                key: REPO_SEEN_IDS_KEY,
+                eTag: Arg.Any<string>(),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task PollAsync_WithDuplicateEventAcrossOverlappingPages_ProcessesItOnceAsync()
+    {
+        this.GivenStoredRepoFeedState(lastId: "100", seenIds: "100");
+
+        string firstPage = BuildFeedJson([
+            BuildIssueEventJson(id: "300", number: "62"),
+            BuildIssueEventJson(id: "200", number: "61"),
+        ]);
+        string secondPage = BuildFeedJson([
+            BuildIssueEventJson(id: "200", number: "61"),
+            BuildIssueEventJson(id: "100", number: "60"),
+        ]);
+        using HttpClient firstPageClient = HttpClientTestFactory.Create(
+            statusCode: HttpStatusCode.OK,
+            content: firstPage,
+            linkUrl: "https://api.github.com/repositories/1/events?per_page=30&page=2"
+        );
+        using HttpClient secondPageClient = HttpClientTestFactory.Create(HttpStatusCode.OK, secondPage);
+        using HttpClient ownerFeedClient = HttpClientTestFactory.Create(HttpStatusCode.OK, EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(firstPageClient, secondPageClient, ownerFeedClient);
+
+        GitHubOptions options = new() { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } };
+        RepoEventPoller poller = this.CreatePoller(options);
+
+        await poller.PollAsync(this.CancellationToken());
+
+        Assert.Equal(expected: [61, 62], actual: this.IssueNumbersUpdatedInCallOrder());
+    }
+
+    [Fact]
+    public async Task PollAsync_WithMoreThanOnePageOfNewEvents_FollowsNextLinkAndProcessesAllOldestFirstAsync()
+    {
+        this.GivenStoredRepoFeedState(lastId: "100", seenIds: "100");
+
+        string firstPage = BuildFeedJson([
+            BuildIssueEventJson(id: "400", number: "63"),
+            BuildIssueEventJson(id: "300", number: "62"),
+        ]);
+        string secondPage = BuildFeedJson([
+            BuildIssueEventJson(id: "200", number: "61"),
+            BuildIssueEventJson(id: "100", number: "60"),
+        ]);
+        (HttpClient firstPageClient, FixedResponseHandler _) = HttpClientTestFactory.CreateWithHandler(
+            statusCode: HttpStatusCode.OK,
+            content: firstPage,
+            linkUrl: "https://api.github.com/repositories/1/events?per_page=30&page=2"
+        );
+        (HttpClient secondPageClient, FixedResponseHandler secondPageHandler) = HttpClientTestFactory.CreateWithHandler(
+            statusCode: HttpStatusCode.OK,
+            content: secondPage
+        );
+        using HttpClient ownerFeedClient = HttpClientTestFactory.Create(HttpStatusCode.OK, EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(firstPageClient, secondPageClient, ownerFeedClient);
+
+        try
+        {
+            GitHubOptions options = new() { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } };
+            RepoEventPoller poller = this.CreatePoller(options);
+
+            await poller.PollAsync(this.CancellationToken());
+
+            Assert.Equal(expected: [61, 62, 63], actual: this.IssueNumbersUpdatedInCallOrder());
+            Assert.Equal(
+                expected: "/repositories/1/events?per_page=30&page=2",
+                actual: secondPageHandler.LastRequestUri?.PathAndQuery
+            );
+            await this
+                ._eTagStore.Received(1)
+                .SaveETagAsync(key: REPO_LAST_ID_KEY, eTag: "400", cancellationToken: Arg.Any<CancellationToken>());
+            await this
+                ._eTagStore.Received(1)
+                .SaveETagAsync(
+                    key: REPO_SEEN_IDS_KEY,
+                    eTag: "400,300,200,100",
+                    cancellationToken: Arg.Any<CancellationToken>()
+                );
+        }
+        finally
+        {
+            firstPageClient.Dispose();
+            secondPageClient.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task PollAsync_WithPageReachingLastId_DoesNotFollowNextLinkAsync()
+    {
+        this.GivenStoredRepoFeedState(lastId: "300", seenIds: "300");
+
+        string firstPage = BuildFeedJson([
+            BuildIssueEventJson(id: "400", number: "63"),
+            BuildIssueEventJson(id: "300", number: "62"),
+        ]);
+        using HttpClient firstPageClient = HttpClientTestFactory.Create(
+            statusCode: HttpStatusCode.OK,
+            content: firstPage,
+            linkUrl: "https://api.github.com/repositories/1/events?per_page=30&page=2"
+        );
+        using HttpClient ownerFeedClient = HttpClientTestFactory.Create(HttpStatusCode.OK, EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(firstPageClient, ownerFeedClient);
+
+        GitHubOptions options = new() { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } };
+        RepoEventPoller poller = this.CreatePoller(options);
+
+        await poller.PollAsync(this.CancellationToken());
+
+        Assert.Equal(expected: [63], actual: this.IssueNumbersUpdatedInCallOrder());
+
+        // One request for the repo feed's first page and one for the owner feed: no next-page request.
+        Assert.Equal(expected: 2, actual: this._httpClientFactory.ReceivedCalls().Count());
+    }
+
+    [Fact]
+    public async Task PollAsync_WithNoStoredLastId_ReadsOnlyFirstPageAsync()
+    {
+        string firstPage = BuildFeedJson([
+            BuildIssueEventJson(id: "400", number: "63"),
+            BuildIssueEventJson(id: "300", number: "62"),
+        ]);
+        using HttpClient firstPageClient = HttpClientTestFactory.Create(
+            statusCode: HttpStatusCode.OK,
+            content: firstPage,
+            linkUrl: "https://api.github.com/repositories/1/events?per_page=30&page=2"
+        );
+        using HttpClient ownerFeedClient = HttpClientTestFactory.Create(HttpStatusCode.OK, EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(firstPageClient, ownerFeedClient);
+
+        GitHubOptions options = new() { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } };
+        RepoEventPoller poller = this.CreatePoller(options);
+
+        await poller.PollAsync(this.CancellationToken());
+
+        Assert.Equal(expected: [62, 63], actual: this.IssueNumbersUpdatedInCallOrder());
+
+        // One request for the repo feed's first page and one for the owner feed: no next-page request.
+        Assert.Equal(expected: 2, actual: this._httpClientFactory.ReceivedCalls().Count());
     }
 }

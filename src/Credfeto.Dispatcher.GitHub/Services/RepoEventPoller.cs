@@ -27,6 +27,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
     // The seen-id list is stored in PollingStates.ETag, which is NVARCHAR(1024).
     private const int MAX_SEEN_IDS_LENGTH = 1024;
 
+    private readonly IReadOnlyList<string> _activeLabelFilter;
     private readonly IActiveRepoTracker _activeRepoTracker;
     private readonly IETagStore _eTagStore;
     private readonly GitHubRepoHelper _helper;
@@ -51,6 +52,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
         this._notificationStateTracker = notificationStateTracker;
         this._pullRequestDetailFetcher = pullRequestDetailFetcher;
         this._options = options.Value;
+        this._activeLabelFilter = LinkedIssueTrust.ActiveLabelFilter(this._options.Filter.LabelFilter);
         this._logger = logger;
     }
 
@@ -525,7 +527,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
 
     private bool PassesLabelFilter(IReadOnlyList<string> labelNames)
     {
-        return LinkedIssueTrust.PassesLabelFilter(labelNames, this._options.Filter.LabelFilter);
+        return LinkedIssueTrust.PassesLabelFilter(labelNames, this._activeLabelFilter);
     }
 
     // A PR whose own labels fail the filter is still trusted when it unambiguously resolves the
@@ -563,7 +565,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
             author: enriched.Author,
             commitAuthors: enriched.CommitAuthors,
             linkedItems: enriched.LinkedItems,
-            labelFilter: this._options.Filter.LabelFilter
+            activeLabelFilter: this._activeLabelFilter
         );
 
         return trustedLinkedIssue is null

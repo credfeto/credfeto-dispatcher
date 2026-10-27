@@ -19,16 +19,19 @@ internal static class LinkedIssueTrust
         return linkedIssuePriority > priority ? linkedIssuePriority : priority;
     }
 
-    public static bool PassesLabelFilter(IReadOnlyList<string> labels, IReadOnlyList<string> labelFilter)
+    public static IReadOnlyList<string> ActiveLabelFilter(IReadOnlyList<string> labelFilter)
     {
-        List<string> filters = [.. labelFilter.Where(static f => !string.IsNullOrWhiteSpace(f))];
+        return [.. labelFilter.Where(static f => !string.IsNullOrWhiteSpace(f))];
+    }
 
-        if (filters.Count == 0)
+    public static bool PassesLabelFilter(IReadOnlyList<string> labels, IReadOnlyList<string> activeLabelFilter)
+    {
+        if (activeLabelFilter.Count == 0)
         {
             return true;
         }
 
-        return labels.Any(label => filters.Exists(filter => LabelParser.FuzzyEquals(label, filter)));
+        return labels.Any(label => activeLabelFilter.Any(filter => LabelParser.FuzzyEquals(label, filter)));
     }
 
     // A PR that fails its own label filter is still trusted when it is unambiguously "the author's own
@@ -38,7 +41,7 @@ internal static class LinkedIssueTrust
         string? author,
         IReadOnlyList<string> commitAuthors,
         IReadOnlyList<LinkedItem> linkedItems,
-        IReadOnlyList<string> labelFilter
+        IReadOnlyList<string> activeLabelFilter
     )
     {
         if (string.IsNullOrEmpty(author) || commitAuthors.Count == 0)
@@ -58,7 +61,7 @@ internal static class LinkedIssueTrust
         return linkedItems.FirstOrDefault(issue =>
             issue.Assignees.Any(assignee =>
                 string.Equals(a: assignee, b: author, comparisonType: StringComparison.OrdinalIgnoreCase)
-            ) && PassesLabelFilter(issue.Labels, labelFilter)
+            ) && PassesLabelFilter(issue.Labels, activeLabelFilter)
         );
     }
 }

@@ -18,6 +18,7 @@ public sealed class GitHubPollingWorker : PollingBackgroundService
     private const string PULL_REQUEST_TYPE = "PullRequest";
     private const string ISSUE_TYPE = "Issue";
 
+    private readonly IReadOnlyList<string> _activeLabelFilter;
     private readonly IIssueDetailFetcher _issueDetailFetcher;
     private readonly ILogger<GitHubPollingWorker> _logger;
     private readonly INotificationFilter _notificationFilter;
@@ -49,6 +50,7 @@ public sealed class GitHubPollingWorker : PollingBackgroundService
         this._issueDetailFetcher = issueDetailFetcher;
         this._notificationStateTracker = notificationStateTracker;
         this._options = options.Value;
+        this._activeLabelFilter = LinkedIssueTrust.ActiveLabelFilter(this._options.Filter.LabelFilter);
         this._logger = logger;
     }
 
@@ -143,7 +145,7 @@ public sealed class GitHubPollingWorker : PollingBackgroundService
 
     private bool PassesLabelFilter(IReadOnlyList<string> labelNames)
     {
-        return LinkedIssueTrust.PassesLabelFilter(labelNames, this._options.Filter.LabelFilter);
+        return LinkedIssueTrust.PassesLabelFilter(labelNames, this._activeLabelFilter);
     }
 
     private async ValueTask TrackPullRequestStateAsync(
@@ -191,7 +193,7 @@ public sealed class GitHubPollingWorker : PollingBackgroundService
             author: details.Author,
             commitAuthors: details.CommitAuthors,
             linkedItems: details.LinkedItems,
-            labelFilter: this._options.Filter.LabelFilter
+            activeLabelFilter: this._activeLabelFilter
         );
     }
 

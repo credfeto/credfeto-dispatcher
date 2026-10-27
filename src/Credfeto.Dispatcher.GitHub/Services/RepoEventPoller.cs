@@ -117,7 +117,10 @@ public sealed class RepoEventPoller : IRepoEventPoller
 
     private async Task<int?> PollFeedAsync(RepoEventFeed feed, CancellationToken cancellationToken)
     {
-        string? storedETag = await this._eTagStore.GetETagAsync(key: feed.ETagKey, cancellationToken: cancellationToken);
+        string? storedETag = await this._eTagStore.GetETagAsync(
+            key: feed.ETagKey,
+            cancellationToken: cancellationToken
+        );
 
         PagedETagResult<ApiEvent> result = await this._helper.GetPagedWithETagAsync(
             url: feed.Url,
@@ -298,7 +301,12 @@ public sealed class RepoEventPoller : IRepoEventPoller
 
     private static bool TryParseId(string? value, out long id)
     {
-        return long.TryParse(s: value, style: NumberStyles.Integer, provider: CultureInfo.InvariantCulture, result: out id);
+        return long.TryParse(
+            s: value,
+            style: NumberStyles.Integer,
+            provider: CultureInfo.InvariantCulture,
+            result: out id
+        );
     }
 
     private static IReadOnlySet<long> ParseSeenIds(string? storedSeenIds)

@@ -22,6 +22,7 @@ public sealed class InMemoryDispatcherStore
     private readonly Dictionary<(string Repository, int Id), IssueRow> _issues = [];
     private readonly Dictionary<(string Repository, int Id), string[]> _pullRequestAssignees = [];
     private readonly Dictionary<(string Repository, int Id), string[]> _issueAssignees = [];
+    private readonly Dictionary<(string Repository, int Id), string[]> _pullRequestCommitAuthors = [];
     private readonly Dictionary<string, string> _pollingStates = new(StringComparer.Ordinal);
     private readonly TimeProvider _timeProvider;
 
@@ -105,7 +106,8 @@ public sealed class InMemoryDispatcherStore
         string? failedCheckSha,
         string? author,
         bool? isAdopted,
-        IReadOnlyList<string>? assignees
+        IReadOnlyList<string>? assignees,
+        IReadOnlyList<string>? commitAuthors
     )
     {
         lock (this._gate)
@@ -117,6 +119,9 @@ public sealed class InMemoryDispatcherStore
                 key: key,
                 assignees: assignees
             );
+
+            // Null keeps / empty clears, as for assignees; trackers pass null when the authors are unknown.
+            ReplaceAssignees(target: this._pullRequestCommitAuthors, key: key, assignees: commitAuthors);
 
             if (this._pullRequests.TryGetValue(key, out PullRequestRow? existing))
             {
@@ -275,7 +280,8 @@ public sealed class InMemoryDispatcherStore
                     && !this.IsRepoExplicitlyInactiveNoLock(issue.Repository)
                     && !this.IsLinkedPullRequestActiveNoLock(issue.Repository, issue.LinkedPrNumber)
                     && (
-                        issue.Priority >= (int)WorkPriority.URGENT || !this.HasActivePullRequestNoLock(issue.Repository)
+                        issue.Priority >= (int)WorkPriority.URGENT
+                        || !this.HasActivePullRequestNoLock(repository: issue.Repository, user: user)
                     )
                     && IsVisibleTo(user: user, assigneesByItem: this._issueAssignees, key: (issue.Repository, issue.Id))
                 ),
@@ -483,6 +489,7 @@ public sealed class InMemoryDispatcherStore
             RemoveForRepositories(target: this._issues, repos: repos);
             RemoveForRepositories(target: this._pullRequestAssignees, repos: repos);
             RemoveForRepositories(target: this._issueAssignees, repos: repos);
+            RemoveForRepositories(target: this._pullRequestCommitAuthors, repos: repos);
         }
     }
 
@@ -510,7 +517,8 @@ public sealed class InMemoryDispatcherStore
                 Issues: [.. this._issues.Values],
                 PollingStates: new Dictionary<string, string>(this._pollingStates, StringComparer.Ordinal),
                 PullRequestAssignees: ExportAssignees(this._pullRequestAssignees),
-                IssueAssignees: ExportAssignees(this._issueAssignees)
+                IssueAssignees: ExportAssignees(this._issueAssignees),
+                PullRequestCommitAuthors: ExportAssignees(this._pullRequestCommitAuthors)
             );
         }
     }
@@ -536,6 +544,7 @@ public sealed class InMemoryDispatcherStore
             ReplaceAll(target: this._pollingStates, source: snapshot.PollingStates);
             ImportAssignees(target: this._pullRequestAssignees, source: snapshot.PullRequestAssignees);
             ImportAssignees(target: this._issueAssignees, source: snapshot.IssueAssignees);
+            ImportAssignees(target: this._pullRequestCommitAuthors, source: snapshot.PullRequestCommitAuthors);
         }
     }
 
@@ -547,7 +556,7 @@ public sealed class InMemoryDispatcherStore
         ];
     }
 
-    // Snapshots written before assignees were tracked have no assignee arrays, so a null source
+    // Snapshots written before assignees (or commit authors) were tracked have no such arrays, so a null source
     // loads as "nothing assigned" rather than being rejected.
     private static void ImportAssignees(
         Dictionary<(string Repository, int Id), string[]> target,
@@ -637,11 +646,22 @@ public sealed class InMemoryDispatcherStore
             && IsOpenOrDraft(pr.Status);
     }
 
-    private bool HasActivePullRequestNoLock(string repository)
+    // A repository is busy only for an open/draft PR that is not on hold and, when a user is given,
+    // that the user is committing to. A PR whose commit authors are unknown still counts, so missing
+    // data never lets concurrent work into a repository.
+    private bool HasActivePullRequestNoLock(string repository, string? user)
     {
         return this._pullRequests.Values.Any(pr =>
-            string.Equals(pr.Repository, repository, StringComparison.Ordinal) && IsOpenOrDraft(pr.Status)
+            string.Equals(pr.Repository, repository, StringComparison.Ordinal)
+            && IsOpenOrDraft(pr.Status)
+            && !pr.IsOnHold
+            && this.IsCommittedToBy(user: user, key: (pr.Repository, pr.Id))
         );
+    }
+
+    private bool IsCommittedToBy(string? user, (string Repository, int Id) key)
+    {
+        return IsVisibleTo(user: user, assigneesByItem: this._pullRequestCommitAuthors, key: key);
     }
 
     private static bool IsOpenOrDraft(string status)

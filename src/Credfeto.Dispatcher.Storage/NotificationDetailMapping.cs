@@ -67,6 +67,21 @@ internal static class NotificationDetailMapping
         return failed.Length > 0 ? string.Join(separator: ',', failed) : null;
     }
 
+    // The scanner/event paths only know a PR's commit authors when they enriched it (a PR failing the label
+    // filter); otherwise they pass an empty CommitAuthors list, so an empty list means "unknown", not "no authors".
+    // Returning null tells the store to keep whatever commit authors it already has for the PR.
+    public static IReadOnlyList<string>? KnownCommitAuthors(IReadOnlyList<string> commitAuthors)
+    {
+        return commitAuthors.Count > 0 ? commitAuthors : null;
+    }
+
+    public static string? BuildCommitAuthors(IReadOnlyList<string> commitAuthors)
+    {
+        IReadOnlyList<string>? known = KnownCommitAuthors(commitAuthors);
+
+        return known is null ? null : RepositoryCsv.Build(known);
+    }
+
     public static string? BuildFailedCheckSha(IReadOnlyList<PullRequestRun> runs)
     {
         string[] shas =

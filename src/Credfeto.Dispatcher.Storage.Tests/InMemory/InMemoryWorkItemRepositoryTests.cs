@@ -152,7 +152,8 @@ public sealed class InMemoryWorkItemRepositoryTests : TestBase
             failedCheckSha: null,
             author: null,
             isAdopted: false,
-            assignees: null
+            assignees: null,
+            commitAuthors: null
         );
     }
 

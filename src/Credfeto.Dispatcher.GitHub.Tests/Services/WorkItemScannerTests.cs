@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
@@ -451,13 +452,26 @@ public sealed class WorkItemScannerTests : TestBase
             this._result = result;
         }
 
+        public int CallCount { get; private set; }
+
         public ValueTask<PullRequestDetails?> FetchAsync(
             GitHubNotification notification,
             CancellationToken cancellationToken
         )
         {
+            this.CallCount++;
+
             return ValueTask.FromResult(this._result);
         }
+    }
+
+    private PullRequestDetails SinglePullRequestUpdate()
+    {
+        return Assert.Single(
+            this._notificationStateTracker.ReceivedCalls()
+                .Select(call => call.GetArguments()[1])
+                .OfType<PullRequestDetails>()
+        );
     }
 
     private static PullRequestDetails BuildEnrichedDetails(
@@ -839,6 +853,58 @@ public sealed class WorkItemScannerTests : TestBase
                 isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WithPrFailingLabelFilterButResolvingOwnAssignedIssue_StoresEnrichedCommitAuthorsAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, PR_RESOLVING_OWN_ISSUE_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        LinkedItem linkedIssue = new(Number: 442, Labels: ["AI-Work", "urgent"], Assignees: ["dnyw4l3n13"]);
+        PullRequestDetails enriched = BuildEnrichedDetails(
+            author: "dnyw4l3n13",
+            commitAuthors: ["dnyw4l3n13"],
+            linkedItems: [linkedIssue]
+        );
+        FakePullRequestDetailFetcher fetcher = new(enriched);
+
+        GitHubOptions options = new() { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } };
+        WorkItemScanner scanner = this.CreateScanner(options: options, pullRequestDetailFetcher: fetcher);
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        PullRequestDetails details = this.SinglePullRequestUpdate();
+        Assert.Equal(expected: 40, actual: details.Number);
+        Assert.Equal(expected: ["dnyw4l3n13"], actual: details.CommitAuthors);
+    }
+
+    [Fact]
+    public async Task ScanAsync_WithPrMatchingLabelFilter_DoesNotEnrichAndStoresUnknownCommitAuthorsAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, PR_WITH_AI_WORK_SPACE_LABEL_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        PullRequestDetails enriched = BuildEnrichedDetails(
+            author: "dnyw4l3n13",
+            commitAuthors: ["dnyw4l3n13"],
+            linkedItems: []
+        );
+        FakePullRequestDetailFetcher fetcher = new(enriched);
+
+        GitHubOptions options = new() { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } };
+        WorkItemScanner scanner = this.CreateScanner(options: options, pullRequestDetailFetcher: fetcher);
+
+        await scanner.ScanAsync(this.CancellationToken());
+
+        PullRequestDetails details = this.SinglePullRequestUpdate();
+        Assert.Equal(expected: 7, actual: details.Number);
+        Assert.Empty(details.CommitAuthors);
+        Assert.Equal(expected: 0, actual: fetcher.CallCount);
     }
 
     [Fact]

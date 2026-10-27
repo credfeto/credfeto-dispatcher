@@ -247,13 +247,26 @@ public sealed class RepoEventPollerTests : TestBase
             this._result = result;
         }
 
+        public int CallCount { get; private set; }
+
         public ValueTask<PullRequestDetails?> FetchAsync(
             GitHubNotification notification,
             CancellationToken cancellationToken
         )
         {
+            this.CallCount++;
+
             return ValueTask.FromResult(this._result);
         }
+    }
+
+    private PullRequestDetails SinglePullRequestUpdate()
+    {
+        return Assert.Single(
+            this._notificationStateTracker.ReceivedCalls()
+                .Select(call => call.GetArguments()[1])
+                .OfType<PullRequestDetails>()
+        );
     }
 
     private static PullRequestDetails BuildEnrichedDetails(
@@ -431,6 +444,56 @@ public sealed class RepoEventPollerTests : TestBase
                 isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
+    }
+
+    [Fact]
+    public async Task PollAsync_WithPrEventFailingLabelFilterButResolvingOwnAssignedIssue_StoresEnrichedCommitAuthorsAsync()
+    {
+        using HttpClient repoFeedClient = CreateClient(HttpStatusCode.OK, PR_OPENED_EVENT_RESOLVING_OWN_ISSUE_JSON);
+        using HttpClient ownerFeedClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoFeedClient, ownerFeedClient);
+
+        LinkedItem linkedIssue = new(Number: 442, Labels: ["AI-Work", "urgent"], Assignees: ["dnyw4l3n13"]);
+        PullRequestDetails enriched = BuildEnrichedDetails(
+            author: "dnyw4l3n13",
+            commitAuthors: ["dnyw4l3n13"],
+            linkedItems: [linkedIssue]
+        );
+        FakePullRequestDetailFetcher fetcher = new(enriched);
+
+        GitHubOptions options = new() { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } };
+        RepoEventPoller poller = this.CreatePoller(options: options, pullRequestDetailFetcher: fetcher);
+
+        await poller.PollAsync(this.CancellationToken());
+
+        PullRequestDetails details = this.SinglePullRequestUpdate();
+        Assert.Equal(expected: 42, actual: details.Number);
+        Assert.Equal(expected: ["dnyw4l3n13"], actual: details.CommitAuthors);
+    }
+
+    [Fact]
+    public async Task PollAsync_WithPrEventMatchingLabelFilter_DoesNotEnrichAndStoresUnknownCommitAuthorsAsync()
+    {
+        using HttpClient repoFeedClient = CreateClient(HttpStatusCode.OK, PR_OPENED_EVENT_WITH_AI_WORK_LABEL_JSON);
+        using HttpClient ownerFeedClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoFeedClient, ownerFeedClient);
+
+        PullRequestDetails enriched = BuildEnrichedDetails(
+            author: "dnyw4l3n13",
+            commitAuthors: ["dnyw4l3n13"],
+            linkedItems: []
+        );
+        FakePullRequestDetailFetcher fetcher = new(enriched);
+
+        GitHubOptions options = new() { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } };
+        RepoEventPoller poller = this.CreatePoller(options: options, pullRequestDetailFetcher: fetcher);
+
+        await poller.PollAsync(this.CancellationToken());
+
+        PullRequestDetails details = this.SinglePullRequestUpdate();
+        Assert.Equal(expected: 40, actual: details.Number);
+        Assert.Empty(details.CommitAuthors);
+        Assert.Equal(expected: 0, actual: fetcher.CallCount);
     }
 
     [Fact]

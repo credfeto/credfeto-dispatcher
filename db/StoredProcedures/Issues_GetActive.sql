@@ -33,7 +33,22 @@ BEGIN
       Iss.[Priority] >= 4
       OR NOT EXISTS (
         SELECT 1 FROM [dbo].[PullRequests] AS Pr2
-        WHERE Pr2.[Repository] = Iss.[Repository] AND (Pr2.[Status] = N'Open' OR Pr2.[Status] = N'Draft')
+        WHERE Pr2.[Repository] = Iss.[Repository]
+          AND (Pr2.[Status] = N'Open' OR Pr2.[Status] = N'Draft')
+          AND Pr2.[IsOnHold] = 0
+          AND (
+            @user IS NULL
+            OR NOT EXISTS (
+              SELECT 1 FROM [dbo].[PullRequestCommitAuthors] AS CommitAuthor
+              WHERE CommitAuthor.[Repository] = Pr2.[Repository] AND CommitAuthor.[Id] = Pr2.[Id]
+            )
+            OR EXISTS (
+              SELECT 1 FROM [dbo].[PullRequestCommitAuthors] AS CommitAuthor
+              WHERE CommitAuthor.[Repository] = Pr2.[Repository]
+                AND CommitAuthor.[Id] = Pr2.[Id]
+                AND CommitAuthor.[Login] = @user
+            )
+          )
       )
     )
     AND (

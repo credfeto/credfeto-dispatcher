@@ -107,7 +107,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - /priorities no longer hides issues behind Blocked pull requests, or, for a given user, behind pull requests that user has not committed to (#255)
 - The full repo scan and the repo event poller now store the commit authors of pull requests they already enrich (those trusted via a linked issue), so the committer rule applies to them too (#255)
 - Priorities endpoint: MaxIssues now caps regular issues per owner, so one owner can no longer take every slot from the others (#257)
-- LabelParser now returns the highest priority across all labels rather than the first matching label (#184)
+- Priority labels are now read regardless of the order they appear on an issue or pull request, so the highest priority label wins rather than the first one listed (#184)
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934

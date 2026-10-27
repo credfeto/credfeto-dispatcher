@@ -429,4 +429,187 @@ public sealed class WorkItemRepositoryTests : TestBase
         Assert.Equal(expected: "zz-owner/repo", actual: result[0].Repository);
         Assert.Equal(expected: "aa-owner/repo", actual: result[1].Repository);
     }
+
+    private static PullRequestStateRow CreatePrStateRow(
+        string repository,
+        int id = 1,
+        string status = "Open",
+        bool isOnHold = false,
+        DateTimeOffset? lastUpdated = null,
+        DateTimeOffset? whenClosed = null,
+        string? reviewDecision = null,
+        string? failedCheckNames = null,
+        string? assignees = null
+    )
+    {
+        return new PullRequestStateRow(
+            Repository: repository,
+            Id: id,
+            Status: status,
+            FirstSeen: BaseTime,
+            LastUpdated: lastUpdated ?? BaseTime,
+            WhenClosed: whenClosed,
+            Priority: (int)WorkPriority.HIGH,
+            IsOnHold: isOnHold,
+            CommentCount: 3,
+            ReviewDecision: reviewDecision,
+            FailedCheckCount: failedCheckNames is null ? 0 : 2,
+            FailedCheckNames: failedCheckNames,
+            FailedCheckSha: failedCheckNames is null ? null : "abc123",
+            Author: "author",
+            IsAdopted: true,
+            Assignees: assignees
+        );
+    }
+
+    private static IssueStateRow CreateIssueStateRow(
+        string repository,
+        int id = 1,
+        string status = "Open",
+        bool isOnHold = false,
+        DateTimeOffset? lastUpdated = null,
+        int? linkedPrNumber = null,
+        string? assignees = null
+    )
+    {
+        return new IssueStateRow(
+            Repository: repository,
+            Id: id,
+            Status: status,
+            FirstSeen: BaseTime,
+            LastUpdated: lastUpdated ?? BaseTime,
+            WhenClosed: null,
+            Priority: (int)WorkPriority.LOW,
+            IsOnHold: isOnHold,
+            LinkedPrNumber: linkedPrNumber,
+            Assignees: assignees
+        );
+    }
+
+    private Task<DbStateResponse> GetDatabaseStateAsync(
+        IReadOnlyList<PullRequestStateRow> pullRequests,
+        IReadOnlyList<IssueStateRow> issues
+    )
+    {
+        this._database.SetReturn(pullRequests);
+        this._database.SetReturn(issues);
+
+        return this._repository.GetDatabaseStateAsync(
+            owner: null,
+            repo: null,
+            user: null,
+            cancellationToken: this.CancellationToken()
+        );
+    }
+
+    [Fact]
+    public async Task GetDatabaseStateWithNoRowsUsesTheClockForAsOfAsync()
+    {
+        DbStateResponse response = await this.GetDatabaseStateAsync(pullRequests: [], issues: []);
+
+        Assert.Empty(response.PullRequests);
+        Assert.Empty(response.Issues);
+        Assert.Equal(expected: this._timeProvider.GetUtcNow(), actual: response.AsOf);
+    }
+
+    [Fact]
+    public async Task GetDatabaseStateAsOfIsTheLatestLastUpdatedAsync()
+    {
+        DateTimeOffset latest = BaseTime.AddHours(5);
+
+        DbStateResponse response = await this.GetDatabaseStateAsync(
+            pullRequests: [CreatePrStateRow("owner/repo", lastUpdated: BaseTime.AddHours(1))],
+            issues: [CreateIssueStateRow("owner/repo", lastUpdated: latest)]
+        );
+
+        Assert.Equal(expected: latest, actual: response.AsOf);
+    }
+
+    [Fact]
+    public async Task GetDatabaseStateIncludesClosedAndOnHoldItemsAsync()
+    {
+        DateTimeOffset closed = BaseTime.AddDays(1);
+
+        DbStateResponse response = await this.GetDatabaseStateAsync(
+            pullRequests:
+            [
+                CreatePrStateRow("owner/repo", id: 1, status: "Closed", whenClosed: closed),
+                CreatePrStateRow("owner/repo", id: 2, isOnHold: true),
+            ],
+            issues: [CreateIssueStateRow("owner/repo", id: 3, status: "Closed", isOnHold: true)]
+        );
+
+        Assert.Equal(expected: 2, actual: response.PullRequests.Count);
+        Assert.Equal(expected: "Closed", actual: response.PullRequests[0].Status);
+        Assert.Equal(expected: closed, actual: response.PullRequests[0].WhenClosed);
+        Assert.True(response.PullRequests[1].IsOnHold, userMessage: "On hold PR should be returned");
+
+        IssueState issue = Assert.Single(response.Issues);
+        Assert.Equal(expected: "Closed", actual: issue.Status);
+        Assert.True(issue.IsOnHold, userMessage: "On hold issue should be returned");
+    }
+
+    [Fact]
+    public async Task GetDatabaseStateMapsPullRequestDetailAsync()
+    {
+        DbStateResponse response = await this.GetDatabaseStateAsync(
+            pullRequests:
+            [
+                CreatePrStateRow(
+                    "credfeto/credfeto-dispatcher",
+                    id: 42,
+                    reviewDecision: "Approved",
+                    failedCheckNames: "build,lint",
+                    assignees: "alice,bob"
+                ),
+            ],
+            issues: []
+        );
+
+        PullRequestState pr = Assert.Single(response.PullRequests);
+        Assert.Equal(expected: "credfeto", actual: pr.Owner);
+        Assert.Equal(expected: "credfeto-dispatcher", actual: pr.Repo);
+        Assert.Equal(expected: "credfeto/credfeto-dispatcher", actual: pr.Repository);
+        Assert.Equal(expected: 42, actual: pr.Number);
+        Assert.Equal(expected: WorkPriority.HIGH, actual: pr.Priority);
+        Assert.Equal(expected: ReviewDecisionState.APPROVED, actual: pr.ReviewDecision);
+        Assert.Equal(expected: ["alice", "bob"], actual: pr.Assignees);
+        Assert.Equal(expected: ["build", "lint"], actual: pr.FailedCheckNames);
+        Assert.Equal(expected: 2, actual: pr.FailedCheckCount);
+        Assert.Equal(expected: "abc123", actual: pr.FailedCheckSha);
+        Assert.Equal(expected: 3, actual: pr.CommentCount);
+        Assert.Equal(expected: "author", actual: pr.Author);
+        Assert.True(pr.IsAdopted, userMessage: "Adopted flag should be copied");
+    }
+
+    [Fact]
+    public async Task GetDatabaseStateMapsIssueDetailAsync()
+    {
+        DbStateResponse response = await this.GetDatabaseStateAsync(
+            pullRequests: [],
+            issues: [CreateIssueStateRow("owner/repo", id: 7, linkedPrNumber: 9, assignees: "carol")]
+        );
+
+        IssueState issue = Assert.Single(response.Issues);
+        Assert.Equal(expected: "owner", actual: issue.Owner);
+        Assert.Equal(expected: "repo", actual: issue.Repo);
+        Assert.Equal(expected: 7, actual: issue.Number);
+        Assert.Equal(expected: WorkPriority.LOW, actual: issue.Priority);
+        Assert.Equal(expected: 9, actual: issue.LinkedPrNumber);
+        Assert.Equal(expected: ["carol"], actual: issue.Assignees);
+    }
+
+    [Fact]
+    public async Task GetDatabaseStateWithNoAssigneesReturnsEmptyListsAsync()
+    {
+        DbStateResponse response = await this.GetDatabaseStateAsync(
+            pullRequests: [CreatePrStateRow("owner/repo")],
+            issues: [CreateIssueStateRow("owner/repo")]
+        );
+
+        Assert.Empty(Assert.Single(response.PullRequests).Assignees);
+        Assert.Empty(Assert.Single(response.PullRequests).FailedCheckNames);
+        Assert.Empty(Assert.Single(response.Issues).Assignees);
+        Assert.Equal(expected: ReviewDecisionState.NOT_REVIEWED, actual: response.PullRequests[0].ReviewDecision);
+    }
 }

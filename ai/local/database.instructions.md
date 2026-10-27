@@ -88,6 +88,7 @@ Stores ETags for GitHub notification polling endpoints to support conditional re
 | --- | --- |
 | `PullRequests_GetActive` | Returns open/draft PRs for active repos; a non-null `@user` keeps only unassigned PRs, PRs assigned to that login and adopted PRs |
 | `Issues_GetActive` | Returns open issues for active repos (suppresses lower-priority issues when an open PR exists for the repo); a non-null `@user` keeps only unassigned issues and issues assigned to that login |
+| `PullRequests_GetAll` / `Issues_GetAll` | Return every stored PR/issue (any status, on hold, inactive repos) with a comma-separated, sorted `Assignees` column, ordered by `Repository`, `Id`; optional `@owner` (part before `/`), `@repo` (part after `/`) and `@user` (same visibility rule as the `GetActive` procedures) filters. Backs the MCP `db` tool |
 | `Repos_SetActive` | MERGE to mark discovered repos active and all others inactive |
 | `PullRequests_Upsert` / `Issues_Upsert` | Insert or update a single item, plus its assignee rows (and `IsAdopted` for PRs) |
 | `PullRequests_CloseStale` / `Issues_CloseStale` | Close items no longer present in a scan |

@@ -6,6 +6,7 @@ namespace Credfeto.Dispatcher.Server;
 
 [JsonSerializable(typeof(PrioritiesResponse))]
 [JsonSerializable(typeof(WorkItem))]
+[JsonSerializable(typeof(DbStateResponse))]
 [JsonSerializable(typeof(PongDto))]
 [JsonSerializable(typeof(ProblemDetails))]
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]

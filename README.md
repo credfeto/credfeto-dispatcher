@@ -125,6 +125,82 @@ For example, `GET /priorities?user=octocat`.
 | `lag_seconds` | integer | `now − as_of` in whole seconds; higher values indicate a staler snapshot |
 | `priorities` | array | Ordered work items, banded Security/Urgent PRs, other PRs, Security/Urgent issues, other issues, then within each band by boosted repo, owner, repo, priority, age |
 
+### `POST /mcp`
+
+A [Model Context Protocol](https://modelcontextprotocol.io/) server using the Streamable HTTP transport, so AI agents can
+query the dispatcher's state as tools. It runs in stateless mode: every request stands alone, no session is kept and
+`tools/list` or `tools/call` can be sent without a prior `initialize`. Like `/priorities`, it needs no authentication
+and is read-only.
+
+Requests are JSON-RPC 2.0 `POST`s with `Content-Type: application/json` and must send
+`Accept: application/json, text/event-stream`; a request without both media types is rejected. The response is a
+Server-Sent Events stream carrying the JSON-RPC result. Each tool returns its result as a single JSON text content
+block.
+
+| Tool | Parameters | Description |
+| --- | --- | --- |
+| `priorities` | `user` (optional) | The same prioritised work item list as `GET /priorities`, with the same `user` filtering. |
+| `db` | `owner`, `repo`, `user` (all optional) | Every pull request and issue stored, including closed and on-hold items and items in repositories no longer being watched, ordered by repository then number. There is no paging: the whole result is returned in one response. |
+
+`db` parameters:
+
+| Parameter | Description |
+| --- | --- |
+| `owner` | Repository owner (the part of `owner/repo` before the `/`). Exact, case-insensitive match. |
+| `repo` | Repository name (the part of `owner/repo` after the `/`). Exact, case-insensitive match. |
+| `user` | GitHub login. Keeps items with no assignees, items assigned to that login (matched case-insensitively) and adopted bot PRs, as `GET /priorities?user=` does. |
+
+An invalid `owner`, `repo` or `user` value returns a tool error rather than a result.
+
+Example `db` result:
+
+```json
+{
+  "pullRequests": [
+    {
+      "owner": "owner",
+      "repo": "repo",
+      "repository": "owner/repo",
+      "number": 123,
+      "status": "Open",
+      "priority": 4,
+      "isOnHold": false,
+      "firstSeen": "2026-05-10T09:00:00Z",
+      "lastUpdated": "2026-05-13T14:31:31Z",
+      "whenClosed": null,
+      "assignees": ["octocat"],
+      "commentCount": 4,
+      "reviewDecision": 2,
+      "failedCheckCount": 0,
+      "failedCheckNames": [],
+      "failedCheckSha": null,
+      "author": "dependabot[bot]",
+      "isAdopted": false
+    }
+  ],
+  "issues": [
+    {
+      "owner": "owner",
+      "repo": "repo",
+      "repository": "owner/repo",
+      "number": 120,
+      "status": "Closed",
+      "priority": 2,
+      "isOnHold": true,
+      "firstSeen": "2026-05-01T09:00:00Z",
+      "lastUpdated": "2026-05-12T10:00:00Z",
+      "whenClosed": "2026-05-12T10:00:00Z",
+      "assignees": [],
+      "linkedPrNumber": 123
+    }
+  ],
+  "asOf": "2026-05-13T14:31:31Z"
+}
+```
+
+`asOf` is the latest `lastUpdated` of any item returned, or the current time when nothing matches. `priority` and
+`reviewDecision` are the numeric values of the `WorkPriority` and `ReviewDecisionState` enums.
+
 ### `GET /ping`
 
 Lightweight health check — returns `{"value":"Pong!"}` without touching the database.

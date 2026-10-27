@@ -23,6 +23,24 @@ internal static partial class DispatcherDatabase
         CancellationToken cancellationToken
     );
 
+    [SqlObjectMap("PullRequests_GetAll", SqlObjectType.STORED_PROCEDURE, SqlDialect.MICROSOFT_SQL_SERVER)]
+    public static partial ValueTask<IReadOnlyList<PullRequestStateRow>> PullRequests_GetAllAsync(
+        DbConnection connection,
+        string? owner,
+        string? repo,
+        string? user,
+        CancellationToken cancellationToken
+    );
+
+    [SqlObjectMap("Issues_GetAll", SqlObjectType.STORED_PROCEDURE, SqlDialect.MICROSOFT_SQL_SERVER)]
+    public static partial ValueTask<IReadOnlyList<IssueStateRow>> Issues_GetAllAsync(
+        DbConnection connection,
+        string? owner,
+        string? repo,
+        string? user,
+        CancellationToken cancellationToken
+    );
+
     [SqlObjectMap("Repos_GetActive", SqlObjectType.STORED_PROCEDURE, SqlDialect.MICROSOFT_SQL_SERVER)]
     public static partial ValueTask<IReadOnlyList<RepoRow>> Repos_GetActiveAsync(
         DbConnection connection,

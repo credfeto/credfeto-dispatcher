@@ -285,6 +285,122 @@ public sealed class InMemoryDispatcherStore
         }
     }
 
+    internal (IReadOnlyList<PullRequestStateRow> PullRequests, IReadOnlyList<IssueStateRow> Issues) GetAllWorkItems(
+        string? owner,
+        string? repo,
+        string? user
+    )
+    {
+        lock (this._gate)
+        {
+            IReadOnlyList<PullRequestStateRow> pullRequests =
+            [
+                .. this
+                    ._pullRequests.Values.Where(pr =>
+                        MatchesRepository(repository: pr.Repository, owner: owner, repo: repo)
+                        && (
+                            pr.IsAdopted
+                            || IsVisibleTo(
+                                user: user,
+                                assigneesByItem: this._pullRequestAssignees,
+                                key: (pr.Repository, pr.Id)
+                            )
+                        )
+                    )
+                    .OrderBy(static pr => pr.Repository, comparer: StringComparer.Ordinal)
+                    .ThenBy(static pr => pr.Id)
+                    .Select(pr => ToStateRow(row: pr, assignees: this._pullRequestAssignees)),
+            ];
+
+            IReadOnlyList<IssueStateRow> issues =
+            [
+                .. this
+                    ._issues.Values.Where(issue =>
+                        MatchesRepository(repository: issue.Repository, owner: owner, repo: repo)
+                        && IsVisibleTo(
+                            user: user,
+                            assigneesByItem: this._issueAssignees,
+                            key: (issue.Repository, issue.Id)
+                        )
+                    )
+                    .OrderBy(static issue => issue.Repository, comparer: StringComparer.Ordinal)
+                    .ThenBy(static issue => issue.Id)
+                    .Select(issue => ToStateRow(row: issue, assignees: this._issueAssignees)),
+            ];
+
+            return (pullRequests, issues);
+        }
+    }
+
+    private static bool MatchesRepository(string repository, string? owner, string? repo)
+    {
+        if (owner is null && repo is null)
+        {
+            return true;
+        }
+
+        (string repositoryOwner, string repositoryName) = WorkItemMapping.SplitRepository(repository);
+
+        return MatchesFilter(value: repositoryOwner, filter: owner)
+            && MatchesFilter(value: repositoryName, filter: repo);
+    }
+
+    private static bool MatchesFilter(string value, string? filter)
+    {
+        return filter is null || string.Equals(a: value, b: filter, comparisonType: StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string? JoinAssignees(
+        Dictionary<(string Repository, int Id), string[]> assignees,
+        (string Repository, int Id) key
+    )
+    {
+        return assignees.TryGetValue(key: key, out string[]? logins)
+            ? string.Join(separator: ',', values: logins.Order(StringComparer.Ordinal))
+            : null;
+    }
+
+    private static PullRequestStateRow ToStateRow(
+        PullRequestRow row,
+        Dictionary<(string Repository, int Id), string[]> assignees
+    )
+    {
+        return new PullRequestStateRow(
+            Repository: row.Repository,
+            Id: row.Id,
+            Status: row.Status,
+            FirstSeen: row.FirstSeen,
+            LastUpdated: row.LastUpdated,
+            WhenClosed: row.WhenClosed,
+            Priority: row.Priority,
+            IsOnHold: row.IsOnHold,
+            CommentCount: row.CommentCount,
+            ReviewDecision: row.ReviewDecision,
+            FailedCheckCount: row.FailedCheckCount,
+            FailedCheckNames: row.FailedCheckNames,
+            FailedCheckSha: row.FailedCheckSha,
+            Author: row.Author,
+            IsAdopted: row.IsAdopted,
+            Assignees: JoinAssignees(assignees: assignees, key: (row.Repository, row.Id))
+        );
+    }
+
+    private static IssueStateRow ToStateRow(IssueRow row, Dictionary<(string Repository, int Id), string[]> assignees)
+    {
+        return new IssueStateRow(
+            Repository: row.Repository,
+            Id: row.Id,
+            Status: row.Status,
+            FirstSeen: row.FirstSeen,
+            LastUpdated: row.LastUpdated,
+            WhenClosed: row.WhenClosed,
+            Priority: row.Priority,
+            IsOnHold: row.IsOnHold,
+            LinkedPrNumber: row.LinkedPrNumber,
+            Assignees: JoinAssignees(assignees: assignees, key: (row.Repository, row.Id))
+        );
+    }
+
     public void CloseStalePullRequests(string repository, IReadOnlyCollection<int>? activeIds)
     {
         lock (this._gate)

@@ -15,6 +15,13 @@ public interface IWorkItemRepository
         CancellationToken cancellationToken
     );
 
+    Task<DbStateResponse> GetDatabaseStateAsync(
+        string? owner,
+        string? repo,
+        string? user,
+        CancellationToken cancellationToken
+    );
+
     ValueTask RemoveItemsForRepositoriesAsync(IReadOnlyList<string> repositories, CancellationToken cancellationToken);
 
     ValueTask CloseStaleItemsForRepoAsync(

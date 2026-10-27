@@ -32,7 +32,7 @@ internal static partial class Endpoints
         CancellationToken cancellationToken
     )
     {
-        string? userFilter = string.IsNullOrWhiteSpace(user) ? null : user.Trim();
+        string? userFilter = WorkItemQueries.NormaliseFilter(user);
 
         if (userFilter is not null && !GitHubLoginValidator.IsValid(userFilter))
         {
@@ -41,11 +41,9 @@ internal static partial class Endpoints
 
         try
         {
-            GitHubFilterOptions filter = options.Value.Filter;
-            PrioritiesResponse response = await workItemRepository.GetPrioritisedWorkItemsAsync(
-                owners: filter.AllowedOwners,
-                maxIssues: filter.MaxIssues,
-                boostedRepos: filter.BoostedRepos,
+            PrioritiesResponse response = await WorkItemQueries.GetPrioritiesAsync(
+                workItemRepository: workItemRepository,
+                filter: options.Value.Filter,
                 user: userFilter,
                 cancellationToken: cancellationToken
             );

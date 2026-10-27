@@ -16,6 +16,7 @@ namespace Credfeto.Dispatcher.GitHub.Services;
 
 public sealed class WorkItemScanner : IWorkItemScanner
 {
+    private readonly IReadOnlyList<string> _activeLabelFilter;
     private readonly IActiveRepoTracker _activeRepoTracker;
     private readonly GitHubRepoHelper _helper;
     private readonly ILogger<WorkItemScanner> _logger;
@@ -42,6 +43,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
         this._workItemRepository = workItemRepository;
         this._pullRequestDetailFetcher = pullRequestDetailFetcher;
         this._options = options.Value;
+        this._activeLabelFilter = LinkedIssueTrust.ActiveLabelFilter(this._options.Filter.LabelFilter);
         this._timeProvider = timeProvider;
         this._logger = logger;
     }
@@ -355,7 +357,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
             author: enriched.Author,
             commitAuthors: enriched.CommitAuthors,
             linkedItems: enriched.LinkedItems,
-            labelFilter: this._options.Filter.LabelFilter
+            activeLabelFilter: this._activeLabelFilter
         );
 
         return trustedLinkedIssue is null ? (false, [], null) : (true, enriched.LinkedItems, trustedLinkedIssue);
@@ -463,7 +465,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
     private bool PassesLabelFilter(IReadOnlyList<string> labelNames)
     {
-        return LinkedIssueTrust.PassesLabelFilter(labelNames, this._options.Filter.LabelFilter);
+        return LinkedIssueTrust.PassesLabelFilter(labelNames, this._activeLabelFilter);
     }
 
     private static string GetRepoName(string fullName)

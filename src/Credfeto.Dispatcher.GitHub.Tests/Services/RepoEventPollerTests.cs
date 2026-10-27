@@ -755,8 +755,10 @@ public sealed class RepoEventPollerTests : TestBase
             content: firstPage,
             linkUrl: "https://api.github.com/repositories/1/events?per_page=30&page=2"
         );
-        (HttpClient secondPageClient, FixedResponseHandler secondPageHandler) =
-            HttpClientTestFactory.CreateWithHandler(statusCode: HttpStatusCode.OK, content: secondPage);
+        (HttpClient secondPageClient, FixedResponseHandler secondPageHandler) = HttpClientTestFactory.CreateWithHandler(
+            statusCode: HttpStatusCode.OK,
+            content: secondPage
+        );
         using HttpClient ownerFeedClient = HttpClientTestFactory.Create(HttpStatusCode.OK, EMPTY_JSON);
         this._httpClientFactory.CreateClient("GitHub").Returns(firstPageClient, secondPageClient, ownerFeedClient);
 

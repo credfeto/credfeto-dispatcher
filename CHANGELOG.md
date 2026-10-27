@@ -103,6 +103,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Background polling loops (GitHubPollingWorker, WorkItemScannerService, RepoEventPollerService, SnapshotWriterService) now exit only when stopping token is cancelled; other OperationCanceledExceptions are logged and the loop continues (#196)
 - Bot-PR adoption timeout now keeps the higher of the rule priority and the label-derived priority (#195)
 - Issue detail fetching now requests a relative URL (repos/{owner/repo}/issues/{number}) so it goes through the ApiBaseUrl proxy instead of bypassing it with an absolute URL (401), logs a warning on failure, and errors if a request would leave the proxy base address (#180)
+- Repo event poller now processes events that arrive late in the GitHub events feed and reads beyond the first page after a burst, so label changes such as removing Blocked are picked up without waiting for the hourly full scan
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934
@@ -133,6 +134,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Refactored polling background services to extract shared polling loop from RepoEventPollerService, WorkItemScannerService, and GitHubPollingWorker into PollingBackgroundService base class, eliminating code duplication
 - Enable the configuration binding source generator for the server so options binding is trim/AOT safe and the build check passes
 - SDK - Updated DotNet SDK to 10.0.403
+- Repo event poller logs per-feed event counts and each upserted item with its on-hold state at Information level
 ### Deprecated
 ### Removed
 - Removed IsUpToDate field from WorkItem and PullRequestDetails as it was never populated in production

@@ -12,7 +12,8 @@ CREATE PROCEDURE [dbo].[PullRequests_Upsert]
   @failedCheckSha NVARCHAR(MAX),
   @author NVARCHAR(MAX),
   @isAdopted BIT,
-  @assignees NVARCHAR(MAX)
+  @assignees NVARCHAR(MAX),
+  @commitAuthors NVARCHAR(MAX)
 AS
 BEGIN
   SET NOCOUNT ON;
@@ -69,6 +70,22 @@ BEGIN
       FROM (
         SELECT TRIM([value]) AS [Login]
         FROM STRING_SPLIT(@assignees, N',')
+      ) AS [Source]
+      WHERE [Source].[Login] > N'';
+    END;
+  -- @commitAuthors NULL means the caller did not fetch commit authors (unknown), so the stored set is kept.
+  IF @commitAuthors IS NOT NULL
+    BEGIN
+      DELETE FROM [dbo].[PullRequestCommitAuthors] WITH (HOLDLOCK)
+      WHERE [Repository] = @repository AND [Id] = @id;
+      INSERT INTO [dbo].[PullRequestCommitAuthors] ([Repository], [Id], [Login])
+      SELECT DISTINCT
+        @repository AS [Repository],
+        @id         AS [Id],
+        [Source].[Login]
+      FROM (
+        SELECT TRIM([value]) AS [Login]
+        FROM STRING_SPLIT(@commitAuthors, N',')
       ) AS [Source]
       WHERE [Source].[Login] > N'';
     END;

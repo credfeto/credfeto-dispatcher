@@ -40,7 +40,8 @@ public sealed class InMemoryNotificationStateTracker : INotificationStateTracker
             failedCheckSha: NotificationDetailMapping.BuildFailedCheckSha(details.Runs),
             author: details.Author,
             isAdopted: isAdopted,
-            assignees: details.Assignees
+            assignees: details.Assignees,
+            commitAuthors: NotificationDetailMapping.KnownCommitAuthors(details.CommitAuthors)
         );
 
         foreach (int linkedIssueNumber in details.LinkedItems.Select(static item => item.Number).Distinct())

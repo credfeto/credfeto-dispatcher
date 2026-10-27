@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.Storage.Database.Rows;
 using Credfeto.Dispatcher.Storage.InMemory;
 using FunFair.Test.Common;
@@ -120,7 +121,8 @@ public sealed class InMemoryDispatcherStoreTests : TestBase
             failedCheckSha: null,
             author: "octocat",
             isAdopted: null,
-            assignees: null
+            assignees: null,
+            commitAuthors: null
         );
         this._store.UpsertIssue(
             repository: REPOSITORY,
@@ -171,7 +173,8 @@ public sealed class InMemoryDispatcherStoreTests : TestBase
             failedCheckSha: "abc123",
             author: "octocat",
             isAdopted: null,
-            assignees: null
+            assignees: null,
+            commitAuthors: null
         );
 
         this._store.UpsertPullRequest(
@@ -188,7 +191,8 @@ public sealed class InMemoryDispatcherStoreTests : TestBase
             failedCheckSha: null,
             author: author,
             isAdopted: null,
-            assignees: null
+            assignees: null,
+            commitAuthors: null
         );
 
         (IReadOnlyList<PullRequestRow> pullRequests, _) = this._store.GetActiveWorkItems(user: null);
@@ -215,7 +219,8 @@ public sealed class InMemoryDispatcherStoreTests : TestBase
             Issues: [],
             PollingStates: [],
             PullRequestAssignees: [],
-            IssueAssignees: []
+            IssueAssignees: [],
+            PullRequestCommitAuthors: []
         );
 
         this._store.ImportSnapshot(emptySnapshot);
@@ -353,7 +358,8 @@ public sealed class InMemoryDispatcherStoreTests : TestBase
             Issues: [],
             PollingStates: [],
             PullRequestAssignees: null,
-            IssueAssignees: null
+            IssueAssignees: null,
+            PullRequestCommitAuthors: null
         );
 
         this._store.ImportSnapshot(snapshot);
@@ -570,7 +576,8 @@ public sealed class InMemoryDispatcherStoreTests : TestBase
             failedCheckSha: "abc123",
             author: "octocat",
             isAdopted: true,
-            assignees: null
+            assignees: null,
+            commitAuthors: null
         );
 
         (IReadOnlyList<PullRequestStateRow> pullRequests, _) = this._store.GetAllWorkItems(
@@ -759,6 +766,143 @@ public sealed class InMemoryDispatcherStoreTests : TestBase
         Assert.Single(issues);
     }
 
+    [Theory]
+    [InlineData(true, null, null, true)]
+    [InlineData(true, "octocat", "octocat", true)]
+    [InlineData(false, "someone-else", "octocat", true)]
+    [InlineData(false, "octocat", "octocat", false)]
+    [InlineData(false, "someone-else,OctoCat", "octocat", false)]
+    [InlineData(false, null, "octocat", false)]
+    [InlineData(false, "someone-else", null, false)]
+    [InlineData(false, null, null, false)]
+    public void GetActiveWorkItemsSuppressesIssuesOnlyForActivePullRequestsByTheUser(
+        bool pullRequestOnHold,
+        string? commitAuthors,
+        string? user,
+        bool expectedIssueVisible
+    )
+    {
+        this.UpsertPullRequestWithCommitAuthors(
+            id: 10,
+            isOnHold: pullRequestOnHold,
+            commitAuthors: SplitAssignees(commitAuthors)
+        );
+        this.UpsertOpenIssue(repository: REPOSITORY, id: 20);
+
+        (_, IReadOnlyList<IssueRow> issues) = this._store.GetActiveWorkItems(user: user);
+
+        Assert.Equal(expected: expectedIssueVisible ? 1 : 0, actual: issues.Count);
+    }
+
+    [Fact]
+    public void GetActiveWorkItemsReturnsUrgentIssueDespiteOwnActivePullRequest()
+    {
+        this.UpsertPullRequestWithCommitAuthors(id: 10, isOnHold: false, commitAuthors: ["octocat"]);
+        this._store.UpsertIssue(
+            repository: REPOSITORY,
+            id: 20,
+            status: "Open",
+            priority: (int)WorkPriority.URGENT,
+            isOnHold: false,
+            linkedPrNumber: null,
+            assignees: null
+        );
+
+        (_, IReadOnlyList<IssueRow> issues) = this._store.GetActiveWorkItems(user: "octocat");
+
+        Assert.Single(issues);
+    }
+
+    [Fact]
+    public void GetActiveWorkItemsIgnoresPullRequestsInOtherRepositoriesWhenSuppressingIssues()
+    {
+        this.UpsertPullRequestWithCommitAuthors(id: 10, isOnHold: false, commitAuthors: null);
+        this.UpsertOpenIssue(repository: OTHER_REPOSITORY, id: 20);
+
+        (_, IReadOnlyList<IssueRow> issues) = this._store.GetActiveWorkItems(user: "octocat");
+
+        Assert.Single(issues);
+    }
+
+    [Fact]
+    public void UpsertPullRequestWithNullCommitAuthorsKeepsStoredCommitAuthors()
+    {
+        this.UpsertPullRequestWithCommitAuthors(id: 10, isOnHold: false, commitAuthors: ["someone-else"]);
+        this.UpsertPullRequestWithCommitAuthors(id: 10, isOnHold: false, commitAuthors: null);
+        this.UpsertOpenIssue(repository: REPOSITORY, id: 20);
+
+        (_, IReadOnlyList<IssueRow> issues) = this._store.GetActiveWorkItems(user: "octocat");
+
+        Assert.Single(issues);
+    }
+
+    [Fact]
+    public void UpsertPullRequestWithNewCommitAuthorsReplacesStoredCommitAuthors()
+    {
+        this.UpsertPullRequestWithCommitAuthors(id: 10, isOnHold: false, commitAuthors: ["someone-else"]);
+        this.UpsertPullRequestWithCommitAuthors(id: 10, isOnHold: false, commitAuthors: ["octocat"]);
+        this.UpsertOpenIssue(repository: REPOSITORY, id: 20);
+
+        (_, IReadOnlyList<IssueRow> issuesForOctocat) = this._store.GetActiveWorkItems(user: "octocat");
+        (_, IReadOnlyList<IssueRow> issuesForSomeoneElse) = this._store.GetActiveWorkItems(user: "someone-else");
+
+        Assert.Empty(issuesForOctocat);
+        Assert.Single(issuesForSomeoneElse);
+    }
+
+    [Fact]
+    public void ExportSnapshotThenImportSnapshotRoundTripsCommitAuthors()
+    {
+        this.UpsertPullRequestWithCommitAuthors(id: 10, isOnHold: false, commitAuthors: ["someone-else"]);
+        this.UpsertOpenIssue(repository: REPOSITORY, id: 20);
+
+        DispatcherStoreSnapshotData snapshot = this._store.ExportSnapshot();
+
+        InMemoryDispatcherStore target = new(this._timeProvider);
+        target.ImportSnapshot(snapshot);
+
+        (_, IReadOnlyList<IssueRow> issuesForOctocat) = target.GetActiveWorkItems(user: "octocat");
+        (_, IReadOnlyList<IssueRow> issuesForSomeoneElse) = target.GetActiveWorkItems(user: "someone-else");
+
+        Assert.Single(issuesForOctocat);
+        Assert.Empty(issuesForSomeoneElse);
+    }
+
+    [Fact]
+    public void RemoveForRepositoriesDropsCommitAuthorsSoReaddedPullRequestsAreUnknown()
+    {
+        this.UpsertPullRequestWithCommitAuthors(id: 10, isOnHold: false, commitAuthors: ["someone-else"]);
+
+        this._store.RemoveForRepositories([REPOSITORY]);
+        this.UpsertPullRequestWithCommitAuthors(id: 10, isOnHold: false, commitAuthors: null);
+        this.UpsertOpenIssue(repository: REPOSITORY, id: 20);
+
+        (_, IReadOnlyList<IssueRow> issues) = this._store.GetActiveWorkItems(user: "octocat");
+
+        Assert.Empty(issues);
+    }
+
+    private void UpsertPullRequestWithCommitAuthors(int id, bool isOnHold, IReadOnlyList<string>? commitAuthors)
+    {
+        this._store.UpsertPullRequest(
+            repository: REPOSITORY,
+            id: id,
+            status: "Open",
+            priority: 1,
+            isOnHold: isOnHold,
+            hasDetail: false,
+            commentCount: 0,
+            reviewDecision: null,
+            failedCheckCount: 0,
+            failedCheckNames: null,
+            failedCheckSha: null,
+            author: null,
+            isAdopted: null,
+            assignees: null,
+            commitAuthors: commitAuthors
+        );
+    }
+
     private void UpsertOpenIssue(string repository, int id)
     {
         this._store.UpsertIssue(
@@ -793,7 +937,8 @@ public sealed class InMemoryDispatcherStoreTests : TestBase
             failedCheckSha: null,
             author: null,
             isAdopted: isAdopted,
-            assignees: assignees
+            assignees: assignees,
+            commitAuthors: null
         );
     }
 

@@ -64,6 +64,7 @@ public sealed class NotificationStateTracker : INotificationStateTracker
                     author: details.Author,
                     isAdopted: isAdopted,
                     assignees: RepositoryCsv.Build(details.Assignees),
+                    commitAuthors: NotificationDetailMapping.BuildCommitAuthors(details.CommitAuthors),
                     cancellationToken: ct
                 ),
             cancellationToken: cancellationToken

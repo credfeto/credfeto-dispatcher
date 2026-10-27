@@ -71,6 +71,7 @@ internal static partial class DispatcherDatabase
         string? author,
         bool? isAdopted,
         string? assignees,
+        string? commitAuthors,
         CancellationToken cancellationToken
     );
 

@@ -34,7 +34,8 @@ public sealed class DispatcherStoreSnapshotStoreTests : LoggingFolderCleanupTest
             Issues: [],
             PollingStates: new Dictionary<string, string>(StringComparer.Ordinal) { ["poll-key"] = "\"abc123\"" },
             PullRequestAssignees: [new AssigneeSnapshotRow(Repository: "owner/repo", Id: 1, Logins: ["octocat"])],
-            IssueAssignees: []
+            IssueAssignees: [],
+            PullRequestCommitAuthors: []
         );
     }
 
@@ -114,7 +115,8 @@ public sealed class DispatcherStoreSnapshotStoreTests : LoggingFolderCleanupTest
                 ["different-key"] = "different-etag",
             },
             PullRequestAssignees: [],
-            IssueAssignees: []
+            IssueAssignees: [],
+            PullRequestCommitAuthors: []
         );
         await this._store.SaveAsync(data: updated, cancellationToken: this.CancellationToken());
 

@@ -73,6 +73,10 @@ Tracks which repositories are currently active (discovered by the scanner).
 
 One row per assignee of a PR or issue: `Repository` `NVARCHAR(450)`, `Id` `INT` and `Login` `NVARCHAR(100)` (case-insensitive through the database's default collation), with a non-clustered primary key on all three and a clustered index on `Repository` and `Id`. The upsert procedures replace an item's rows when `@assignees` (comma-separated logins) is not `NULL`; an empty string clears them and `NULL` leaves them untouched.
 
+### `dbo.PullRequestCommitAuthors`
+
+One row per commit author of a PR, same shape and keys as `dbo.PullRequestAssignees`. `PullRequests_Upsert` replaces a PR's rows when `@commitAuthors` (comma-separated logins) is not `NULL`. The trackers pass `NULL` when the incoming `CommitAuthors` list is empty: `PullRequestDetailsFactory` builds the scanner/event-path details with `CommitAuthors: []` because those paths never fetch commits, so an empty list means "unknown" and must not wipe stored authors. A PR with no rows has unknown commit authors.
+
 ### `dbo.PollingStates`
 
 Stores ETags for GitHub notification polling endpoints to support conditional requests.
@@ -87,12 +91,12 @@ Stores ETags for GitHub notification polling endpoints to support conditional re
 | Procedure | Purpose |
 | --- | --- |
 | `PullRequests_GetActive` | Returns open/draft PRs for active repos; a non-null `@user` keeps only unassigned PRs, PRs assigned to that login and adopted PRs |
-| `Issues_GetActive` | Returns open issues for active repos (suppresses lower-priority issues when an open PR exists for the repo); a non-null `@user` keeps only unassigned issues and issues assigned to that login |
+| `Issues_GetActive` | Returns open issues for active repos; a non-null `@user` keeps only unassigned issues and issues assigned to that login. Issues below Urgent are suppressed while the repo has an open/draft PR that is not on hold and, when `@user` is given, has `@user` among its commit authors or has no stored commit authors (unknown) |
 | `PullRequests_GetAll` / `Issues_GetAll` | Return every stored PR/issue (any status, on hold, inactive repos) with a comma-separated, sorted `Assignees` column, ordered by `Repository`, `Id`; optional `@owner` (part before `/`), `@repo` (part after `/`) and `@user` (same visibility rule as the `GetActive` procedures) filters. Backs the MCP `db` tool |
 | `Repos_SetActive` | MERGE to mark discovered repos active and all others inactive |
-| `PullRequests_Upsert` / `Issues_Upsert` | Insert or update a single item, plus its assignee rows (and `IsAdopted` for PRs) |
+| `PullRequests_Upsert` / `Issues_Upsert` | Insert or update a single item, plus its assignee rows (and `IsAdopted` and commit author rows for PRs) |
 | `PullRequests_CloseStale` / `Issues_CloseStale` | Close items no longer present in a scan |
-| `PullRequests_RemoveForRepositories` / `Issues_RemoveForRepositories` | Hard-delete all items, and their assignee rows, for given repos |
+| `PullRequests_RemoveForRepositories` / `Issues_RemoveForRepositories` | Hard-delete all items, and their assignee (and PR commit author) rows, for given repos |
 | `PollingStates_GetByKey` / `_Upsert` | ETag persistence |
 
 ## Pending Refactor

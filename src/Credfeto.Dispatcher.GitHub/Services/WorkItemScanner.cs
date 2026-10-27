@@ -281,22 +281,21 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
         IReadOnlyList<string> labelNames = [.. pr.Labels.Select(l => l.Name)];
 
-        (bool allowed, IReadOnlyList<LinkedItem> linkedItems, LinkedItem? trustedLinkedIssue) =
-            await this.ResolvePullRequestEligibilityAsync(
-                pr: pr,
-                repo: repo,
-                labelNames: labelNames,
-                cancellationToken: cancellationToken
-            );
+        PullRequestEligibility eligibility = await this.ResolvePullRequestEligibilityAsync(
+            pr: pr,
+            repo: repo,
+            labelNames: labelNames,
+            cancellationToken: cancellationToken
+        );
 
-        if (!allowed || pr.HtmlUrl is not { } prHtmlUrl)
+        if (!eligibility.Allowed || pr.HtmlUrl is not { } prHtmlUrl)
         {
             return;
         }
 
         WorkPriority priority = LinkedIssueTrust.ElevatePriority(
             this.CalculatePullRequestPriority(pr: pr, labelNames: labelNames),
-            trustedLinkedIssue
+            eligibility.TrustedLinkedIssue
         );
 
         bool isOnHold = LabelParser.IsOnHold(labels: labelNames, noWorkFilter: this._options.Filter.NoWorkFilter);
@@ -310,7 +309,8 @@ public sealed class WorkItemScanner : IWorkItemScanner
                 labelNames: labelNames,
                 status: status,
                 htmlUrl: new Uri(prHtmlUrl),
-                linkedItems: linkedItems
+                linkedItems: eligibility.LinkedItems,
+                commitAuthors: eligibility.CommitAuthors
             ),
             priority: priority,
             isOnHold: isOnHold,
@@ -324,11 +324,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
     // Adoption rules take precedence over the label filter: a bot PR that matches an adoption rule must
     // reach the work-item repository even if it carries no managed labels. Failing both, the PR is still
     // trusted when it unambiguously resolves the author's own assigned, label-passing issue.
-    private async Task<(
-        bool allowed,
-        IReadOnlyList<LinkedItem> linkedItems,
-        LinkedItem? trustedLinkedIssue
-    )> ResolvePullRequestEligibilityAsync(
+    private async Task<PullRequestEligibility> ResolvePullRequestEligibilityAsync(
         ApiPullRequest pr,
         string repo,
         IReadOnlyList<string> labelNames,
@@ -337,7 +333,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
     {
         if (this.IsAdoptedBotPr(pr) || this.PassesLabelFilter(labelNames))
         {
-            return (true, [], null);
+            return PullRequestEligibility.AllowedWithoutEnrichment;
         }
 
         PullRequestDetails? enriched = await this.FetchEnrichedDetailsAsync(
@@ -348,7 +344,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
         if (enriched is null)
         {
-            return (false, [], null);
+            return PullRequestEligibility.Rejected;
         }
 
         LinkedItem? trustedLinkedIssue = LinkedIssueTrust.FindTrustedLinkedIssue(
@@ -358,7 +354,9 @@ public sealed class WorkItemScanner : IWorkItemScanner
             labelFilter: this._options.Filter.LabelFilter
         );
 
-        return trustedLinkedIssue is null ? (false, [], null) : (true, enriched.LinkedItems, trustedLinkedIssue);
+        return trustedLinkedIssue is null
+            ? PullRequestEligibility.Rejected
+            : PullRequestEligibility.Trusted(enriched: enriched, trustedLinkedIssue: trustedLinkedIssue);
     }
 
     private async Task<PullRequestDetails?> FetchEnrichedDetailsAsync(
@@ -493,7 +491,8 @@ public sealed class WorkItemScanner : IWorkItemScanner
         IReadOnlyList<string> labelNames,
         string status,
         Uri htmlUrl,
-        IReadOnlyList<LinkedItem> linkedItems
+        IReadOnlyList<LinkedItem> linkedItems,
+        IReadOnlyList<string> commitAuthors
     )
     {
         return PullRequestDetailsFactory.Build(
@@ -503,6 +502,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
             status: status,
             htmlUrl: htmlUrl,
             linkedItems: linkedItems,
+            commitAuthors: commitAuthors,
             lastNotificationId: $"scan:{repo}:pr:{pr.Number}",
             lastNotificationTimestamp: DateTimeOffset.MinValue
         );

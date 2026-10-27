@@ -67,8 +67,8 @@ internal static class NotificationDetailMapping
         return failed.Length > 0 ? string.Join(separator: ',', failed) : null;
     }
 
-    // PullRequestDetailsFactory builds the details for the scanner/event paths with an empty CommitAuthors
-    // list because those paths never fetch commits, so an empty list means "unknown", not "no authors".
+    // The scanner/event paths only know a PR's commit authors when they enriched it (a PR failing the label
+    // filter); otherwise they pass an empty CommitAuthors list, so an empty list means "unknown", not "no authors".
     // Returning null tells the store to keep whatever commit authors it already has for the PR.
     public static IReadOnlyList<string>? KnownCommitAuthors(IReadOnlyList<string> commitAuthors)
     {

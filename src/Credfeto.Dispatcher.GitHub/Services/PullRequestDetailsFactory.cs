@@ -15,6 +15,7 @@ internal static class PullRequestDetailsFactory
         string status,
         Uri htmlUrl,
         IReadOnlyList<LinkedItem> linkedItems,
+        IReadOnlyList<string> commitAuthors,
         string lastNotificationId,
         in DateTimeOffset lastNotificationTimestamp
     )
@@ -39,7 +40,7 @@ internal static class PullRequestDetailsFactory
             Repository: new ItemRepository(Owner: owner, Name: name, Url: repoUri),
             LastNotification: new LastNotification(Id: lastNotificationId, Timestamp: lastNotificationTimestamp),
             Author: pr.User?.Login,
-            CommitAuthors: [],
+            CommitAuthors: commitAuthors,
             HasDetail: false
         );
     }

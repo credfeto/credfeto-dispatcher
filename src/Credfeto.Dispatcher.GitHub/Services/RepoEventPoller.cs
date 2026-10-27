@@ -444,15 +444,14 @@ public sealed class RepoEventPoller : IRepoEventPoller
         string repo = ev.Repo.Name;
         IReadOnlyList<string> labelNames = [.. pr.Labels.Select(l => l.Name)];
 
-        (bool allowed, IReadOnlyList<LinkedItem> linkedItems, LinkedItem? trustedLinkedIssue) =
-            await this.ResolvePullRequestEligibilityAsync(
-                pr: pr,
-                repo: repo,
-                labelNames: labelNames,
-                cancellationToken: cancellationToken
-            );
+        PullRequestEligibility eligibility = await this.ResolvePullRequestEligibilityAsync(
+            pr: pr,
+            repo: repo,
+            labelNames: labelNames,
+            cancellationToken: cancellationToken
+        );
 
-        if (!allowed)
+        if (!eligibility.Allowed)
         {
             return false;
         }
@@ -471,12 +470,13 @@ public sealed class RepoEventPoller : IRepoEventPoller
             repo: repo,
             labelNames: labelNames,
             htmlUrl: htmlUrl,
-            linkedItems: linkedItems
+            linkedItems: eligibility.LinkedItems,
+            commitAuthors: eligibility.CommitAuthors
         );
 
         WorkPriority priority = LinkedIssueTrust.ElevatePriority(
             LabelParser.ParsePriority(details.Labels),
-            trustedLinkedIssue
+            eligibility.TrustedLinkedIssue
         );
 
         bool isOnHold = LabelParser.IsOnHold(labels: details.Labels, noWorkFilter: this._options.Filter.NoWorkFilter);
@@ -506,7 +506,8 @@ public sealed class RepoEventPoller : IRepoEventPoller
         string repo,
         IReadOnlyList<string> labelNames,
         Uri htmlUrl,
-        IReadOnlyList<LinkedItem> linkedItems
+        IReadOnlyList<LinkedItem> linkedItems,
+        IReadOnlyList<string> commitAuthors
     )
     {
         return PullRequestDetailsFactory.Build(
@@ -516,6 +517,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
             status: MapPrStatus(pr),
             htmlUrl: htmlUrl,
             linkedItems: linkedItems,
+            commitAuthors: commitAuthors,
             lastNotificationId: $"event:{repo}:pr:{pr.Number}",
             lastNotificationTimestamp: ev.CreatedAt
         );
@@ -529,11 +531,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
     // A PR whose own labels fail the filter is still trusted when it unambiguously resolves the
     // author's own assigned, label-passing issue - matching the same rule applied during full scans
     // and notification polling.
-    private async Task<(
-        bool allowed,
-        IReadOnlyList<LinkedItem> linkedItems,
-        LinkedItem? trustedLinkedIssue
-    )> ResolvePullRequestEligibilityAsync(
+    private async Task<PullRequestEligibility> ResolvePullRequestEligibilityAsync(
         ApiPullRequest pr,
         string repo,
         IReadOnlyList<string> labelNames,
@@ -542,7 +540,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
     {
         if (this.PassesLabelFilter(labelNames))
         {
-            return (true, [], null);
+            return PullRequestEligibility.AllowedWithoutEnrichment;
         }
 
         GitHubNotification apiNotification = SyntheticNotifications.BuildPullRequestApiNotification(
@@ -558,7 +556,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
 
         if (enriched is null)
         {
-            return (false, [], null);
+            return PullRequestEligibility.Rejected;
         }
 
         LinkedItem? trustedLinkedIssue = LinkedIssueTrust.FindTrustedLinkedIssue(
@@ -568,7 +566,9 @@ public sealed class RepoEventPoller : IRepoEventPoller
             labelFilter: this._options.Filter.LabelFilter
         );
 
-        return trustedLinkedIssue is null ? (false, [], null) : (true, enriched.LinkedItems, trustedLinkedIssue);
+        return trustedLinkedIssue is null
+            ? PullRequestEligibility.Rejected
+            : PullRequestEligibility.Trusted(enriched: enriched, trustedLinkedIssue: trustedLinkedIssue);
     }
 
     private async ValueTask<bool> ProcessIssueEventAsync(

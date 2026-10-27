@@ -105,6 +105,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Issue detail fetching now requests a relative URL (repos/{owner/repo}/issues/{number}) so it goes through the ApiBaseUrl proxy instead of bypassing it with an absolute URL (401), logs a warning on failure, and errors if a request would leave the proxy base address (#180)
 - Repo event poller now processes events that arrive late in the GitHub events feed and reads beyond the first page after a burst, so label changes such as removing Blocked are picked up without waiting for the hourly full scan
 - /priorities no longer hides issues behind Blocked pull requests, or, for a given user, behind pull requests that user has not committed to (#255)
+- The full repo scan and the repo event poller now store the commit authors of pull requests they already enrich (those trusted via a linked issue), so the committer rule applies to them too (#255)
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934

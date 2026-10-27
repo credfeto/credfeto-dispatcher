@@ -22,6 +22,8 @@ public sealed class GitHubFilterOptions
 
     public string MentionedUser { get; set; } = string.Empty;
 
+    // Maximum number of regular (below Urgent) issues returned per owner by /priorities.
+    // Urgent and Security issues are never capped. A value of 0 or less means no cap.
     public int MaxIssues { get; set; } = 10;
 
     public GitHubPullRequestFilterOptions PullRequests { get; set; } = new();

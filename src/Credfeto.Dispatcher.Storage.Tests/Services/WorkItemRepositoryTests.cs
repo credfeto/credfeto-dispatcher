@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Interfaces;
@@ -269,6 +270,119 @@ public sealed class WorkItemRepositoryTests : TestBase
         IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], maxIssues: 0);
 
         Assert.Equal(expected: 3, actual: result.Count);
+    }
+
+    [Fact]
+    public async Task Issues_MaxIssuesCap_AppliesPerOwnerAsync()
+    {
+        this.SetupPullRequests([]);
+        this.SetupIssues([
+            CreateIssueRow("aa-owner/repo-a", id: 1),
+            CreateIssueRow("aa-owner/repo-b", id: 2),
+            CreateIssueRow("aa-owner/repo-c", id: 3),
+            CreateIssueRow("bb-owner/repo-a", id: 4),
+            CreateIssueRow("bb-owner/repo-b", id: 5),
+            CreateIssueRow("bb-owner/repo-c", id: 6),
+        ]);
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: ["aa-owner", "bb-owner"], maxIssues: 2);
+
+        string[] repositories = [.. result.Select(static w => w.Repository)];
+        Assert.Equal(
+            expected: ["aa-owner/repo-a", "aa-owner/repo-b", "bb-owner/repo-a", "bb-owner/repo-b"],
+            actual: repositories
+        );
+    }
+
+    [Fact]
+    public async Task Issues_MaxIssuesCap_KeepsOrderWithinOwnerAsync()
+    {
+        this.SetupPullRequests([]);
+        this.SetupIssues([
+            CreateIssueRow("aa-owner/repo-a", id: 1, priority: WorkPriority.LOW),
+            CreateIssueRow("aa-owner/repo-b", id: 2, priority: WorkPriority.HIGH),
+            CreateIssueRow("aa-owner/repo-c", id: 3, priority: WorkPriority.MEDIUM, firstSeen: BaseTime.AddHours(1)),
+            CreateIssueRow("aa-owner/repo-d", id: 4, priority: WorkPriority.MEDIUM),
+            CreateIssueRow("bb-owner/repo-a", id: 5, priority: WorkPriority.LOW),
+            CreateIssueRow("bb-owner/repo-b", id: 6, priority: WorkPriority.HIGH),
+            CreateIssueRow("bb-owner/repo-c", id: 7, priority: WorkPriority.MEDIUM),
+        ]);
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], maxIssues: 2);
+
+        string[] repositories = [.. result.Select(static w => w.Repository)];
+        Assert.Equal(
+            expected: ["aa-owner/repo-b", "aa-owner/repo-d", "bb-owner/repo-b", "bb-owner/repo-c"],
+            actual: repositories
+        );
+    }
+
+    [Fact]
+    public async Task Issues_MaxIssuesCap_GroupsOwnersCaseInsensitivelyAsync()
+    {
+        this.SetupPullRequests([]);
+        this.SetupIssues([
+            CreateIssueRow("Owner/repo-a", id: 1),
+            CreateIssueRow("owner/repo-b", id: 2),
+            CreateIssueRow("OWNER/repo-c", id: 3),
+        ]);
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], maxIssues: 2);
+
+        Assert.Equal(expected: 2, actual: result.Count);
+    }
+
+    [Fact]
+    public async Task Issues_MaxIssuesCap_UrgentIsUncappedForEveryOwnerAsync()
+    {
+        this.SetupPullRequests([]);
+        this.SetupIssues([
+            CreateIssueRow("aa-owner/repo-a", id: 1, priority: WorkPriority.URGENT),
+            CreateIssueRow("aa-owner/repo-b", id: 2, priority: WorkPriority.SECURITY),
+            CreateIssueRow("aa-owner/repo-c", id: 3),
+            CreateIssueRow("aa-owner/repo-d", id: 4),
+            CreateIssueRow("bb-owner/repo-a", id: 5, priority: WorkPriority.URGENT),
+            CreateIssueRow("bb-owner/repo-b", id: 6, priority: WorkPriority.URGENT),
+            CreateIssueRow("bb-owner/repo-c", id: 7),
+            CreateIssueRow("bb-owner/repo-d", id: 8),
+        ]);
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], maxIssues: 1);
+
+        Assert.Equal(expected: 6, actual: result.Count);
+        Assert.Equal(expected: 4, actual: result.Count(static w => w.Priority >= WorkPriority.URGENT));
+        Assert.Equal(
+            expected: 1,
+            actual: result.Count(static w =>
+                w.Priority < WorkPriority.URGENT && w.Repository.StartsWith("aa-owner/", StringComparison.Ordinal)
+            )
+        );
+        Assert.Equal(
+            expected: 1,
+            actual: result.Count(static w =>
+                w.Priority < WorkPriority.URGENT && w.Repository.StartsWith("bb-owner/", StringComparison.Ordinal)
+            )
+        );
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task Issues_MaxIssuesCap_ZeroOrLessIsNoCapForEveryOwnerAsync(int maxIssues)
+    {
+        this.SetupPullRequests([]);
+        this.SetupIssues([
+            CreateIssueRow("aa-owner/repo-a", id: 1),
+            CreateIssueRow("aa-owner/repo-b", id: 2),
+            CreateIssueRow("aa-owner/repo-c", id: 3),
+            CreateIssueRow("bb-owner/repo-a", id: 4),
+            CreateIssueRow("bb-owner/repo-b", id: 5),
+            CreateIssueRow("bb-owner/repo-c", id: 6),
+        ]);
+
+        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], maxIssues: maxIssues);
+
+        Assert.Equal(expected: 6, actual: result.Count);
     }
 
     [Fact]

@@ -42,7 +42,8 @@ Set the following in `appsettings.json` or environment variables:
       "AllowedOwners": [],
       "AllowedRepos": [],
       "ExcludedRepos": [],
-      "BoostedRepos": []
+      "BoostedRepos": [],
+      "MaxIssues": 10
     }
   }
 }
@@ -59,6 +60,7 @@ Set the following in `appsettings.json` or environment variables:
 | `GitHub:Filter:AllowedRepos` | string[] | Optional repository allow-list for notifications to process. |
 | `GitHub:Filter:ExcludedRepos` | string[] | Repository deny-list that is always ignored. |
 | `GitHub:Filter:BoostedRepos` | string[] | Ordered `owner/repo` list. Matching items sort to the front of their band (Security/Urgent PRs, other PRs, Security/Urgent issues, other issues) in `/priorities`, in list order. Ordering only; does not bypass `AllowedOwners`/`AllowedRepos`/`ExcludedRepos`. |
+| `GitHub:Filter:MaxIssues` | integer | Maximum number of regular (below Urgent) issues each owner gets in `/priorities`, at most one per repository. The cap applies per owner, so one owner cannot take every slot from the others. Urgent and Security issues are never capped. `0` or less means no cap. Defaults to `10`. |
 
 When `DatabaseConfiguration:Provider` is `InMemory`, the in-memory store is periodically persisted to a JSON snapshot on disk and reloaded at startup, so a container restart doesn't mean starting from zero:
 

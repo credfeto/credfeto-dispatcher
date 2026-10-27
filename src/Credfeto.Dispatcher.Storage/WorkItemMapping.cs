@@ -161,9 +161,13 @@ internal static class WorkItemMapping
             return [.. ordered];
         }
 
+        // The cap applies per owner so that one owner cannot take every regular slot from the others.
+        // GroupBy keeps the input order both of the groups and within each group.
         IReadOnlyList<WorkItem> all = [.. ordered];
         IEnumerable<WorkItem> highPriority = all.Where(IsHighPriority);
-        IEnumerable<WorkItem> regular = all.Where(static w => !IsHighPriority(w)).Take(maxIssues);
+        IEnumerable<WorkItem> regular = all.Where(static w => !IsHighPriority(w))
+            .GroupBy(static w => GetOwner(w.Repository), comparer: StringComparer.OrdinalIgnoreCase)
+            .SelectMany(g => g.Take(maxIssues));
 
         return [.. highPriority, .. regular];
     }

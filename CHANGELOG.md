@@ -106,6 +106,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Repo event poller now processes events that arrive late in the GitHub events feed and reads beyond the first page after a burst, so label changes such as removing Blocked are picked up without waiting for the hourly full scan
 - /priorities no longer hides issues behind Blocked pull requests, or, for a given user, behind pull requests that user has not committed to (#255)
 - The full repo scan and the repo event poller now store the commit authors of pull requests they already enrich (those trusted via a linked issue), so the committer rule applies to them too (#255)
+- Priorities endpoint: MaxIssues now caps regular issues per owner, so one owner can no longer take every slot from the others (#257)
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934

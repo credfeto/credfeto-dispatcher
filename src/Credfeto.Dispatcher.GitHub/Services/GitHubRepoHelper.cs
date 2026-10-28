@@ -146,7 +146,7 @@ public sealed class GitHubRepoHelper
         );
     }
 
-    private static string? ParseNextLink(HttpResponseHeaders headers)
+    internal static string? ParseNextLink(HttpResponseHeaders headers)
     {
         if (!headers.TryGetValues(name: "Link", out IEnumerable<string>? linkValues))
         {

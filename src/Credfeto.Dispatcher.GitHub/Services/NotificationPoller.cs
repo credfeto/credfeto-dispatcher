@@ -16,7 +16,7 @@ namespace Credfeto.Dispatcher.GitHub.Services;
 public sealed class NotificationPoller : INotificationPoller
 {
     private const string E_TAG_KEY = "github.notifications";
-    private static readonly Uri NotificationsRelativeUri = new(uriString: "notifications", uriKind: UriKind.Relative);
+    private const string FIRST_PAGE_URL = "notifications?per_page=100";
 
     private readonly IETagStore _eTagStore;
     private readonly IHttpClientFactory _httpClientFactory;
@@ -48,13 +48,47 @@ public sealed class NotificationPoller : INotificationPoller
 
         HttpClient httpClient = this._httpClientFactory.CreateClient("GitHub");
 
-        using HttpRequestMessage request = BuildRequest(eTag);
-        using HttpResponseMessage response = await httpClient.SendAsync(
-            request: request,
+        using HttpResponseMessage firstResponse = await SendAsync(
+            httpClient: httpClient,
+            url: FIRST_PAGE_URL,
+            eTag: eTag,
             cancellationToken: cancellationToken
         );
 
-        return await this.ProcessResponseAsync(response: response, cancellationToken: cancellationToken);
+        if (firstResponse.StatusCode == HttpStatusCode.NotModified)
+        {
+            this._logger.LogPollNotModified();
+
+            return new NotificationPollResult(Notifications: [], CandidateETag: null);
+        }
+
+        _ = firstResponse.EnsureSuccessStatusCode();
+
+        // The ETag describes the first page only; it is handed back as a candidate only once every page
+        // has been read, so a failure part way through leaves the stored ETag untouched and the next
+        // poll re-fetches everything.
+        string? candidateETag = ETagHeaderUtility.ExtractETag(firstResponse.Headers);
+
+        List<GitHubNotification> notifications = [];
+        string? nextUrl = await this.ReadPageAsync(
+            response: firstResponse,
+            notifications: notifications,
+            cancellationToken: cancellationToken
+        );
+
+        while (nextUrl is not null)
+        {
+            nextUrl = await this.ReadNextPageAsync(
+                httpClient: httpClient,
+                url: nextUrl,
+                notifications: notifications,
+                cancellationToken: cancellationToken
+            );
+        }
+
+        this._logger.LogPollNotificationsReceived(count: notifications.Count);
+
+        return new NotificationPollResult(Notifications: notifications, CandidateETag: candidateETag);
     }
 
     public ValueTask CommitETagAsync(string candidateETag, CancellationToken cancellationToken)
@@ -62,39 +96,56 @@ public sealed class NotificationPoller : INotificationPoller
         return this._eTagStore.SaveETagAsync(key: E_TAG_KEY, eTag: candidateETag, cancellationToken: cancellationToken);
     }
 
-    private static HttpRequestMessage BuildRequest(string? eTag)
-    {
-        HttpRequestMessage request = new(method: HttpMethod.Get, requestUri: NotificationsRelativeUri);
-
-        ETagHeaderUtility.ApplyIfNoneMatch(request: request, eTag: eTag);
-
-        return request;
-    }
-
-    private async ValueTask<NotificationPollResult> ProcessResponseAsync(
-        HttpResponseMessage response,
+    private static async ValueTask<HttpResponseMessage> SendAsync(
+        HttpClient httpClient,
+        string url,
+        string? eTag,
         CancellationToken cancellationToken
     )
     {
-        if (response.StatusCode == HttpStatusCode.NotModified)
-        {
-            this._logger.LogPollNotModified();
+        using HttpRequestMessage request = new(method: HttpMethod.Get, requestUri: url);
 
-            return new NotificationPollResult(Notifications: [], CandidateETag: null);
-        }
+        ETagHeaderUtility.ApplyIfNoneMatch(request: request, eTag: eTag);
+
+        return await httpClient.SendAsync(request: request, cancellationToken: cancellationToken);
+    }
+
+    private async ValueTask<string?> ReadNextPageAsync(
+        HttpClient httpClient,
+        string url,
+        List<GitHubNotification> notifications,
+        CancellationToken cancellationToken
+    )
+    {
+        // Later pages are requested unconditionally: the stored ETag belongs to the first page.
+        using HttpResponseMessage response = await SendAsync(
+            httpClient: httpClient,
+            url: url,
+            eTag: null,
+            cancellationToken: cancellationToken
+        );
 
         _ = response.EnsureSuccessStatusCode();
 
-        string? candidateETag = ETagHeaderUtility.ExtractETag(response.Headers);
+        return await this.ReadPageAsync(
+            response: response,
+            notifications: notifications,
+            cancellationToken: cancellationToken
+        );
+    }
 
+    private async ValueTask<string?> ReadPageAsync(
+        HttpResponseMessage response,
+        List<GitHubNotification> notifications,
+        CancellationToken cancellationToken
+    )
+    {
         string json = await response.Content.ReadAsStringAsync(cancellationToken);
         ApiNotification[] apiNotifications =
             JsonSerializer.Deserialize(
                 json: json,
                 jsonTypeInfo: NotificationSerializerContext.Default.ApiNotificationArray
             ) ?? [];
-
-        List<GitHubNotification> notifications = new(apiNotifications.Length);
 
         foreach (ApiNotification n in apiNotifications)
         {
@@ -108,9 +159,7 @@ public sealed class NotificationPoller : INotificationPoller
             notifications.Add(notification);
         }
 
-        this._logger.LogPollNotificationsReceived(count: notifications.Count);
-
-        return new NotificationPollResult(Notifications: notifications, CandidateETag: candidateETag);
+        return GitHubRepoHelper.ParseNextLink(response.Headers);
     }
 
     private static GitHubNotification MapNotification(ApiNotification n)

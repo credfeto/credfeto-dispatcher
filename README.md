@@ -213,6 +213,35 @@ Lightweight health check — returns `{"value":"Pong!"}` without touching the da
 2. Configure `appsettings-local.json` (gitignored) with your token and database connection string
 3. Run `dotnet run --project src/Credfeto.Dispatcher.Server`
 
+### Development HTTPS certificate
+
+The server always listens for HTTP on port 8080. It also listens for HTTPS on port 8081, but only when a passwordless
+`server.pfx` sits in the same directory as the `appsettings.json` it loads (the build or publish output directory).
+No certificate is committed to the repository; generate a local, self-signed one with:
+
+```sh
+scripts/generate-dev-cert.sh
+```
+
+This needs OpenSSL 1.1.1 or later. It writes `src/Credfeto.Dispatcher.Server/server.pfx` with `CN=defi.local` and
+subject alternative names `localhost` and `127.0.0.1`, valid for 365 days. It refuses to overwrite an existing
+`server.pfx`; pass `--force` (or `-f`) to regenerate it. `*.pfx` files are git-ignored, so the generated certificate
+is never committed. Copy it next to `appsettings.json` in the output directory to enable HTTPS.
+
+### Post-merge step: purge the old certificate from history (humans only)
+
+A `server.pfx` with its private key used to be committed at `src/Credfeto.Dispatcher.Server/server.pfx`. Deleting it
+does not remove it from git history, so after this change merges a repository administrator must purge it:
+
+1. Make a fresh mirror clone: `git clone --mirror git@github.com:credfeto/credfeto-dispatcher.git`
+2. In the mirror, run `git filter-repo --path src/Credfeto.Dispatcher.Server/server.pfx --invert-paths`. This rewrites
+   every branch, including `main` and `release/0.0.1`.
+3. Force-push the rewritten history with `--force-with-lease`. This needs admin rights to bypass branch protection.
+4. Rebase every open pull request branch onto the rewritten `main`, and re-clone any existing clones rather than
+   pulling into them.
+
+The old private key is public. Anything that trusted that `CN=defi.local` certificate must stop trusting it.
+
 ## Changelog
 
 See [CHANGELOG](CHANGELOG.md) for history

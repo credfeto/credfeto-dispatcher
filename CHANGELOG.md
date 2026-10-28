@@ -146,6 +146,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - SDK - Updated DotNet SDK to 10.0.403
 - Repo event poller logs per-feed event counts and each upserted item with its on-hold state at Information level
 - Label filter list is now whitespace-filtered once when the GitHub polling worker, work item scanner and repo event poller are created, instead of for every pull request and issue on every scan (#199)
+- TBD - to be finalized after review
 ### Deprecated
 ### Removed
 - Removed IsUpToDate field from WorkItem and PullRequestDetails as it was never populated in production

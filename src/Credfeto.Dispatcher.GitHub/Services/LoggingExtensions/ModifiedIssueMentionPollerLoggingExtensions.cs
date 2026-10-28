@@ -24,4 +24,11 @@ internal static partial class ModifiedIssueMentionPollerLoggingExtensions
         Message = "Polled modified issues across all repos, found {Count} mention notifications"
     )]
     public static partial void LogPollComplete(this ILogger logger, int count);
+
+    [LoggerMessage(
+        EventId = 3,
+        Level = LogLevel.Warning,
+        Message = "Failed to fetch all modified issue pages for {Repo}; keeping mention watermark so the same window is retried"
+    )]
+    public static partial void LogWatermarkRetainedAfterFetchFailure(this ILogger logger, string repo);
 }

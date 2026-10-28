@@ -93,6 +93,7 @@ public sealed class ModifiedIssueMentionPoller : IModifiedIssueMentionPoller
         string? url = $"repos/{repo}/issues?state=open&per_page=100{sinceParam}";
         string mentionTarget = $"@{this._options.Filter.MentionedUser}";
         List<GitHubNotification> notifications = [];
+        bool allPagesFetched = true;
 
         while (url is not null)
         {
@@ -104,31 +105,22 @@ public sealed class ModifiedIssueMentionPoller : IModifiedIssueMentionPoller
 
             if (items is null)
             {
+                allPagesFetched = false;
+
                 break;
             }
 
-            foreach (ApiIssue issue in items)
-            {
-                if (issue.PullRequest is not null)
-                {
-                    continue;
-                }
-
-                if (issue.HtmlUrl is not { } issueHtmlUrl)
-                {
-                    continue;
-                }
-
-                if (ContainsMention(text: issue.Body, mention: mentionTarget))
-                {
-                    this._logger.LogFoundMentionInIssue(repo: repo, number: issue.Number);
-                    notifications.Add(
-                        BuildMentionNotification(repo: repo, issue: issue, issueUri: new Uri(issueHtmlUrl))
-                    );
-                }
-            }
+            this.CollectMentions(repo: repo, issues: items, mentionTarget: mentionTarget, notifications: notifications);
 
             url = nextUrl;
+        }
+
+        if (!allPagesFetched)
+        {
+            // Advancing the watermark past unread pages would permanently skip any mentions on them.
+            this._logger.LogWatermarkRetainedAfterFetchFailure(repo: repo);
+
+            return notifications;
         }
 
         await this._eTagStore.SaveETagAsync(
@@ -138,6 +130,33 @@ public sealed class ModifiedIssueMentionPoller : IModifiedIssueMentionPoller
         );
 
         return notifications;
+    }
+
+    private void CollectMentions(
+        string repo,
+        ApiIssue[] issues,
+        string mentionTarget,
+        List<GitHubNotification> notifications
+    )
+    {
+        foreach (ApiIssue issue in issues)
+        {
+            if (issue.PullRequest is not null)
+            {
+                continue;
+            }
+
+            if (issue.HtmlUrl is not { } issueHtmlUrl)
+            {
+                continue;
+            }
+
+            if (ContainsMention(text: issue.Body, mention: mentionTarget))
+            {
+                this._logger.LogFoundMentionInIssue(repo: repo, number: issue.Number);
+                notifications.Add(BuildMentionNotification(repo: repo, issue: issue, issueUri: new Uri(issueHtmlUrl)));
+            }
+        }
     }
 
     private bool ShouldIncludeRepo(ApiUserRepo repo)

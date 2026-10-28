@@ -111,6 +111,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Priority labels are now read regardless of the order they appear on an issue or pull request, so the highest priority label wins rather than the first one listed (#184)
 - Notification poller now requests notifications with per_page=100 and follows Link rel=next so notifications beyond the first page are no longer dropped; the ETag is only committed after all pages have been retrieved (#183)
 - Mention poller no longer advances its per-repo since watermark when a page fetch fails, so the window is retried on the next poll (#182)
+- Store failed check names as a JSON array so check names containing commas (e.g. matrix jobs) round-trip intact (#194)
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934

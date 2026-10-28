@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Database;
@@ -29,26 +30,25 @@ public sealed class WorkItemRepository : IWorkItemRepository
         CancellationToken cancellationToken
     )
     {
-        IReadOnlyList<PullRequestRow> prRows = await this._database.ExecuteAsync(
+        string ownersCsv = RepositoryCsv.Build(owners);
+        string boostedCsv = RepositoryCsv.Build(boostedRepos);
+
+        IReadOnlyList<WorkItemRow> rows = await this._database.ExecuteAsync(
             action: (c, ct) =>
-                DispatcherDatabase.PullRequests_GetActiveAsync(connection: c, user: user, cancellationToken: ct),
+                DispatcherDatabase.WorkItems_GetPrioritisedAsync(
+                    connection: c,
+                    owners: ownersCsv,
+                    boostedRepos: boostedCsv,
+                    maxIssues: maxIssues,
+                    user: user,
+                    cancellationToken: ct
+                ),
             cancellationToken: cancellationToken
         );
 
-        IReadOnlyList<IssueRow> issueRows = await this._database.ExecuteAsync(
-            action: (c, ct) =>
-                DispatcherDatabase.Issues_GetActiveAsync(connection: c, user: user, cancellationToken: ct),
-            cancellationToken: cancellationToken
-        );
+        IReadOnlyList<WorkItem> ordered = [.. rows.Select(WorkItemMapping.MapWorkItem)];
 
-        return WorkItemMapping.BuildResponse(
-            prRows: prRows,
-            issueRows: issueRows,
-            owners: owners,
-            maxIssues: maxIssues,
-            boostedRepos: boostedRepos,
-            now: this._timeProvider.GetUtcNow()
-        );
+        return WorkItemMapping.BuildPrioritiesResponse(ordered: ordered, now: this._timeProvider.GetUtcNow());
     }
 
     public async Task<DbStateResponse> GetDatabaseStateAsync(

@@ -9,16 +9,12 @@ namespace Credfeto.Dispatcher.Storage.Database;
 
 internal static partial class DispatcherDatabase
 {
-    [SqlObjectMap("PullRequests_GetActive", SqlObjectType.STORED_PROCEDURE, SqlDialect.MICROSOFT_SQL_SERVER)]
-    public static partial ValueTask<IReadOnlyList<PullRequestRow>> PullRequests_GetActiveAsync(
+    [SqlObjectMap("WorkItems_GetPrioritised", SqlObjectType.STORED_PROCEDURE, SqlDialect.MICROSOFT_SQL_SERVER)]
+    public static partial ValueTask<IReadOnlyList<WorkItemRow>> WorkItems_GetPrioritisedAsync(
         DbConnection connection,
-        string? user,
-        CancellationToken cancellationToken
-    );
-
-    [SqlObjectMap("Issues_GetActive", SqlObjectType.STORED_PROCEDURE, SqlDialect.MICROSOFT_SQL_SERVER)]
-    public static partial ValueTask<IReadOnlyList<IssueRow>> Issues_GetActiveAsync(
-        DbConnection connection,
+        string owners,
+        string boostedRepos,
+        int maxIssues,
         string? user,
         CancellationToken cancellationToken
     );

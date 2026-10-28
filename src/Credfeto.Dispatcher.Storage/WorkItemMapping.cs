@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Text.Json;
 using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.Storage.Database.Rows;
 
@@ -88,7 +89,7 @@ internal static class WorkItemMapping
             CommentCount: row.CommentCount,
             ReviewDecision: MapReviewDecision(row.ReviewDecision, isPullRequest: true),
             FailedCheckCount: row.FailedCheckCount,
-            FailedCheckNames: SplitNames(row.FailedCheckNames),
+            FailedCheckNames: ParseFailedCheckNames(row.FailedCheckNames),
             FailedCheckSha: row.FailedCheckSha,
             Author: row.Author,
             IsAdopted: row.IsAdopted
@@ -198,7 +199,7 @@ internal static class WorkItemMapping
             CommentCount: row.CommentCount,
             ReviewDecision: MapReviewDecision(row.ReviewDecision, isPullRequest: true),
             FailedCheckCount: row.FailedCheckCount,
-            FailedCheckNames: SplitNames(row.FailedCheckNames),
+            FailedCheckNames: ParseFailedCheckNames(row.FailedCheckNames),
             FailedCheckSha: row.FailedCheckSha,
             Author: row.Author
         );
@@ -259,6 +260,32 @@ internal static class WorkItemMapping
         }
 
         return [.. names.Split(',', StringSplitOptions.RemoveEmptyEntries)];
+    }
+
+    private static ImmutableArray<string> ParseFailedCheckNames(string? names)
+    {
+        if (string.IsNullOrEmpty(names))
+        {
+            return [];
+        }
+
+        if (!names.StartsWith('['))
+        {
+            return SplitNames(names);
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize(
+                json: names,
+                jsonTypeInfo: CheckNamesSerializerContext.Default.ImmutableArrayString
+            );
+        }
+        catch (JsonException)
+        {
+            // Rows written before the JSON format may hold a comma list whose first name starts with '['.
+            return SplitNames(names);
+        }
     }
 
     private static bool IsPullRequest(WorkItem w)

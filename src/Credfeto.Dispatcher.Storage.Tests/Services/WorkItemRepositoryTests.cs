@@ -553,7 +553,8 @@ public sealed class WorkItemRepositoryTests : TestBase
         DateTimeOffset? whenClosed = null,
         string? reviewDecision = null,
         string? failedCheckNames = null,
-        string? assignees = null
+        string? assignees = null,
+        int? failedCheckCount = null
     )
     {
         return new PullRequestStateRow(
@@ -567,7 +568,7 @@ public sealed class WorkItemRepositoryTests : TestBase
             IsOnHold: isOnHold,
             CommentCount: 3,
             ReviewDecision: reviewDecision,
-            FailedCheckCount: failedCheckNames is null ? 0 : 2,
+            FailedCheckCount: failedCheckCount ?? (failedCheckNames is null ? 0 : 2),
             FailedCheckNames: failedCheckNames,
             FailedCheckSha: failedCheckNames is null ? null : "abc123",
             Author: "author",
@@ -694,6 +695,66 @@ public sealed class WorkItemRepositoryTests : TestBase
         Assert.Equal(expected: 3, actual: pr.CommentCount);
         Assert.Equal(expected: "author", actual: pr.Author);
         Assert.True(pr.IsAdopted, userMessage: "Adopted flag should be copied");
+    }
+
+    [Fact]
+    public async Task GetDatabaseStateRoundTripsCommaBearingFailedCheckNameAsync()
+    {
+        PullRequestRun[] runs =
+        [
+            new(
+                Name: "build (ubuntu-latest, net8.0)",
+                Status: "completed",
+                Conclusion: "failure",
+                Url: new("https://github.com/owner/repo/actions/runs/1"),
+                IsRequired: true,
+                HeadSha: "abc123"
+            ),
+            new(
+                Name: "lint",
+                Status: "completed",
+                Conclusion: "success",
+                Url: new("https://github.com/owner/repo/actions/runs/2"),
+                IsRequired: true,
+                HeadSha: "abc123"
+            ),
+        ];
+
+        DbStateResponse response = await this.GetDatabaseStateAsync(
+            pullRequests:
+            [
+                CreatePrStateRow(
+                    "owner/repo",
+                    failedCheckNames: NotificationDetailMapping.BuildFailedCheckNames(runs),
+                    failedCheckCount: NotificationDetailMapping.CountFailedChecks(runs)
+                ),
+            ],
+            issues: []
+        );
+
+        PullRequestState pr = Assert.Single(response.PullRequests);
+        Assert.Equal(expected: "build (ubuntu-latest, net8.0)", actual: Assert.Single(pr.FailedCheckNames));
+        Assert.Equal(expected: pr.FailedCheckCount, actual: pr.FailedCheckNames.Length);
+    }
+
+    [Theory]
+    [InlineData("[\"build\",\"test (a, b)\"]", "build", "test (a, b)")]
+    [InlineData("build,test", "build", "test")]
+    [InlineData("[lint],test", "[lint]", "test")]
+    public async Task GetDatabaseStateParsesStoredFailedCheckNamesAsync(
+        string stored,
+        string expectedFirst,
+        string expectedSecond
+    )
+    {
+        DbStateResponse response = await this.GetDatabaseStateAsync(
+            pullRequests: [CreatePrStateRow("owner/repo", failedCheckNames: stored)],
+            issues: []
+        );
+
+        PullRequestState pr = Assert.Single(response.PullRequests);
+        Assert.Equal(expected: [expectedFirst, expectedSecond], actual: pr.FailedCheckNames);
+        Assert.Equal(expected: pr.FailedCheckCount, actual: pr.FailedCheckNames.Length);
     }
 
     [Fact]

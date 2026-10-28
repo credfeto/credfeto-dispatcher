@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using Credfeto.Dispatcher.Server.Helpers;
 using Credfeto.Docker.HealthCheck.Http.Client;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging;
 
 namespace Credfeto.Dispatcher.Server;
 
@@ -18,13 +18,20 @@ internal static class Program
     public static async Task<int> Main(string[] args)
     {
         return HealthCheckClient.IsHealthCheck(args: args, out string? checkUrl)
-            ? await HealthCheckClient.ExecuteAsync(
-                targetUrl: checkUrl,
-                timeout: HealthCheckTimeout,
-                logger: NullLogger.Instance,
-                cancellationToken: CancellationToken.None
-            )
+            ? await RunHealthCheckAsync(checkUrl)
             : await RunServerAsync(args);
+    }
+
+    private static async Task<int> RunHealthCheckAsync(string checkUrl)
+    {
+        using ILoggerFactory loggerFactory = LoggerFactory.Create(static builder => builder.AddConsole());
+
+        return await HealthCheckClient.ExecuteAsync(
+            targetUrl: checkUrl,
+            timeout: HealthCheckTimeout,
+            logger: loggerFactory.CreateLogger(nameof(HealthCheckClient)),
+            cancellationToken: CancellationToken.None
+        );
     }
 
     private static async Task<int> RunServerAsync(string[] args)

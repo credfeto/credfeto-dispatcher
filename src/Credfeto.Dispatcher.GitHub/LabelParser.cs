@@ -7,33 +7,22 @@ namespace Credfeto.Dispatcher.GitHub;
 
 internal static class LabelParser
 {
+    private static readonly IReadOnlyList<(string Keyword, WorkPriority Priority)> PriorityKeywordsHighestFirst =
+    [
+        ("security", WorkPriority.SECURITY),
+        ("urgent", WorkPriority.URGENT),
+        ("high", WorkPriority.HIGH),
+        ("medium", WorkPriority.MEDIUM),
+        ("low", WorkPriority.LOW),
+    ];
+
     public static WorkPriority ParsePriority(IReadOnlyList<string> labels)
     {
-        foreach (string label in labels)
+        foreach ((string keyword, WorkPriority priority) in PriorityKeywordsHighestFirst)
         {
-            if (label.Contains(value: "security", comparisonType: StringComparison.OrdinalIgnoreCase))
+            if (labels.Any(label => label.Contains(value: keyword, comparisonType: StringComparison.OrdinalIgnoreCase)))
             {
-                return WorkPriority.SECURITY;
-            }
-
-            if (label.Contains(value: "urgent", comparisonType: StringComparison.OrdinalIgnoreCase))
-            {
-                return WorkPriority.URGENT;
-            }
-
-            if (label.Contains(value: "high", comparisonType: StringComparison.OrdinalIgnoreCase))
-            {
-                return WorkPriority.HIGH;
-            }
-
-            if (label.Contains(value: "medium", comparisonType: StringComparison.OrdinalIgnoreCase))
-            {
-                return WorkPriority.MEDIUM;
-            }
-
-            if (label.Contains(value: "low", comparisonType: StringComparison.OrdinalIgnoreCase))
-            {
-                return WorkPriority.LOW;
+                return priority;
             }
         }
 

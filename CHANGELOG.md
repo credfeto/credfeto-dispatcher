@@ -113,6 +113,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Notification poller now requests notifications with per_page=100 and follows Link rel=next so notifications beyond the first page are no longer dropped; the ETag is only committed after all pages have been retrieved (#183)
 - Mention poller no longer advances its per-repo since watermark when a page fetch fails, so the window is retried on the next poll (#182)
 - Failed check names are now stored as a JSON array so check names containing commas (e.g. matrix jobs) round-trip intact; legacy comma-separated values are still read (#194)
+- Health check now logs failure reason to console instead of using NullLogger
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Linq;
+using System.Text.Json;
 using Credfeto.Dispatcher.GitHub.DataTypes;
 
 namespace Credfeto.Dispatcher.Storage;
@@ -64,7 +65,9 @@ internal static class NotificationDetailMapping
                 .Select(r => r.Name),
         ];
 
-        return failed.Length > 0 ? string.Join(separator: ',', failed) : null;
+        return failed.Length > 0
+            ? JsonSerializer.Serialize(value: failed, jsonTypeInfo: CheckNamesSerializerContext.Default.StringArray)
+            : null;
     }
 
     // The scanner/event paths only know a PR's commit authors when they enriched it (a PR failing the label

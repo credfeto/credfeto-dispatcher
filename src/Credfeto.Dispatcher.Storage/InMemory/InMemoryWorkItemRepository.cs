@@ -47,7 +47,7 @@ public sealed class InMemoryWorkItemRepository : IWorkItemRepository
             .. pullRequests
                 .Concat(issues)
                 .DistinctBy(static w => (w.Repository, w.Id))
-                .OrderBy(static w => !IsPullRequest(w))
+                .OrderBy(static w => !WorkItemMapping.IsPullRequest(w.ItemType))
                 .ThenBy(static w => !IsHighPriority(w))
                 .ThenBy(w => boostedIndex.GetValueOrDefault(w.Repository, int.MaxValue))
                 .ThenBy(w => ownersIndex.GetValueOrDefault(GetOwner(w.Repository), int.MaxValue))
@@ -115,11 +115,6 @@ public sealed class InMemoryWorkItemRepository : IWorkItemRepository
     private static bool IsHighPriority(WorkItem w)
     {
         return w.Priority >= WorkPriority.URGENT;
-    }
-
-    private static bool IsPullRequest(WorkItem w)
-    {
-        return string.Equals(a: w.ItemType, b: "PullRequest", comparisonType: StringComparison.Ordinal);
     }
 
     private static string GetOwner(string repository)

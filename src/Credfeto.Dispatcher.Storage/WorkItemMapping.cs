@@ -92,95 +92,147 @@ internal static class WorkItemMapping
         return new PrioritiesResponse(Priorities: ordered, AsOf: asOf, LagSeconds: lagSeconds);
     }
 
+    public static bool IsPullRequest(string itemType)
+    {
+        return string.Equals(a: itemType, b: PULL_REQUEST_TYPE, comparisonType: StringComparison.Ordinal);
+    }
+
     public static WorkItem MapWorkItem(WorkItemRow row)
     {
-        if (string.Equals(a: row.ItemType, b: PULL_REQUEST_TYPE, comparisonType: StringComparison.Ordinal))
+        if (IsPullRequest(row.ItemType))
         {
-            return new WorkItem(
-                Repository: row.Repository,
-                Id: row.Id,
-                ItemType: PULL_REQUEST_TYPE,
-                Priority: (WorkPriority)row.Priority,
-                FirstSeen: row.FirstSeen,
-                LastUpdated: row.LastUpdated,
-                Status: row.Status,
-                WhenClosed: row.WhenClosed,
-                IsOnHold: row.IsOnHold,
-                LinkedPrNumbers: [],
-                CommentCount: row.CommentCount,
-                ReviewDecision: MapReviewDecision(row.ReviewDecision, isPullRequest: true),
-                FailedCheckCount: row.FailedCheckCount,
-                FailedCheckNames: ParseFailedCheckNames(row.FailedCheckNames),
-                FailedCheckSha: row.FailedCheckSha,
-                Author: row.Author
+            return BuildPullRequest(
+                repository: row.Repository,
+                id: row.Id,
+                status: row.Status,
+                firstSeen: row.FirstSeen,
+                lastUpdated: row.LastUpdated,
+                whenClosed: row.WhenClosed,
+                priority: row.Priority,
+                isOnHold: row.IsOnHold,
+                commentCount: row.CommentCount,
+                reviewDecision: row.ReviewDecision,
+                failedCheckCount: row.FailedCheckCount,
+                failedCheckNames: row.FailedCheckNames,
+                failedCheckSha: row.FailedCheckSha,
+                author: row.Author
             );
         }
 
+        return BuildIssue(
+            repository: row.Repository,
+            id: row.Id,
+            status: row.Status,
+            firstSeen: row.FirstSeen,
+            lastUpdated: row.LastUpdated,
+            whenClosed: row.WhenClosed,
+            priority: row.Priority,
+            isOnHold: row.IsOnHold,
+            linkedPrNumber: row.LinkedPrNumber
+        );
+    }
+
+    public static WorkItem MapPullRequest(PullRequestRow row)
+    {
+        return BuildPullRequest(
+            repository: row.Repository,
+            id: row.Id,
+            status: row.Status,
+            firstSeen: row.FirstSeen,
+            lastUpdated: row.LastUpdated,
+            whenClosed: row.WhenClosed,
+            priority: row.Priority,
+            isOnHold: row.IsOnHold,
+            commentCount: row.CommentCount,
+            reviewDecision: row.ReviewDecision,
+            failedCheckCount: row.FailedCheckCount,
+            failedCheckNames: row.FailedCheckNames,
+            failedCheckSha: row.FailedCheckSha,
+            author: row.Author
+        );
+    }
+
+    public static WorkItem MapIssue(IssueRow row)
+    {
+        return BuildIssue(
+            repository: row.Repository,
+            id: row.Id,
+            status: row.Status,
+            firstSeen: row.FirstSeen,
+            lastUpdated: row.LastUpdated,
+            whenClosed: row.WhenClosed,
+            priority: row.Priority,
+            isOnHold: row.IsOnHold,
+            linkedPrNumber: row.LinkedPrNumber
+        );
+    }
+
+    private static WorkItem BuildPullRequest(
+        string repository,
+        int id,
+        string status,
+        in DateTimeOffset firstSeen,
+        in DateTimeOffset lastUpdated,
+        DateTimeOffset? whenClosed,
+        int priority,
+        bool isOnHold,
+        int commentCount,
+        string? reviewDecision,
+        int failedCheckCount,
+        string? failedCheckNames,
+        string? failedCheckSha,
+        string? author
+    )
+    {
         return new WorkItem(
-            Repository: row.Repository,
-            Id: row.Id,
+            Repository: repository,
+            Id: id,
+            ItemType: PULL_REQUEST_TYPE,
+            Priority: (WorkPriority)priority,
+            FirstSeen: firstSeen,
+            LastUpdated: lastUpdated,
+            Status: status,
+            WhenClosed: whenClosed,
+            IsOnHold: isOnHold,
+            LinkedPrNumbers: [],
+            CommentCount: commentCount,
+            ReviewDecision: MapReviewDecision(reviewDecision, isPullRequest: true),
+            FailedCheckCount: failedCheckCount,
+            FailedCheckNames: ParseFailedCheckNames(failedCheckNames),
+            FailedCheckSha: failedCheckSha,
+            Author: author
+        );
+    }
+
+    private static WorkItem BuildIssue(
+        string repository,
+        int id,
+        string status,
+        in DateTimeOffset firstSeen,
+        in DateTimeOffset lastUpdated,
+        DateTimeOffset? whenClosed,
+        int priority,
+        bool isOnHold,
+        int? linkedPrNumber
+    )
+    {
+        return new WorkItem(
+            Repository: repository,
+            Id: id,
             ItemType: ISSUE_TYPE,
-            Priority: (WorkPriority)row.Priority,
-            FirstSeen: row.FirstSeen,
-            LastUpdated: row.LastUpdated,
-            Status: row.Status,
-            WhenClosed: row.WhenClosed,
-            IsOnHold: row.IsOnHold,
-            LinkedPrNumbers: row.LinkedPrNumber.HasValue ? [row.LinkedPrNumber.Value] : [],
+            Priority: (WorkPriority)priority,
+            FirstSeen: firstSeen,
+            LastUpdated: lastUpdated,
+            Status: status,
+            WhenClosed: whenClosed,
+            IsOnHold: isOnHold,
+            LinkedPrNumbers: linkedPrNumber.HasValue ? [linkedPrNumber.Value] : [],
             CommentCount: 0,
             ReviewDecision: ReviewDecisionState.NOT_APPLICABLE,
             FailedCheckCount: 0,
             FailedCheckNames: [],
             FailedCheckSha: null,
             Author: null
-        );
-    }
-
-    public static WorkItem MapPullRequest(PullRequestRow row)
-    {
-        return MapWorkItem(
-            new WorkItemRow(
-                Repository: row.Repository,
-                Id: row.Id,
-                ItemType: PULL_REQUEST_TYPE,
-                Status: row.Status,
-                FirstSeen: row.FirstSeen,
-                LastUpdated: row.LastUpdated,
-                WhenClosed: row.WhenClosed,
-                Priority: row.Priority,
-                IsOnHold: row.IsOnHold,
-                LinkedPrNumber: null,
-                CommentCount: row.CommentCount,
-                ReviewDecision: row.ReviewDecision,
-                FailedCheckCount: row.FailedCheckCount,
-                FailedCheckNames: row.FailedCheckNames,
-                FailedCheckSha: row.FailedCheckSha,
-                Author: row.Author
-            )
-        );
-    }
-
-    public static WorkItem MapIssue(IssueRow row)
-    {
-        return MapWorkItem(
-            new WorkItemRow(
-                Repository: row.Repository,
-                Id: row.Id,
-                ItemType: ISSUE_TYPE,
-                Status: row.Status,
-                FirstSeen: row.FirstSeen,
-                LastUpdated: row.LastUpdated,
-                WhenClosed: row.WhenClosed,
-                Priority: row.Priority,
-                IsOnHold: row.IsOnHold,
-                LinkedPrNumber: row.LinkedPrNumber,
-                CommentCount: 0,
-                ReviewDecision: null,
-                FailedCheckCount: 0,
-                FailedCheckNames: null,
-                FailedCheckSha: null,
-                Author: null
-            )
         );
     }
 

@@ -647,14 +647,20 @@ public sealed class InMemoryDispatcherStore
     }
 
     // A repository is busy only for an open/draft PR that is not on hold and, when a user is given,
-    // that the user is committing to. A PR whose commit authors are unknown still counts, so missing
-    // data never lets concurrent work into a repository.
+    // that the user would be given (adopted, unassigned or assigned to them) and is committing to.
+    // A PR assigned only to other people is ignored for that user, as it is in the active PR list.
+    // A PR whose commit authors are unknown still counts, so missing data never lets concurrent work
+    // into a repository.
     private bool HasActivePullRequestNoLock(string repository, string? user)
     {
         return this._pullRequests.Values.Any(pr =>
             string.Equals(pr.Repository, repository, StringComparison.Ordinal)
             && IsOpenOrDraft(pr.Status)
             && !pr.IsOnHold
+            && (
+                pr.IsAdopted
+                || IsVisibleTo(user: user, assigneesByItem: this._pullRequestAssignees, key: (pr.Repository, pr.Id))
+            )
             && this.IsCommittedToBy(user: user, key: (pr.Repository, pr.Id))
         );
     }

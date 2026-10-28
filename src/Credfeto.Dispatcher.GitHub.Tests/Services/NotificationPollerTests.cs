@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
@@ -35,6 +36,30 @@ public sealed class NotificationPollerTests : TestBase
           }
         ]
         """;
+
+    private const string SECOND_PAGE_JSON = """
+        [
+          {
+            "id": "2",
+            "reason": "review_requested",
+            "subject": {
+              "title": "Another pull request",
+              "url": "https://api.github.com/repos/owner/repo/pulls/2",
+              "type": "PullRequest"
+            },
+            "repository": {
+              "full_name": "owner/repo",
+              "html_url": "https://github.com/owner/repo"
+            },
+            "updated_at": "2024-01-02T00:00:00Z",
+            "unread": true
+          }
+        ]
+        """;
+
+    private const string STORED_ETAG = "\"stored-etag\"";
+    private const string FIRST_PAGE_ETAG = "\"page-1-etag\"";
+    private const string SECOND_PAGE_LINK = "https://api.github.com/notifications?per_page=100&page=2";
 
     private readonly IETagStore _eTagStore;
     private readonly System.Net.Http.IHttpClientFactory _httpClientFactory;
@@ -382,6 +407,185 @@ public sealed class NotificationPollerTests : TestBase
     }
 
     [Fact]
+    public async Task PollAsyncRequestsFirstPageWithPerPage100Async()
+    {
+        using SequencedResponseHandler handler = new(SinglePage());
+        using HttpClient httpClient = MockHttpClientFactoryCreateClient(
+            httpClientFactory: this._httpClientFactory,
+            handler: handler
+        );
+
+        await this._poller.PollAsync(this.CancellationToken());
+
+        Assert.Equal(expected: "/notifications?per_page=100", actual: handler.RequestUris[0]?.PathAndQuery);
+    }
+
+    [Fact]
+    public async Task PollAsyncMakesOneRequestWhenThereIsNoNextLinkAsync()
+    {
+        using SequencedResponseHandler handler = new(SinglePage());
+        using HttpClient httpClient = MockHttpClientFactoryCreateClient(
+            httpClientFactory: this._httpClientFactory,
+            handler: handler
+        );
+
+        await this._poller.PollAsync(this.CancellationToken());
+
+        Assert.Single(handler.RequestUris);
+    }
+
+    [Fact]
+    public async Task PollAsyncReturnsNotificationsFromEveryPageInOrderAsync()
+    {
+        using SequencedResponseHandler handler = new(FirstOfTwoPages(), SecondPage());
+        using HttpClient httpClient = MockHttpClientFactoryCreateClient(
+            httpClientFactory: this._httpClientFactory,
+            handler: handler
+        );
+
+        NotificationPollResult result = await this._poller.PollAsync(this.CancellationToken());
+
+        Assert.Equal(expected: ["1", "2"], actual: result.Notifications.Select(n => n.Id));
+    }
+
+    [Fact]
+    public async Task PollAsyncFollowsNextLinkRelativeToBaseAddressAsync()
+    {
+        using SequencedResponseHandler handler = new(FirstOfTwoPages(), SecondPage());
+        using HttpClient httpClient = MockHttpClientFactoryCreateClient(
+            httpClientFactory: this._httpClientFactory,
+            handler: handler
+        );
+
+        await this._poller.PollAsync(this.CancellationToken());
+
+        Assert.Equal(expected: new Uri(SECOND_PAGE_LINK), actual: handler.RequestUris[1]);
+    }
+
+    [Fact]
+    public async Task PollAsyncSendsIfNoneMatchOnFirstPageAsync()
+    {
+        MockETagStoreGetETag(
+            eTagStore: this._eTagStore,
+            eTag: STORED_ETAG,
+            cancellationToken: this.CancellationToken()
+        );
+        using SequencedResponseHandler handler = new(FirstOfTwoPages(), SecondPage());
+        using HttpClient httpClient = MockHttpClientFactoryCreateClient(
+            httpClientFactory: this._httpClientFactory,
+            handler: handler
+        );
+
+        await this._poller.PollAsync(this.CancellationToken());
+
+        Assert.Equal(expected: STORED_ETAG, actual: handler.RequestIfNoneMatches[0]);
+    }
+
+    [Fact]
+    public async Task PollAsyncDoesNotSendIfNoneMatchOnLaterPagesAsync()
+    {
+        MockETagStoreGetETag(
+            eTagStore: this._eTagStore,
+            eTag: STORED_ETAG,
+            cancellationToken: this.CancellationToken()
+        );
+        using SequencedResponseHandler handler = new(FirstOfTwoPages(), SecondPage());
+        using HttpClient httpClient = MockHttpClientFactoryCreateClient(
+            httpClientFactory: this._httpClientFactory,
+            handler: handler
+        );
+
+        await this._poller.PollAsync(this.CancellationToken());
+
+        Assert.Null(handler.RequestIfNoneMatches[1]);
+    }
+
+    [Fact]
+    public async Task PollAsyncReturnsFirstPageETagAsCandidateWhenPaginatedAsync()
+    {
+        using SequencedResponseHandler handler = new(FirstOfTwoPages(), SecondPage());
+        using HttpClient httpClient = MockHttpClientFactoryCreateClient(
+            httpClientFactory: this._httpClientFactory,
+            handler: handler
+        );
+
+        NotificationPollResult result = await this._poller.PollAsync(this.CancellationToken());
+
+        Assert.Equal(expected: FIRST_PAGE_ETAG, actual: result.CandidateETag);
+    }
+
+    [Fact]
+    public async Task PollAsyncMakesNoFurtherRequestsWhenFirstPageIsNotModifiedAsync()
+    {
+        MockETagStoreGetETag(
+            eTagStore: this._eTagStore,
+            eTag: STORED_ETAG,
+            cancellationToken: this.CancellationToken()
+        );
+        using SequencedResponseHandler handler = new(NotModifiedPage(), SecondPage());
+        using HttpClient httpClient = MockHttpClientFactoryCreateClient(
+            httpClientFactory: this._httpClientFactory,
+            handler: handler
+        );
+
+        await this._poller.PollAsync(this.CancellationToken());
+
+        Assert.Single(handler.RequestUris);
+    }
+
+    [Fact]
+    public async Task PollAsyncReturnsEmptyResultWhenNotModifiedAsync()
+    {
+        MockETagStoreGetETag(
+            eTagStore: this._eTagStore,
+            eTag: STORED_ETAG,
+            cancellationToken: this.CancellationToken()
+        );
+        using SequencedResponseHandler handler = new(NotModifiedPage());
+        using HttpClient httpClient = MockHttpClientFactoryCreateClient(
+            httpClientFactory: this._httpClientFactory,
+            handler: handler
+        );
+
+        NotificationPollResult result = await this._poller.PollAsync(this.CancellationToken());
+
+        Assert.Empty(result.Notifications);
+        Assert.Null(result.CandidateETag);
+    }
+
+    [Fact]
+    public async Task PollAsyncThrowsWhenALaterPageFailsAsync()
+    {
+        using SequencedResponseHandler handler = new(FirstOfTwoPages(), FailedPage());
+        using HttpClient httpClient = MockHttpClientFactoryCreateClient(
+            httpClientFactory: this._httpClientFactory,
+            handler: handler
+        );
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => this._poller.PollAsync(this.CancellationToken()).AsTask());
+    }
+
+    [Fact]
+    public async Task PollAsyncDoesNotSaveETagWhenALaterPageFailsAsync()
+    {
+        using SequencedResponseHandler handler = new(FirstOfTwoPages(), FailedPage());
+        using HttpClient httpClient = MockHttpClientFactoryCreateClient(
+            httpClientFactory: this._httpClientFactory,
+            handler: handler
+        );
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => this._poller.PollAsync(this.CancellationToken()).AsTask());
+
+        await this
+            ._eTagStore.DidNotReceive()
+            .SaveETagAsync(
+                key: Arg.Any<string>(),
+                eTag: Arg.Any<string>(),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
     public async Task CommitETagAsyncSavesTheCandidateETagToTheStoreAsync()
     {
         await this._poller.CommitETagAsync(candidateETag: "\"new-etag\"", cancellationToken: this.CancellationToken());
@@ -393,5 +597,54 @@ public sealed class NotificationPollerTests : TestBase
                 eTag: "\"new-etag\"",
                 cancellationToken: this.CancellationToken()
             );
+    }
+
+    private static SequencedResponse SinglePage()
+    {
+        return new(StatusCode: HttpStatusCode.OK, Content: NOTIFICATION_JSON, ETag: FIRST_PAGE_ETAG, LinkUrl: null);
+    }
+
+    private static SequencedResponse FirstOfTwoPages()
+    {
+        return new(
+            StatusCode: HttpStatusCode.OK,
+            Content: NOTIFICATION_JSON,
+            ETag: FIRST_PAGE_ETAG,
+            LinkUrl: SECOND_PAGE_LINK
+        );
+    }
+
+    private static SequencedResponse SecondPage()
+    {
+        return new(StatusCode: HttpStatusCode.OK, Content: SECOND_PAGE_JSON, ETag: "\"page-2-etag\"", LinkUrl: null);
+    }
+
+    private static SequencedResponse FailedPage()
+    {
+        return new(StatusCode: HttpStatusCode.InternalServerError, Content: null, ETag: null, LinkUrl: null);
+    }
+
+    private static SequencedResponse NotModifiedPage()
+    {
+        return new(StatusCode: HttpStatusCode.NotModified, Content: null, ETag: STORED_ETAG, LinkUrl: null);
+    }
+
+    private static void MockETagStoreGetETag(IETagStore eTagStore, string eTag, in CancellationToken cancellationToken)
+    {
+        eTagStore.GetETagAsync(key: "github.notifications", cancellationToken: cancellationToken).Returns(eTag);
+    }
+
+    private static HttpClient MockHttpClientFactoryCreateClient(
+        System.Net.Http.IHttpClientFactory httpClientFactory,
+        HttpMessageHandler handler
+    )
+    {
+        HttpClient httpClient = new(handler: handler, disposeHandler: false)
+        {
+            BaseAddress = new Uri("https://api.github.com/"),
+        };
+        httpClientFactory.CreateClient("GitHub").Returns(httpClient);
+
+        return httpClient;
     }
 }

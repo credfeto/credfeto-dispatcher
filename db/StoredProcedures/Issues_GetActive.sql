@@ -38,6 +38,20 @@ BEGIN
           AND Pr2.[IsOnHold] = 0
           AND (
             @user IS NULL
+            OR Pr2.[IsAdopted] = 1
+            OR NOT EXISTS (
+              SELECT 1 FROM [dbo].[PullRequestAssignees] AS PrAssignee
+              WHERE PrAssignee.[Repository] = Pr2.[Repository] AND PrAssignee.[Id] = Pr2.[Id]
+            )
+            OR EXISTS (
+              SELECT 1 FROM [dbo].[PullRequestAssignees] AS PrAssignee
+              WHERE PrAssignee.[Repository] = Pr2.[Repository]
+                AND PrAssignee.[Id] = Pr2.[Id]
+                AND PrAssignee.[Login] = @user
+            )
+          )
+          AND (
+            @user IS NULL
             OR NOT EXISTS (
               SELECT 1 FROM [dbo].[PullRequestCommitAuthors] AS CommitAuthor
               WHERE CommitAuthor.[Repository] = Pr2.[Repository] AND CommitAuthor.[Id] = Pr2.[Id]

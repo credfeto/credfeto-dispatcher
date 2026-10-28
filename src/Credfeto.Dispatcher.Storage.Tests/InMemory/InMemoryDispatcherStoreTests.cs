@@ -824,6 +824,66 @@ public sealed class InMemoryDispatcherStoreTests : TestBase
         Assert.Single(issues);
     }
 
+    [Theory]
+    [InlineData(null, false, "octocat", false)]
+    [InlineData("octocat", false, "octocat", false)]
+    [InlineData("someone-else,OctoCat", false, "octocat", false)]
+    [InlineData("someone-else", false, "octocat", true)]
+    [InlineData("someone-else,another", false, "octocat", true)]
+    [InlineData("someone-else", true, "octocat", false)]
+    [InlineData("someone-else", false, null, false)]
+    public void GetActiveWorkItemsIgnoresPullRequestsAssignedToOtherUsersWhenSuppressingIssues(
+        string? assignees,
+        bool isAdopted,
+        string? user,
+        bool expectedIssueVisible
+    )
+    {
+        this._store.UpsertPullRequest(
+            repository: REPOSITORY,
+            id: 10,
+            status: "Draft",
+            priority: 1,
+            isOnHold: false,
+            hasDetail: false,
+            commentCount: 0,
+            reviewDecision: null,
+            failedCheckCount: 0,
+            failedCheckNames: null,
+            failedCheckSha: null,
+            author: null,
+            isAdopted: isAdopted,
+            assignees: SplitAssignees(assignees),
+            commitAuthors: null
+        );
+        this.UpsertOpenIssue(repository: REPOSITORY, id: 20);
+
+        (_, IReadOnlyList<IssueRow> issues) = this._store.GetActiveWorkItems(user: user);
+
+        Assert.Equal(expected: expectedIssueVisible ? 1 : 0, actual: issues.Count);
+    }
+
+    [Fact]
+    public void GetActiveWorkItemsKeepsIssueLinkedToPullRequestAssignedToOtherUserHidden()
+    {
+        this.UpsertOpenPullRequest(id: 10, isAdopted: false, assignees: ["someone-else"]);
+        this._store.UpsertIssue(
+            repository: REPOSITORY,
+            id: 20,
+            status: "Open",
+            priority: 1,
+            isOnHold: false,
+            linkedPrNumber: 10,
+            assignees: null
+        );
+        this.UpsertOpenIssue(repository: REPOSITORY, id: 21);
+
+        (_, IReadOnlyList<IssueRow> issues) = this._store.GetActiveWorkItems(user: "octocat");
+
+        IssueRow issue = Assert.Single(issues);
+        Assert.Equal(expected: 21, actual: issue.Id);
+    }
+
     [Fact]
     public void UpsertPullRequestWithNullCommitAuthorsKeepsStoredCommitAuthors()
     {

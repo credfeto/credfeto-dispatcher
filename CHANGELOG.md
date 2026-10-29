@@ -114,6 +114,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Mention poller no longer advances its per-repo since watermark when a page fetch fails, so the window is retried on the next poll (#182)
 - Failed check names are now stored as a JSON array so check names containing commas (e.g. matrix jobs) round-trip intact; legacy comma-separated values are still read (#194)
 - Health check now logs failure reason to console instead of using NullLogger
+- Fixed dotnet buildcheck failures: explicit IncludeAssets on package references and switch to xunit.v3.aot.mtp-v2 (#224)
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934

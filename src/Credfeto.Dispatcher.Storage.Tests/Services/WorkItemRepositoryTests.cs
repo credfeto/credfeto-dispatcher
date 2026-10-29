@@ -26,498 +26,112 @@ public sealed class WorkItemRepositoryTests : TestBase
         this._repository = new WorkItemRepository(this._database, this._timeProvider);
     }
 
-    private void SetupPullRequests(IReadOnlyList<PullRequestRow> rows)
+    private Task<PrioritiesResponse> GetPrioritisedAsync(IReadOnlyList<WorkItemRow> rows)
     {
         this._database.SetReturn(rows);
-    }
 
-    private void SetupIssues(IReadOnlyList<IssueRow> rows)
-    {
-        this._database.SetReturn(rows);
-    }
-
-    private async Task<IReadOnlyList<WorkItem>> GetItemsAsync(
-        IReadOnlyList<string> owners,
-        int maxIssues = 0,
-        IReadOnlyList<string>? boostedRepos = null
-    )
-    {
-        PrioritiesResponse response = await this._repository.GetPrioritisedWorkItemsAsync(
-            owners: owners,
-            maxIssues: maxIssues,
-            boostedRepos: boostedRepos ?? [],
+        return this._repository.GetPrioritisedWorkItemsAsync(
+            owners: ["owner"],
+            maxIssues: 5,
+            boostedRepos: ["owner/repo"],
             user: null,
             cancellationToken: this.CancellationToken()
         );
-
-        return response.Priorities;
     }
 
-    private static PullRequestRow CreatePrRow(
+    private static WorkItemRow CreateWorkItemRow(
         string repository,
-        int id = 1,
-        string status = "Open",
+        int id,
+        string itemType,
         WorkPriority priority = WorkPriority.MEDIUM,
-        bool isOnHold = false,
-        string? author = null,
-        DateTimeOffset? firstSeen = null
+        int? linkedPrNumber = null,
+        string? reviewDecision = null,
+        DateTimeOffset? lastUpdated = null
     )
     {
-        return new PullRequestRow(
+        return new WorkItemRow(
             Repository: repository,
             Id: id,
-            Status: status,
-            FirstSeen: firstSeen ?? BaseTime,
-            LastUpdated: BaseTime,
+            ItemType: itemType,
+            Status: "Open",
+            FirstSeen: BaseTime,
+            LastUpdated: lastUpdated ?? BaseTime,
             WhenClosed: null,
             Priority: (int)priority,
-            IsOnHold: isOnHold,
+            IsOnHold: false,
+            LinkedPrNumber: linkedPrNumber,
             CommentCount: 0,
-            ReviewDecision: null,
+            ReviewDecision: reviewDecision,
             FailedCheckCount: 0,
             FailedCheckNames: null,
             FailedCheckSha: null,
-            Author: author,
-            IsAdopted: false
-        );
-    }
-
-    private static IssueRow CreateIssueRow(
-        string repository,
-        int id = 1,
-        WorkPriority priority = WorkPriority.MEDIUM,
-        bool isOnHold = false,
-        int? linkedPrNumber = null,
-        DateTimeOffset? firstSeen = null
-    )
-    {
-        return new IssueRow(
-            Repository: repository,
-            Id: id,
-            Status: "Open",
-            FirstSeen: firstSeen ?? BaseTime,
-            LastUpdated: BaseTime,
-            WhenClosed: null,
-            Priority: (int)priority,
-            IsOnHold: isOnHold,
-            LinkedPrNumber: linkedPrNumber
+            Author: null
         );
     }
 
     [Fact]
-    public async Task WithNoConfig_OwnersAreOrderedAlphabeticallyAsync()
+    public async Task GetPrioritisedPreservesDatabaseOrderAsync()
     {
-        this.SetupPullRequests([CreatePrRow("zz-owner/repo", id: 1), CreatePrRow("aa-owner/repo", id: 2)]);
-        this.SetupIssues([]);
-
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: []);
-
-        Assert.Equal(expected: 2, actual: result.Count);
-        Assert.Equal(expected: "aa-owner/repo", actual: result[0].Repository);
-        Assert.Equal(expected: "zz-owner/repo", actual: result[1].Repository);
-    }
-
-    [Fact]
-    public async Task WithOwnersConfigured_OwnersAreOrderedByConfigAsync()
-    {
-        this.SetupPullRequests([CreatePrRow("aa-owner/repo", id: 1), CreatePrRow("zz-owner/repo", id: 2)]);
-        this.SetupIssues([]);
-
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: ["zz-owner", "aa-owner"]);
-
-        Assert.Equal(expected: 2, actual: result.Count);
-        Assert.Equal(expected: "zz-owner/repo", actual: result[0].Repository);
-        Assert.Equal(expected: "aa-owner/repo", actual: result[1].Repository);
-    }
-
-    [Fact]
-    public async Task PullRequestsAppearBeforeIssues_AcrossDifferentReposAsync()
-    {
-        this.SetupPullRequests([CreatePrRow("owner/bb-repo", id: 1)]);
-        this.SetupIssues([CreateIssueRow("owner/aa-repo", id: 1)]);
-
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: []);
-
-        Assert.Equal(expected: 2, actual: result.Count);
-        Assert.Equal(expected: "PullRequest", actual: result[0].ItemType);
-        Assert.Equal(expected: "Issue", actual: result[1].ItemType);
-    }
-
-    [Fact]
-    public async Task Issues_PerRepo_OnlyHighestPriorityIsReturnedAsync()
-    {
-        this.SetupPullRequests([]);
-        this.SetupIssues([
-            CreateIssueRow("owner/repo", id: 1, priority: WorkPriority.LOW),
-            CreateIssueRow("owner/repo", id: 2, priority: WorkPriority.HIGH),
-            CreateIssueRow("owner/repo", id: 3, priority: WorkPriority.MEDIUM),
+        PrioritiesResponse response = await this.GetPrioritisedAsync([
+            CreateWorkItemRow("zz/repo", id: 1, itemType: "PullRequest"),
+            CreateWorkItemRow("aa/repo", id: 2, itemType: "Issue"),
+            CreateWorkItemRow("mm/repo", id: 3, itemType: "PullRequest"),
         ]);
 
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: []);
-
-        WorkItem item = Assert.Single(result);
-        Assert.Equal(expected: 2, actual: item.Id);
-        Assert.Equal(expected: WorkPriority.HIGH, actual: item.Priority);
-    }
-
-    [Fact]
-    public async Task Issues_PerRepo_WithEqualPriority_OldestIsReturnedAsync()
-    {
-        this.SetupPullRequests([]);
-        this.SetupIssues([
-            CreateIssueRow("owner/repo", id: 2, priority: WorkPriority.MEDIUM, firstSeen: BaseTime.AddHours(2)),
-            CreateIssueRow("owner/repo", id: 1, priority: WorkPriority.MEDIUM, firstSeen: BaseTime.AddHours(1)),
-        ]);
-
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: []);
-
-        WorkItem item = Assert.Single(result);
-        Assert.Equal(expected: 1, actual: item.Id);
-    }
-
-    [Fact]
-    public async Task Issues_EachRepoContributesAtMostOneAsync()
-    {
-        this.SetupPullRequests([]);
-        this.SetupIssues([
-            CreateIssueRow("owner/repo", id: 1, priority: WorkPriority.MEDIUM),
-            CreateIssueRow("owner/repo", id: 2, priority: WorkPriority.LOW),
-        ]);
-
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: []);
-
-        _ = Assert.Single(result);
-    }
-
-    [Fact]
-    public async Task Issues_MaxIssuesCap_LimitsReturnedIssuesAsync()
-    {
-        this.SetupPullRequests([]);
-        this.SetupIssues([
-            CreateIssueRow("owner/repo-a", id: 1),
-            CreateIssueRow("owner/repo-b", id: 2),
-            CreateIssueRow("owner/repo-c", id: 3),
-        ]);
-
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], maxIssues: 2);
-
-        Assert.Equal(expected: 2, actual: result.Count);
-    }
-
-    [Fact]
-    public async Task Issues_UrgentPriority_AlwaysAppearsEvenWhenCapReachedAsync()
-    {
-        this.SetupPullRequests([]);
-        this.SetupIssues([
-            CreateIssueRow("owner/repo-a", id: 1, priority: WorkPriority.MEDIUM),
-            CreateIssueRow("owner/repo-b", id: 2, priority: WorkPriority.MEDIUM),
-            CreateIssueRow("owner/repo-c", id: 3, priority: WorkPriority.URGENT),
-        ]);
-
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], maxIssues: 2);
-
-        Assert.Equal(expected: 3, actual: result.Count);
-        Assert.Contains(
-            result,
-            w =>
-                string.Equals(w.Repository, "owner/repo-c", StringComparison.Ordinal)
-                && w.Priority == WorkPriority.URGENT
-        );
-    }
-
-    [Fact]
-    public async Task Issues_SecurityPriority_AlwaysAppearsEvenWhenCapReachedAsync()
-    {
-        this.SetupPullRequests([]);
-        this.SetupIssues([
-            CreateIssueRow("owner/repo-a", id: 1, priority: WorkPriority.MEDIUM),
-            CreateIssueRow("owner/repo-b", id: 2, priority: WorkPriority.MEDIUM),
-            CreateIssueRow("owner/repo-c", id: 3, priority: WorkPriority.SECURITY),
-        ]);
-
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], maxIssues: 2);
-
-        Assert.Equal(expected: 3, actual: result.Count);
-        Assert.Contains(
-            result,
-            w =>
-                string.Equals(w.Repository, "owner/repo-c", StringComparison.Ordinal)
-                && w.Priority == WorkPriority.SECURITY
-        );
-    }
-
-    [Fact]
-    public async Task Issues_UrgentPriority_IsIncluded_WhenCapReachedAsync()
-    {
-        this.SetupPullRequests([]);
-        this.SetupIssues([
-            CreateIssueRow("owner/aa-repo", id: 1, priority: WorkPriority.MEDIUM),
-            CreateIssueRow("owner/bb-repo", id: 2, priority: WorkPriority.MEDIUM),
-            CreateIssueRow("owner/cc-repo", id: 3, priority: WorkPriority.URGENT),
-        ]);
-
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], maxIssues: 2);
-
-        Assert.Contains(result, w => string.Equals(w.Repository, "owner/cc-repo", StringComparison.Ordinal));
-    }
-
-    [Fact]
-    public async Task Issues_MaxIssuesCap_DoesNotAffectPullRequestsAsync()
-    {
-        this.SetupPullRequests([CreatePrRow("owner/repo-a", id: 1), CreatePrRow("owner/repo-b", id: 2)]);
-        this.SetupIssues([CreateIssueRow("owner/repo-c", id: 1)]);
-
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], maxIssues: 0);
-
-        Assert.Equal(expected: 3, actual: result.Count);
-    }
-
-    [Fact]
-    public async Task Issues_MaxIssuesCap_AppliesPerOwnerAsync()
-    {
-        this.SetupPullRequests([]);
-        this.SetupIssues([
-            CreateIssueRow("aa-owner/repo-a", id: 1),
-            CreateIssueRow("aa-owner/repo-b", id: 2),
-            CreateIssueRow("aa-owner/repo-c", id: 3),
-            CreateIssueRow("bb-owner/repo-a", id: 4),
-            CreateIssueRow("bb-owner/repo-b", id: 5),
-            CreateIssueRow("bb-owner/repo-c", id: 6),
-        ]);
-
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: ["aa-owner", "bb-owner"], maxIssues: 2);
-
-        string[] repositories = [.. result.Select(static w => w.Repository)];
         Assert.Equal(
-            expected: ["aa-owner/repo-a", "aa-owner/repo-b", "bb-owner/repo-a", "bb-owner/repo-b"],
-            actual: repositories
+            expected: ["zz/repo", "aa/repo", "mm/repo"],
+            actual: [.. response.Priorities.Select(static p => p.Repository)]
         );
     }
 
     [Fact]
-    public async Task Issues_MaxIssuesCap_KeepsOrderWithinOwnerAsync()
+    public async Task GetPrioritisedMapsPullRequestRowAsync()
     {
-        this.SetupPullRequests([]);
-        this.SetupIssues([
-            CreateIssueRow("aa-owner/repo-a", id: 1, priority: WorkPriority.LOW),
-            CreateIssueRow("aa-owner/repo-b", id: 2, priority: WorkPriority.HIGH),
-            CreateIssueRow("aa-owner/repo-c", id: 3, priority: WorkPriority.MEDIUM, firstSeen: BaseTime.AddHours(1)),
-            CreateIssueRow("aa-owner/repo-d", id: 4, priority: WorkPriority.MEDIUM),
-            CreateIssueRow("bb-owner/repo-a", id: 5, priority: WorkPriority.LOW),
-            CreateIssueRow("bb-owner/repo-b", id: 6, priority: WorkPriority.HIGH),
-            CreateIssueRow("bb-owner/repo-c", id: 7, priority: WorkPriority.MEDIUM),
+        PrioritiesResponse response = await this.GetPrioritisedAsync([
+            CreateWorkItemRow("owner/repo", id: 1, itemType: "PullRequest", reviewDecision: "Approved"),
         ]);
 
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], maxIssues: 2);
-
-        string[] repositories = [.. result.Select(static w => w.Repository)];
-        Assert.Equal(
-            expected: ["aa-owner/repo-b", "aa-owner/repo-d", "bb-owner/repo-b", "bb-owner/repo-c"],
-            actual: repositories
-        );
-    }
-
-    [Fact]
-    public async Task Issues_MaxIssuesCap_GroupsOwnersCaseInsensitivelyAsync()
-    {
-        this.SetupPullRequests([]);
-        this.SetupIssues([
-            CreateIssueRow("Owner/repo-a", id: 1),
-            CreateIssueRow("owner/repo-b", id: 2),
-            CreateIssueRow("OWNER/repo-c", id: 3),
-        ]);
-
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], maxIssues: 2);
-
-        Assert.Equal(expected: 2, actual: result.Count);
-    }
-
-    [Fact]
-    public async Task Issues_MaxIssuesCap_UrgentIsUncappedForEveryOwnerAsync()
-    {
-        this.SetupPullRequests([]);
-        this.SetupIssues([
-            CreateIssueRow("aa-owner/repo-a", id: 1, priority: WorkPriority.URGENT),
-            CreateIssueRow("aa-owner/repo-b", id: 2, priority: WorkPriority.SECURITY),
-            CreateIssueRow("aa-owner/repo-c", id: 3),
-            CreateIssueRow("aa-owner/repo-d", id: 4),
-            CreateIssueRow("bb-owner/repo-a", id: 5, priority: WorkPriority.URGENT),
-            CreateIssueRow("bb-owner/repo-b", id: 6, priority: WorkPriority.URGENT),
-            CreateIssueRow("bb-owner/repo-c", id: 7),
-            CreateIssueRow("bb-owner/repo-d", id: 8),
-        ]);
-
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], maxIssues: 1);
-
-        Assert.Equal(expected: 6, actual: result.Count);
-        Assert.Equal(expected: 4, actual: result.Count(static w => w.Priority >= WorkPriority.URGENT));
-        Assert.Equal(
-            expected: 1,
-            actual: result.Count(static w =>
-                w.Priority < WorkPriority.URGENT && w.Repository.StartsWith("aa-owner/", StringComparison.Ordinal)
-            )
-        );
-        Assert.Equal(
-            expected: 1,
-            actual: result.Count(static w =>
-                w.Priority < WorkPriority.URGENT && w.Repository.StartsWith("bb-owner/", StringComparison.Ordinal)
-            )
-        );
-    }
-
-    [Theory]
-    [InlineData(0)]
-    [InlineData(-1)]
-    public async Task Issues_MaxIssuesCap_ZeroOrLessIsNoCapForEveryOwnerAsync(int maxIssues)
-    {
-        this.SetupPullRequests([]);
-        this.SetupIssues([
-            CreateIssueRow("aa-owner/repo-a", id: 1),
-            CreateIssueRow("aa-owner/repo-b", id: 2),
-            CreateIssueRow("aa-owner/repo-c", id: 3),
-            CreateIssueRow("bb-owner/repo-a", id: 4),
-            CreateIssueRow("bb-owner/repo-b", id: 5),
-            CreateIssueRow("bb-owner/repo-c", id: 6),
-        ]);
-
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], maxIssues: maxIssues);
-
-        Assert.Equal(expected: 6, actual: result.Count);
-    }
-
-    [Fact]
-    public async Task Issues_WhenTotalUnderCap_AllAreReturnedAsync()
-    {
-        this.SetupPullRequests([]);
-        this.SetupIssues([CreateIssueRow("owner/repo-a", id: 1), CreateIssueRow("owner/repo-b", id: 2)]);
-
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], maxIssues: 5);
-
-        Assert.Equal(expected: 2, actual: result.Count);
-    }
-
-    [Fact]
-    public async Task PullRequest_StatusIsReturnedAsync()
-    {
-        this.SetupPullRequests([CreatePrRow("owner/repo", id: 1, status: "Open")]);
-        this.SetupIssues([]);
-
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: []);
-
-        WorkItem item = Assert.Single(result);
-        Assert.Equal(expected: "Open", actual: item.Status);
-    }
-
-    [Fact]
-    public async Task PullRequest_LinkedPrNumbersIsEmptyAsync()
-    {
-        this.SetupPullRequests([CreatePrRow("owner/repo", id: 1)]);
-        this.SetupIssues([]);
-
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: []);
-
-        WorkItem item = Assert.Single(result);
+        WorkItem item = Assert.Single(response.Priorities);
+        Assert.Equal(expected: "PullRequest", actual: item.ItemType);
+        Assert.Equal(expected: ReviewDecisionState.APPROVED, actual: item.ReviewDecision);
         Assert.Empty(item.LinkedPrNumbers);
     }
 
     [Fact]
-    public async Task Issue_LinkedPrNumberIsPopulatedAsync()
+    public async Task GetPrioritisedMapsIssueRowWithLinkedPullRequestAsync()
     {
-        this.SetupPullRequests([]);
-        this.SetupIssues([CreateIssueRow("owner/repo", id: 5, linkedPrNumber: 42)]);
-
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: []);
-
-        WorkItem item = Assert.Single(result);
-        int linkedPr = Assert.Single(item.LinkedPrNumbers);
-        Assert.Equal(expected: 42, actual: linkedPr);
-    }
-
-    [Fact]
-    public async Task EmptyDatabase_ReturnsEmptyListAsync()
-    {
-        this.SetupPullRequests([]);
-        this.SetupIssues([]);
-
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: []);
-
-        Assert.Empty(result);
-    }
-
-    [Fact]
-    public async Task BoostedRepo_RisesToFrontOfItsBandAsync()
-    {
-        this.SetupPullRequests([CreatePrRow("owner/aa-repo", id: 1), CreatePrRow("owner/zz-repo", id: 2)]);
-        this.SetupIssues([]);
-
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], boostedRepos: ["owner/zz-repo"]);
-
-        Assert.Equal(expected: 2, actual: result.Count);
-        Assert.Equal(expected: "owner/zz-repo", actual: result[0].Repository);
-        Assert.Equal(expected: "owner/aa-repo", actual: result[1].Repository);
-    }
-
-    [Fact]
-    public async Task BoostedRepo_NeverRisesAboveAHigherBandAsync()
-    {
-        this.SetupPullRequests([CreatePrRow("owner/aa-repo", id: 1, priority: WorkPriority.URGENT)]);
-        this.SetupIssues([CreateIssueRow("owner/zz-repo", id: 1, priority: WorkPriority.LOW)]);
-
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], boostedRepos: ["owner/zz-repo"]);
-
-        Assert.Equal(expected: 2, actual: result.Count);
-        Assert.Equal(expected: "PullRequest", actual: result[0].ItemType);
-        Assert.Equal(expected: "Issue", actual: result[1].ItemType);
-    }
-
-    [Fact]
-    public async Task MultipleBoostedRepos_PreserveConfigOrderAsync()
-    {
-        this.SetupPullRequests([
-            CreatePrRow("owner/aa-repo", id: 1),
-            CreatePrRow("owner/bb-repo", id: 2),
-            CreatePrRow("owner/cc-repo", id: 3),
+        PrioritiesResponse response = await this.GetPrioritisedAsync([
+            CreateWorkItemRow("owner/repo", id: 5, itemType: "Issue", linkedPrNumber: 42),
         ]);
-        this.SetupIssues([]);
 
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(
-            owners: [],
-            boostedRepos: ["owner/cc-repo", "owner/aa-repo"]
-        );
-
-        Assert.Equal(expected: 3, actual: result.Count);
-        Assert.Equal(expected: "owner/cc-repo", actual: result[0].Repository);
-        Assert.Equal(expected: "owner/aa-repo", actual: result[1].Repository);
-        Assert.Equal(expected: "owner/bb-repo", actual: result[2].Repository);
+        WorkItem item = Assert.Single(response.Priorities);
+        Assert.Equal(expected: "Issue", actual: item.ItemType);
+        Assert.Equal(expected: ReviewDecisionState.NOT_APPLICABLE, actual: item.ReviewDecision);
+        Assert.Equal(expected: 42, actual: Assert.Single(item.LinkedPrNumbers));
     }
 
     [Fact]
-    public async Task WithEmptyBoostedRepos_OrderingIsUnchangedAsync()
+    public async Task GetPrioritisedWithNoRowsUsesTheClockForAsOfAsync()
     {
-        this.SetupPullRequests([CreatePrRow("zz-owner/repo", id: 1), CreatePrRow("aa-owner/repo", id: 2)]);
-        this.SetupIssues([]);
+        PrioritiesResponse response = await this.GetPrioritisedAsync([]);
 
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], boostedRepos: []);
-
-        Assert.Equal(expected: 2, actual: result.Count);
-        Assert.Equal(expected: "aa-owner/repo", actual: result[0].Repository);
-        Assert.Equal(expected: "zz-owner/repo", actual: result[1].Repository);
+        Assert.Empty(response.Priorities);
+        Assert.Equal(expected: this._timeProvider.GetUtcNow(), actual: response.AsOf);
+        Assert.Equal(expected: 0, actual: response.LagSeconds);
     }
 
     [Fact]
-    public async Task UrgentUnboostedItem_StillPrecedesBoostedNonUrgentItemAsync()
+    public async Task GetPrioritisedAsOfIsTheLatestLastUpdatedAsync()
     {
-        this.SetupPullRequests([
-            CreatePrRow("owner/boosted-repo", id: 1, priority: WorkPriority.MEDIUM),
-            CreatePrRow("owner/urgent-repo", id: 2, priority: WorkPriority.URGENT),
+        DateTimeOffset latest = BaseTime.AddSeconds(-30);
+
+        PrioritiesResponse response = await this.GetPrioritisedAsync([
+            CreateWorkItemRow("owner/a", id: 1, itemType: "PullRequest", lastUpdated: BaseTime.AddMinutes(-5)),
+            CreateWorkItemRow("owner/b", id: 2, itemType: "Issue", lastUpdated: latest),
         ]);
-        this.SetupIssues([]);
 
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], boostedRepos: ["owner/boosted-repo"]);
-
-        Assert.Equal(expected: 2, actual: result.Count);
-        Assert.Equal(expected: "owner/urgent-repo", actual: result[0].Repository);
-        Assert.Equal(expected: "owner/boosted-repo", actual: result[1].Repository);
+        Assert.Equal(expected: latest, actual: response.AsOf);
+        Assert.Equal(expected: 30, actual: response.LagSeconds);
     }
 
     [Fact]
@@ -529,19 +143,6 @@ public sealed class WorkItemRepositoryTests : TestBase
         );
 
         Assert.Equal(expected: 2, actual: this._database.VoidExecuteCallCount);
-    }
-
-    [Fact]
-    public async Task BandingIsGlobalAcrossOwners_NotPerOwnerAsync()
-    {
-        this.SetupPullRequests([CreatePrRow("zz-owner/repo", id: 1, priority: WorkPriority.MEDIUM)]);
-        this.SetupIssues([CreateIssueRow("aa-owner/repo", id: 1, priority: WorkPriority.URGENT)]);
-
-        IReadOnlyList<WorkItem> result = await this.GetItemsAsync(owners: [], boostedRepos: []);
-
-        Assert.Equal(expected: 2, actual: result.Count);
-        Assert.Equal(expected: "zz-owner/repo", actual: result[0].Repository);
-        Assert.Equal(expected: "aa-owner/repo", actual: result[1].Repository);
     }
 
     private static PullRequestStateRow CreatePrStateRow(

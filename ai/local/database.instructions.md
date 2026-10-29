@@ -92,15 +92,10 @@ Stores ETags for GitHub notification polling endpoints to support conditional re
 | --- | --- |
 | `PullRequests_GetActive` | Returns open/draft PRs for active repos; a non-null `@user` keeps only unassigned PRs, PRs assigned to that login and adopted PRs |
 | `Issues_GetActive` | Returns open issues for active repos; a non-null `@user` keeps only unassigned issues and issues assigned to that login. Issues below Urgent are suppressed while the repo has an open/draft PR that is not on hold and, when `@user` is given, has `@user` among its commit authors or has no stored commit authors (unknown) |
+| `WorkItems_GetPrioritised` | Returns the final ordered work list for the priorities endpoint. Parameters: `@owners` and `@boostedRepos` (comma-separated, ordered), `@maxIssues` (per-owner cap on non-Urgent issues; `<= 0` means no cap) and `@user`. Applies the visibility rules of the `GetActive` procedures, picks one top issue per repo, applies the cap (Urgent and above bypass it) and orders PRs first, then Urgent and above, then boosted repos, then owner order. The in-memory store mirrors the same rules with LINQ |
 | `PullRequests_GetAll` / `Issues_GetAll` | Return every stored PR/issue (any status, on hold, inactive repos) with a comma-separated, sorted `Assignees` column, ordered by `Repository`, `Id`; optional `@owner` (part before `/`), `@repo` (part after `/`) and `@user` (same visibility rule as the `GetActive` procedures) filters. Backs the MCP `db` tool |
 | `Repos_SetActive` | MERGE to mark discovered repos active and all others inactive |
 | `PullRequests_Upsert` / `Issues_Upsert` | Insert or update a single item, plus its assignee rows (and `IsAdopted` and commit author rows for PRs) |
 | `PullRequests_CloseStale` / `Issues_CloseStale` | Close items no longer present in a scan |
 | `PullRequests_RemoveForRepositories` / `Issues_RemoveForRepositories` | Hard-delete all items, and their assignee (and PR commit author) rows, for given repos |
 | `PollingStates_GetByKey` / `_Upsert` | ETag persistence |
-
-## Pending Refactor
-
-`PullRequests_GetActive` and `Issues_GetActive` currently return all eligible rows and leave ordering, owner/repo filtering, the per-repo top-issue selection, the SECURITY/URGENT always-include rule, and the `MaxIssues` cap to application code. This violates the architecture rule above. See [issue #140](https://github.com/credfeto/credfeto-dispatcher/issues/140) for the planned work to push all of that logic into the stored procedures as parameters.
-
-Integration tests against a real SQL Server instance are tracked in [issue #141](https://github.com/credfeto/credfeto-dispatcher/issues/141). Issue #141 should be completed before or alongside #140 so the new SP logic has meaningful test coverage.

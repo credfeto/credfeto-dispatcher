@@ -13,45 +13,6 @@ internal static class WorkItemMapping
     private const string PULL_REQUEST_TYPE = "PullRequest";
     private const string ISSUE_TYPE = "Issue";
 
-    public static PrioritiesResponse BuildResponse(
-        IReadOnlyList<PullRequestRow> prRows,
-        IReadOnlyList<IssueRow> issueRows,
-        IReadOnlyList<string> owners,
-        int maxIssues,
-        IReadOnlyList<string> boostedRepos,
-        in DateTimeOffset now
-    )
-    {
-        List<WorkItem> pullRequests = [.. prRows.Select(MapPullRequest)];
-
-        Dictionary<string, int> ownersIndex = BuildIndex(owners);
-        Dictionary<string, int> boostedIndex = BuildIndex(boostedRepos);
-        IReadOnlyList<WorkItem> issues = BuildIssues(
-            issueRows: issueRows,
-            ownersIndex: ownersIndex,
-            maxIssues: maxIssues
-        );
-
-        List<WorkItem> combined = Deduplicate([.. pullRequests, .. issues]);
-
-        IReadOnlyList<WorkItem> ordered =
-        [
-            .. combined
-                .OrderBy(w => !IsPullRequest(w))
-                .ThenBy(w => !IsHighPriority(w))
-                .ThenBy(w => boostedIndex.GetValueOrDefault(w.Repository, int.MaxValue))
-                .ThenBy(w => ownersIndex.GetValueOrDefault(GetOwner(w.Repository), int.MaxValue))
-                .ThenBy(w => GetOwner(w.Repository), comparer: StringComparer.OrdinalIgnoreCase)
-                .ThenByDescending(w => (int)w.Priority)
-                .ThenBy(w => w.FirstSeen),
-        ];
-
-        DateTimeOffset asOf = combined.Count > 0 ? combined.Max(w => w.LastUpdated) : now;
-        long lagSeconds = Math.Max(0, (long)(now - asOf).TotalSeconds);
-
-        return new PrioritiesResponse(Priorities: ordered, AsOf: asOf, LagSeconds: lagSeconds);
-    }
-
     public static DbStateResponse BuildDatabaseState(
         IReadOnlyList<PullRequestStateRow> prRows,
         IReadOnlyList<IssueStateRow> issueRows,
@@ -123,101 +84,149 @@ internal static class WorkItemMapping
         return slash >= 0 ? (repository[..slash], repository[(slash + 1)..]) : (repository, string.Empty);
     }
 
-    private static Dictionary<string, int> BuildIndex(IReadOnlyList<string> values)
+    public static PrioritiesResponse BuildPrioritiesResponse(IReadOnlyList<WorkItem> ordered, in DateTimeOffset now)
     {
-        Dictionary<string, int> index = new(values.Count, StringComparer.OrdinalIgnoreCase);
+        DateTimeOffset asOf = ordered.Count > 0 ? ordered.Max(static w => w.LastUpdated) : now;
+        long lagSeconds = Math.Max(0, (long)(now - asOf).TotalSeconds);
 
-        for (int i = 0; i < values.Count; ++i)
+        return new PrioritiesResponse(Priorities: ordered, AsOf: asOf, LagSeconds: lagSeconds);
+    }
+
+    public static bool IsPullRequest(string itemType)
+    {
+        return string.Equals(a: itemType, b: PULL_REQUEST_TYPE, comparisonType: StringComparison.Ordinal);
+    }
+
+    public static WorkItem MapWorkItem(WorkItemRow row)
+    {
+        if (IsPullRequest(row.ItemType))
         {
-            index.TryAdd(values[i], i);
+            return BuildPullRequest(
+                repository: row.Repository,
+                id: row.Id,
+                status: row.Status,
+                firstSeen: row.FirstSeen,
+                lastUpdated: row.LastUpdated,
+                whenClosed: row.WhenClosed,
+                priority: row.Priority,
+                isOnHold: row.IsOnHold,
+                commentCount: row.CommentCount,
+                reviewDecision: row.ReviewDecision,
+                failedCheckCount: row.FailedCheckCount,
+                failedCheckNames: row.FailedCheckNames,
+                failedCheckSha: row.FailedCheckSha,
+                author: row.Author
+            );
         }
 
-        return index;
-    }
-
-    private static IReadOnlyList<WorkItem> BuildIssues(
-        IReadOnlyList<IssueRow> issueRows,
-        Dictionary<string, int> ownersIndex,
-        int maxIssues
-    )
-    {
-        IEnumerable<WorkItem> topIssuePerRepo = issueRows
-            .GroupBy(e => e.Repository, comparer: StringComparer.Ordinal)
-            .Select(g => MapIssue(g.OrderByDescending(e => e.Priority).ThenBy(e => e.FirstSeen).First()));
-
-        IEnumerable<WorkItem> ordered = topIssuePerRepo
-            .OrderBy(w => ownersIndex.GetValueOrDefault(GetOwner(w.Repository), int.MaxValue))
-            .ThenBy(w => GetOwner(w.Repository), comparer: StringComparer.OrdinalIgnoreCase)
-            .ThenByDescending(w => (int)w.Priority)
-            .ThenBy(w => w.FirstSeen);
-
-        return ApplyMaxIssuesCap(ordered, maxIssues);
-    }
-
-    private static IReadOnlyList<WorkItem> ApplyMaxIssuesCap(IEnumerable<WorkItem> ordered, int maxIssues)
-    {
-        // maxIssues <= 0 means no cap: return everything
-        if (maxIssues <= 0)
-        {
-            return [.. ordered];
-        }
-
-        // The cap applies per owner so that one owner cannot take every regular slot from the others.
-        // GroupBy keeps the input order both of the groups and within each group.
-        IReadOnlyList<WorkItem> all = [.. ordered];
-        IEnumerable<WorkItem> highPriority = all.Where(IsHighPriority);
-        IEnumerable<WorkItem> regular = all.Where(static w => !IsHighPriority(w))
-            .GroupBy(static w => GetOwner(w.Repository), comparer: StringComparer.OrdinalIgnoreCase)
-            .SelectMany(g => g.Take(maxIssues));
-
-        return [.. highPriority, .. regular];
-    }
-
-    private static bool IsHighPriority(WorkItem w)
-    {
-        return w.Priority >= WorkPriority.URGENT;
-    }
-
-    private static List<WorkItem> Deduplicate(IReadOnlyList<WorkItem> items)
-    {
-        return [.. items.DistinctBy(static w => (w.Repository, w.Id))];
-    }
-
-    private static WorkItem MapPullRequest(PullRequestRow row)
-    {
-        return new WorkItem(
-            Repository: row.Repository,
-            Id: row.Id,
-            ItemType: PULL_REQUEST_TYPE,
-            Priority: (WorkPriority)row.Priority,
-            FirstSeen: row.FirstSeen,
-            LastUpdated: row.LastUpdated,
-            Status: row.Status,
-            WhenClosed: row.WhenClosed,
-            IsOnHold: row.IsOnHold,
-            LinkedPrNumbers: [],
-            CommentCount: row.CommentCount,
-            ReviewDecision: MapReviewDecision(row.ReviewDecision, isPullRequest: true),
-            FailedCheckCount: row.FailedCheckCount,
-            FailedCheckNames: ParseFailedCheckNames(row.FailedCheckNames),
-            FailedCheckSha: row.FailedCheckSha,
-            Author: row.Author
+        return BuildIssue(
+            repository: row.Repository,
+            id: row.Id,
+            status: row.Status,
+            firstSeen: row.FirstSeen,
+            lastUpdated: row.LastUpdated,
+            whenClosed: row.WhenClosed,
+            priority: row.Priority,
+            isOnHold: row.IsOnHold,
+            linkedPrNumber: row.LinkedPrNumber
         );
     }
 
-    private static WorkItem MapIssue(IssueRow row)
+    public static WorkItem MapPullRequest(PullRequestRow row)
+    {
+        return BuildPullRequest(
+            repository: row.Repository,
+            id: row.Id,
+            status: row.Status,
+            firstSeen: row.FirstSeen,
+            lastUpdated: row.LastUpdated,
+            whenClosed: row.WhenClosed,
+            priority: row.Priority,
+            isOnHold: row.IsOnHold,
+            commentCount: row.CommentCount,
+            reviewDecision: row.ReviewDecision,
+            failedCheckCount: row.FailedCheckCount,
+            failedCheckNames: row.FailedCheckNames,
+            failedCheckSha: row.FailedCheckSha,
+            author: row.Author
+        );
+    }
+
+    public static WorkItem MapIssue(IssueRow row)
+    {
+        return BuildIssue(
+            repository: row.Repository,
+            id: row.Id,
+            status: row.Status,
+            firstSeen: row.FirstSeen,
+            lastUpdated: row.LastUpdated,
+            whenClosed: row.WhenClosed,
+            priority: row.Priority,
+            isOnHold: row.IsOnHold,
+            linkedPrNumber: row.LinkedPrNumber
+        );
+    }
+
+    private static WorkItem BuildPullRequest(
+        string repository,
+        int id,
+        string status,
+        in DateTimeOffset firstSeen,
+        in DateTimeOffset lastUpdated,
+        DateTimeOffset? whenClosed,
+        int priority,
+        bool isOnHold,
+        int commentCount,
+        string? reviewDecision,
+        int failedCheckCount,
+        string? failedCheckNames,
+        string? failedCheckSha,
+        string? author
+    )
     {
         return new WorkItem(
-            Repository: row.Repository,
-            Id: row.Id,
+            Repository: repository,
+            Id: id,
+            ItemType: PULL_REQUEST_TYPE,
+            Priority: (WorkPriority)priority,
+            FirstSeen: firstSeen,
+            LastUpdated: lastUpdated,
+            Status: status,
+            WhenClosed: whenClosed,
+            IsOnHold: isOnHold,
+            LinkedPrNumbers: [],
+            CommentCount: commentCount,
+            ReviewDecision: MapReviewDecision(reviewDecision, isPullRequest: true),
+            FailedCheckCount: failedCheckCount,
+            FailedCheckNames: ParseFailedCheckNames(failedCheckNames),
+            FailedCheckSha: failedCheckSha,
+            Author: author
+        );
+    }
+
+    private static WorkItem BuildIssue(
+        string repository,
+        int id,
+        string status,
+        in DateTimeOffset firstSeen,
+        in DateTimeOffset lastUpdated,
+        DateTimeOffset? whenClosed,
+        int priority,
+        bool isOnHold,
+        int? linkedPrNumber
+    )
+    {
+        return new WorkItem(
+            Repository: repository,
+            Id: id,
             ItemType: ISSUE_TYPE,
-            Priority: (WorkPriority)row.Priority,
-            FirstSeen: row.FirstSeen,
-            LastUpdated: row.LastUpdated,
-            Status: row.Status,
-            WhenClosed: row.WhenClosed,
-            IsOnHold: row.IsOnHold,
-            LinkedPrNumbers: row.LinkedPrNumber.HasValue ? [row.LinkedPrNumber.Value] : [],
+            Priority: (WorkPriority)priority,
+            FirstSeen: firstSeen,
+            LastUpdated: lastUpdated,
+            Status: status,
+            WhenClosed: whenClosed,
+            IsOnHold: isOnHold,
+            LinkedPrNumbers: linkedPrNumber.HasValue ? [linkedPrNumber.Value] : [],
             CommentCount: 0,
             ReviewDecision: ReviewDecisionState.NOT_APPLICABLE,
             FailedCheckCount: 0,
@@ -286,15 +295,5 @@ internal static class WorkItemMapping
             // Rows written before the JSON format may hold a comma list whose first name starts with '['.
             return SplitNames(names);
         }
-    }
-
-    private static bool IsPullRequest(WorkItem w)
-    {
-        return string.Equals(a: w.ItemType, b: PULL_REQUEST_TYPE, comparisonType: StringComparison.Ordinal);
-    }
-
-    private static string GetOwner(string repository)
-    {
-        return SplitRepository(repository).Owner;
     }
 }

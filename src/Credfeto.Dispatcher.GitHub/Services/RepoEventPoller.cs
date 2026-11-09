@@ -234,7 +234,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
         CancellationToken cancellationToken
     )
     {
-        List<(long Id, ApiEvent Event)> events = new(firstPageItems.Length);
+        List<(long Id, ApiEvent Event)> events = [with(firstPageItems.Length)];
         bool followNext = AddParsedEvents(page: firstPageItems, lastId: lastId, events: events) && lastId > 0;
         string? url = nextUrl;
         int pageCount = 1;
@@ -373,7 +373,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
     )
     {
         HashSet<long> considered = [];
-        List<ApiEvent> newEvents = new(events.Count);
+        List<ApiEvent> newEvents = [with(events.Count)];
         int skippedSeenCount = 0;
 
         foreach ((long id, ApiEvent ev) in events)

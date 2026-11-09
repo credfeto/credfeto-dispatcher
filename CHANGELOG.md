@@ -145,10 +145,10 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Docker image now uses the Azure Linux 3.0 distroless-extra runtime-deps base and runs as a non-root user, removing the apt-get upgrade layer
 - Refactored polling background services to extract shared polling loop from RepoEventPollerService, WorkItemScannerService, and GitHubPollingWorker into PollingBackgroundService base class, eliminating code duplication
 - Enable the configuration binding source generator for the server so options binding is trim/AOT safe and the build check passes
-- SDK - Updated DotNet SDK to 10.0.403
 - Repo event poller logs per-feed event counts and each upserted item with its on-hold state at Information level
 - Label filter list is now whitespace-filtered once when the GitHub polling worker, work item scanner and repo event poller are created, instead of for every pull request and issue on every scan (#199)
 - The /priorities ordering, filtering, per-repository top-issue selection and cap are now computed in the database by the new WorkItems_GetPrioritised stored procedure, with an equivalent LINQ implementation in the in-memory store, so only the prioritised work items are loaded
+- SDK - Updated DotNet SDK to 11.0.100-rc.3.26522.148
 ### Deprecated
 ### Removed
 - Removed IsUpToDate field from WorkItem and PullRequestDetails as it was never populated in production

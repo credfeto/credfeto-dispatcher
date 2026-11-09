@@ -17,13 +17,13 @@ public sealed class InMemoryDispatcherStore
     private const string CLOSED_STATUS = "Closed";
 
     private readonly Lock _gate = new();
-    private readonly Dictionary<string, bool> _repos = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, bool> _repos = [with(StringComparer.Ordinal)];
     private readonly Dictionary<(string Repository, int Id), PullRequestRow> _pullRequests = [];
     private readonly Dictionary<(string Repository, int Id), IssueRow> _issues = [];
     private readonly Dictionary<(string Repository, int Id), string[]> _pullRequestAssignees = [];
     private readonly Dictionary<(string Repository, int Id), string[]> _issueAssignees = [];
     private readonly Dictionary<(string Repository, int Id), string[]> _pullRequestCommitAuthors = [];
-    private readonly Dictionary<string, string> _pollingStates = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _pollingStates = [with(StringComparer.Ordinal)];
     private readonly TimeProvider _timeProvider;
 
     // Bumped on every mutating call (under _gate), so SnapshotWriterService can skip writing a

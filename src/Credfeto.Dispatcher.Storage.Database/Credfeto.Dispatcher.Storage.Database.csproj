@@ -5,6 +5,7 @@
     <AnalysisMode>AllEnabledByDefault</AnalysisMode>
     <BackupDatabaseBeforeChanges>True</BackupDatabaseBeforeChanges>
     <BlockOnPossibleDataLoss>True</BlockOnPossibleDataLoss>
+    <BundledNETCoreAppTargetFrameworkVersion>10.0</BundledNETCoreAppTargetFrameworkVersion>
     <CodeAnalysisRules>
       -Microsoft.Rules.Data.SR0007;
       -SqlServer.Rules.SRD0003;

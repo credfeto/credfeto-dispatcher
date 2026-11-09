@@ -6,6 +6,10 @@ WORKDIR /usr/src/app
 COPY Credfeto.Dispatcher.Server .
 COPY appsettings.json .
 
+# Fail the image build, not production, if the binary cannot start in this runtime base
+# (glibc, ICU, OpenSSL or DI problems). Exec form: the chiseled image has no shell.
+RUN [ "/usr/src/app/Credfeto.Dispatcher.Server", "--self-test" ]
+
 EXPOSE 8080
 EXPOSE 8081
 ENTRYPOINT [ "/usr/src/app/Credfeto.Dispatcher.Server" ]

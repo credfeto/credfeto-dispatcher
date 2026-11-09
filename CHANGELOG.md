@@ -47,6 +47,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Optional `user` query parameter on GET /priorities to exclude items assigned to other users (adopted bot PRs kept); persist pull request assignees and IsAdopted status in database
 - Add stateless MCP server on /mcp (Streamable HTTP) exposing priorities and db tools so AI assistants can query work item priorities and dispatcher database state, with supporting GetAll stored procedures and migration (#247)
 ### Fixed
+- Move the container runtime base to runtime-deps 11.0 resolute chiseled-extra (glibc 2.43) so the AOT binary built on Ubuntu 26.04 can start; on the azurelinux3.0 distroless base (glibc 2.38) the container restart-looped (#276)
 - /priorities no longer hides a user's issues behind an open PR that is assigned only to other people and not adopted, since that PR is never given to the user either (#260)
 - EF Core change-tracking comparers trimmed away at publish time causing MissingMethodException at startup; preserve EF Core and Ben.Demystifier assemblies as trimmer roots
 - preserve EF Core migration types as trimmer roots to prevent missing-table errors at runtime on trimmed binaries

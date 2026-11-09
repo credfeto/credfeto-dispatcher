@@ -17,6 +17,11 @@ internal static class Program
 
     public static async Task<int> Main(string[] args)
     {
+        if (SelfTest.IsSelfTest(args))
+        {
+            return await SelfTest.RunAsync(args);
+        }
+
         return HealthCheckClient.IsHealthCheck(args: args, out string? checkUrl)
             ? await RunHealthCheckAsync(checkUrl)
             : await RunServerAsync(args);

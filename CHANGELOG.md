@@ -15,6 +15,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Issue detail fetches now always use a relative API path resolved against the configured ApiBaseUrl proxy instead of the absolute notification URL, and fail with logging if the request would leave the proxy base address (#180)
 - Remove the committed server.pfx TLS private key from the repository and add a script to generate a local development certificate (#193)
 ### Added
+- `--self-test` switch: starts far enough to load ICU and OpenSSL, read configuration and build the service provider (resolving every hosted service), then exits 0 without binding ports or starting services; the Dockerfile runs it in the final image so a binary that cannot start in its runtime base fails the image build (#276)
 - Enable Native AOT publishing for the server project
 - Work item scanner background service that polls configured GitHub repositories for open pull requests and issues, updating notification state with priority, hold status, and linked PR information
 - Work item scanner auto-discovers GitHub repositories with write access via the API — no longer requires explicit Repos configuration. Uses AllowedOwners, AllowedRepos, and ExcludedRepos filters; empty filters mean scan all accessible repos.

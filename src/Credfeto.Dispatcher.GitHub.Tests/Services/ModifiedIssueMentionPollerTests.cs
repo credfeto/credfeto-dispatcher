@@ -95,6 +95,18 @@ public sealed class ModifiedIssueMentionPollerTests : TestBase
 
     private const string EMPTY_JSON = "[]";
 
+    private const string USER_REPOS_JSON = """
+        [
+          { "full_name": "owner/archived", "archived": true, "disabled": false, "permissions": { "push": true } },
+          { "full_name": "owner/disabled", "archived": false, "disabled": true, "permissions": { "push": true } },
+          { "full_name": "owner/readonly", "archived": false, "disabled": false, "permissions": { "push": false } },
+          { "full_name": "owner/nopermissions", "archived": false, "disabled": false },
+          { "full_name": "other/repo", "archived": false, "disabled": false, "permissions": { "push": true } },
+          { "full_name": "Owner/Excluded", "archived": false, "disabled": false, "permissions": { "push": true } },
+          { "full_name": "OWNER/repo", "archived": false, "disabled": false, "permissions": { "push": true } }
+        ]
+        """;
+
     private readonly IActiveRepoTracker _activeRepoTracker;
     private readonly IETagStore _eTagStore;
     private readonly System.Net.Http.IHttpClientFactory _httpClientFactory;
@@ -111,12 +123,17 @@ public sealed class ModifiedIssueMentionPollerTests : TestBase
 
     private ModifiedIssueMentionPoller CreatePoller()
     {
+        return this.CreatePoller(new GitHubFilterOptions { MentionedUser = MENTIONED_USER });
+    }
+
+    private ModifiedIssueMentionPoller CreatePoller(GitHubFilterOptions filter)
+    {
         GitHubRepoHelper helper = new(
             httpClientFactory: this._httpClientFactory,
             logger: this.GetTypedLogger<GitHubRepoHelper>()
         );
 
-        GitHubOptions options = new() { Filter = new GitHubFilterOptions { MentionedUser = MENTIONED_USER } };
+        GitHubOptions options = new() { Filter = filter };
 
         return new ModifiedIssueMentionPoller(
             helper: helper,
@@ -211,6 +228,91 @@ public sealed class ModifiedIssueMentionPollerTests : TestBase
 
         GitHubNotification notification = Assert.Single(result);
         Assert.Equal(expected: "modified-mention:owner/repo:issue:10:1704067200", actual: notification.Id);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task PollAsync_WithoutMentionedUser_ReturnsNothingWithoutQueryingReposAsync(string mentionedUser)
+    {
+        ModifiedIssueMentionPoller poller = this.CreatePoller(
+            new GitHubFilterOptions { MentionedUser = mentionedUser }
+        );
+
+        IReadOnlyList<GitHubNotification> result = await poller.PollAsync(this.CancellationToken());
+
+        Assert.Empty(result);
+        await this._activeRepoTracker.DidNotReceive().GetActiveReposAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task PollAsync_WithNoActiveRepos_PollsOnlyDiscoveredReposThatPassTheFilterAsync()
+    {
+        this._activeRepoTracker.GetActiveReposAsync(Arg.Any<CancellationToken>()).Returns([]);
+
+        (HttpClient reposClient, FixedResponseHandler reposHandler) = HttpClientTestFactory.CreateWithHandler(
+            statusCode: HttpStatusCode.OK,
+            content: USER_REPOS_JSON
+        );
+        (HttpClient issuesClient, FixedResponseHandler issuesHandler) = HttpClientTestFactory.CreateWithHandler(
+            statusCode: HttpStatusCode.OK,
+            content: PAGE_1_WITH_MENTION_JSON
+        );
+        this._httpClientFactory.CreateClient("GitHub").Returns(reposClient, issuesClient);
+
+        try
+        {
+            ModifiedIssueMentionPoller poller = this.CreatePoller(
+                new GitHubFilterOptions
+                {
+                    MentionedUser = MENTIONED_USER,
+                    AllowedOwners = ["owner"],
+                    ExcludedRepos = ["owner/excluded"],
+                }
+            );
+
+            IReadOnlyList<GitHubNotification> result = await poller.PollAsync(this.CancellationToken());
+
+            GitHubNotification notification = Assert.Single(result);
+            Assert.Equal(expected: "modified-mention:OWNER/repo:issue:10:1704067200", actual: notification.Id);
+            Assert.Contains(
+                expectedSubstring: "user/repos",
+                actualString: reposHandler.LastRequestUri?.AbsoluteUri,
+                comparisonType: StringComparison.Ordinal
+            );
+            Assert.Contains(
+                expectedSubstring: "repos/OWNER/repo/issues",
+                actualString: issuesHandler.LastRequestUri?.AbsoluteUri,
+                comparisonType: StringComparison.Ordinal
+            );
+        }
+        finally
+        {
+            reposClient.Dispose();
+            issuesClient.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task PollAsync_WhenNoReposAreActiveOrDiscovered_ReturnsNothingAsync()
+    {
+        this._activeRepoTracker.GetActiveReposAsync(Arg.Any<CancellationToken>()).Returns([]);
+
+        using HttpClient reposClient = HttpClientTestFactory.Create(statusCode: HttpStatusCode.OK, content: EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(reposClient);
+
+        ModifiedIssueMentionPoller poller = this.CreatePoller();
+
+        IReadOnlyList<GitHubNotification> result = await poller.PollAsync(this.CancellationToken());
+
+        Assert.Empty(result);
+        await this
+            ._eTagStore.DidNotReceive()
+            .SaveETagAsync(
+                key: Arg.Any<string>(),
+                eTag: Arg.Any<string>(),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
     }
 
     [Fact]

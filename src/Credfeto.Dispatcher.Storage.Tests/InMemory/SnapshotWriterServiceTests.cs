@@ -10,9 +10,9 @@ using Xunit;
 
 namespace Credfeto.Dispatcher.Storage.Tests.InMemory;
 
-// Exercises SnapshotWriterService.WriteIfChangedAsync (the single-tick dirty-check/save-skip
-// logic) directly rather than driving BackgroundService's own ExecuteAsync timer loop, against
-// a real DispatcherStoreSnapshotStore writing to a real temp directory - simpler and more
+// The single-tick tests exercise SnapshotWriterService.WriteIfChangedAsync (the dirty-check/save-skip
+// logic) directly, and one test drives the real BackgroundService ExecuteAsync loop end to end; all run
+// against a real DispatcherStoreSnapshotStore writing to a real temp directory - simpler and more
 // realistic than trying to substitute a sealed, non-virtual store.
 public sealed class SnapshotWriterServiceTests : LoggingFolderCleanupTestBase
 {
@@ -80,5 +80,43 @@ public sealed class SnapshotWriterServiceTests : LoggingFolderCleanupTestBase
         Assert.True(condition: loaded, userMessage: "Snapshot written after the mutation should be loadable");
         Assert.NotNull(data);
         Assert.Equal(expected: "etag", actual: Assert.Single(data.PollingStates).Value);
+    }
+
+    [Fact]
+    public async Task RunningTheServiceWritesASnapshotAndStopsCleanlyAsync()
+    {
+        await this._service.StartAsync(this.CancellationToken());
+
+        try
+        {
+            Assert.True(
+                condition: await this.WaitForFileAsync(this._snapshotFilePath),
+                userMessage: "The background loop should have written a snapshot on its first tick"
+            );
+        }
+        finally
+        {
+            await this._service.StopAsync(this.CancellationToken());
+        }
+
+        Assert.True(
+            condition: this._service.ExecuteTask?.IsCompletedSuccessfully == true,
+            userMessage: "The background loop should exit without faulting when stopped"
+        );
+    }
+
+    private async Task<bool> WaitForFileAsync(string path)
+    {
+        for (int attempt = 0; attempt < 100; attempt++)
+        {
+            if (File.Exists(path))
+            {
+                return true;
+            }
+
+            await Task.Delay(delay: TimeSpan.FromMilliseconds(50), cancellationToken: this.CancellationToken());
+        }
+
+        return File.Exists(path);
     }
 }

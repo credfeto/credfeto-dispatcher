@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
@@ -35,13 +36,19 @@ internal static class SelfTest
 
             int hostedServices = app.Services.GetServices<IHostedService>().Count();
 
-            await Console.Out.WriteLineAsync($"Self-test passed: {hostedServices} hosted services resolved");
+            await Console.Out.WriteLineAsync(
+                value: $"Self-test passed: {hostedServices} hosted services resolved",
+                cancellationToken: app.Lifetime.ApplicationStopping
+            );
 
             return 0;
         }
         catch (Exception exception)
         {
-            await Console.Error.WriteLineAsync($"Self-test failed: {exception.GetType().Name}: {exception.Message}");
+            await Console.Error.WriteLineAsync(
+                value: $"Self-test failed: {exception.GetType().Name}: {exception.Message}",
+                cancellationToken: CancellationToken.None
+            );
 
             return 1;
         }

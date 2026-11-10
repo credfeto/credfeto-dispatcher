@@ -66,6 +66,82 @@ public sealed class InMemoryNotificationStateTrackerTests : TestBase
         Assert.Empty(this.GetActiveIssues("octocat"));
     }
 
+    [Fact]
+    public async Task UpdateStateAsyncLinksEachDistinctLinkedIssueToThePullRequestAsync()
+    {
+        this.UpsertOpenIssue();
+
+        await this._tracker.UpdateStateAsync(
+            notification: CreateNotification(),
+            details: CreatePullRequestDetails(
+                commitAuthors: [],
+                linkedItems: [CreateLinkedItem(20), CreateLinkedItem(20)]
+            ),
+            priority: WorkPriority.MEDIUM,
+            isOnHold: false,
+            isAdopted: null,
+            cancellationToken: this.CancellationToken()
+        );
+
+        IssueRow issue = Assert.Single(this._store.ExportSnapshot().Issues);
+        Assert.Equal(expected: 1, actual: issue.LinkedPrNumber);
+    }
+
+    [Fact]
+    public async Task UpdateStateAsyncForIssueStoresTheIssueWithItsLinkedPullRequestAsync()
+    {
+        await this._tracker.UpdateStateAsync(
+            notification: CreateNotification(),
+            details: CreateIssueDetails(new Uri("https://github.com/owner/repo/pull/7")),
+            priority: WorkPriority.HIGH,
+            isOnHold: true,
+            cancellationToken: this.CancellationToken()
+        );
+
+        IssueRow issue = Assert.Single(this._store.ExportSnapshot().Issues);
+        Assert.Equal(expected: REPOSITORY, actual: issue.Repository);
+        Assert.Equal(expected: 20, actual: issue.Id);
+        Assert.Equal(expected: "Open", actual: issue.Status);
+        Assert.Equal(expected: (int)WorkPriority.HIGH, actual: issue.Priority);
+        Assert.True(condition: issue.IsOnHold, userMessage: "Issue should be stored as on hold");
+        Assert.Equal(expected: 7, actual: issue.LinkedPrNumber);
+    }
+
+    [Fact]
+    public async Task UpdateStateAsyncForIssueWithoutLinkedPullRequestStoresNoLinkAsync()
+    {
+        await this._tracker.UpdateStateAsync(
+            notification: CreateNotification(),
+            details: CreateIssueDetails(null),
+            priority: WorkPriority.MEDIUM,
+            isOnHold: false,
+            cancellationToken: this.CancellationToken()
+        );
+
+        IssueRow issue = Assert.Single(this._store.ExportSnapshot().Issues);
+        Assert.Null(issue.LinkedPrNumber);
+    }
+
+    private static LinkedItem CreateLinkedItem(int number)
+    {
+        return new LinkedItem(Number: number, Labels: [], Assignees: []);
+    }
+
+    private static IssueDetails CreateIssueDetails(Uri? linkedPullRequestUrl)
+    {
+        return new IssueDetails(
+            Number: 20,
+            Title: "Test issue",
+            Status: "Open",
+            HtmlUrl: new Uri("https://github.com/owner/repo/issues/20"),
+            Assignees: ["octocat"],
+            Labels: [],
+            LinkedPullRequestUrl: linkedPullRequestUrl,
+            Repository: new ItemRepository(Owner: "owner", Name: "repo", Url: new Uri("https://github.com/owner/repo")),
+            LastNotification: new LastNotification(Id: "notif-1", Timestamp: BaseTime)
+        );
+    }
+
     private IReadOnlyList<IssueRow> GetActiveIssues(string user)
     {
         (_, IReadOnlyList<IssueRow> issues) = this._store.GetActiveWorkItems(user: user);
@@ -90,7 +166,7 @@ public sealed class InMemoryNotificationStateTrackerTests : TestBase
     {
         return this._tracker.UpdateStateAsync(
             notification: CreateNotification(),
-            details: CreatePullRequestDetails(commitAuthors),
+            details: CreatePullRequestDetails(commitAuthors: commitAuthors, linkedItems: []),
             priority: WorkPriority.MEDIUM,
             isOnHold: false,
             isAdopted: null,
@@ -117,7 +193,10 @@ public sealed class InMemoryNotificationStateTrackerTests : TestBase
         );
     }
 
-    private static PullRequestDetails CreatePullRequestDetails(IReadOnlyList<string> commitAuthors)
+    private static PullRequestDetails CreatePullRequestDetails(
+        IReadOnlyList<string> commitAuthors,
+        IReadOnlyList<LinkedItem> linkedItems
+    )
     {
         Uri repoUri = new("https://github.com/owner/repo");
 
@@ -132,7 +211,7 @@ public sealed class InMemoryNotificationStateTrackerTests : TestBase
             Comments: [],
             Reviews: [],
             Runs: [],
-            LinkedItems: [],
+            LinkedItems: linkedItems,
             Repository: new ItemRepository(Owner: "owner", Name: "repo", Url: repoUri),
             LastNotification: new LastNotification(Id: "notif-1", Timestamp: BaseTime),
             Author: null,

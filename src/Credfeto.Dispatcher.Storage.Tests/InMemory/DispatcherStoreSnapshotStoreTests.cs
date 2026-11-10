@@ -129,6 +129,20 @@ public sealed class DispatcherStoreSnapshotStoreTests : LoggingFolderCleanupTest
     }
 
     [Fact]
+    public async Task SaveAsyncReturnsFalseAndRemovesTheTemporaryFileWhenTheTargetCannotBeReplacedAsync()
+    {
+        // A directory sitting at the snapshot's path makes the final rename fail after the
+        // temporary file has been written, exercising the failure and temp-file cleanup path.
+        string blockingDirectory = Path.Combine(path1: this.TempFolder, path2: FILE_NAME);
+        Directory.CreateDirectory(blockingDirectory);
+
+        bool saved = await this._store.SaveAsync(data: SampleData(), cancellationToken: this.CancellationToken());
+
+        Assert.False(condition: saved, userMessage: "SaveAsync should report failure when the rename fails");
+        Assert.Empty(Directory.GetFiles(this.TempFolder));
+    }
+
+    [Fact]
     public async Task SaveAsyncCreatesTheDirectoryWhenItDoesNotExistYetAsync()
     {
         string nestedDirectory = Path.Combine(path1: this.TempFolder, path2: "nested");

@@ -879,6 +879,9 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         Assert.NotNull(result);
         Assert.Single(result.Comments);
         Assert.Equal(expected: 301, actual: result.Comments[0].Body.Length);
-        Assert.True(result.Comments[0].Body.EndsWith('…'), userMessage: "Expected body to end with ellipsis");
+        Assert.True(
+            result.Comments[0].Body.EndsWith(value: '…', comparisonType: StringComparison.Ordinal),
+            userMessage: "Expected body to end with ellipsis"
+        );
     }
 }

@@ -149,6 +149,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Label filter list is now whitespace-filtered once when the GitHub polling worker, work item scanner and repo event poller are created, instead of for every pull request and issue on every scan (#199)
 - The /priorities ordering, filtering, per-repository top-issue selection and cap are now computed in the database by the new WorkItems_GetPrioritised stored procedure, with an equivalent LINQ implementation in the in-memory store, so only the prioritised work items are loaded
 - SDK - Updated DotNet SDK to 11.0.100-rc.3.26522.148
+- Target .NET 11 and enable runtime-async (#270)
 ### Deprecated
 ### Removed
 - Removed IsUpToDate field from WorkItem and PullRequestDetails as it was never populated in production

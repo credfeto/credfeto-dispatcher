@@ -278,7 +278,7 @@ internal static class WorkItemMapping
             return [];
         }
 
-        if (!names.StartsWith('['))
+        if (!names.StartsWith(value: '[', comparisonType: StringComparison.Ordinal))
         {
             return SplitNames(names);
         }

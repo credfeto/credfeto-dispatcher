@@ -24,10 +24,10 @@ public sealed class MigrationScriptTests : TestBase
 
     private static string ExtractPrefix(string resourceName)
     {
-        int lastDot = resourceName.LastIndexOf('.');
+        int lastDot = resourceName.LastIndexOf(value: '.', comparisonType: StringComparison.Ordinal);
         string fileName = lastDot >= 0 ? resourceName[..lastDot] : resourceName;
 
-        int lastSeparator = fileName.LastIndexOf('.');
+        int lastSeparator = fileName.LastIndexOf(value: '.', comparisonType: StringComparison.Ordinal);
         string scriptName = lastSeparator >= 0 ? fileName[(lastSeparator + 1)..] : fileName;
 
         int underscore = scriptName.IndexOf('_', StringComparison.Ordinal);

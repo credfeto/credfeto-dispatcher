@@ -97,6 +97,35 @@ public sealed class WorkItemRepositoryTests : TestBase
         Assert.Empty(item.LinkedPrNumbers);
     }
 
+    [Theory]
+    [InlineData("ChangesRequested", ReviewDecisionState.CHANGES_REQUESTED)]
+    [InlineData("changesrequested", ReviewDecisionState.CHANGES_REQUESTED)]
+    [InlineData("Commented", ReviewDecisionState.NOT_REVIEWED)]
+    [InlineData(null, ReviewDecisionState.NOT_REVIEWED)]
+    public async Task GetPrioritisedMapsPullRequestReviewDecisionAsync(
+        string? reviewDecision,
+        ReviewDecisionState expected
+    )
+    {
+        PrioritiesResponse response = await this.GetPrioritisedAsync([
+            CreateWorkItemRow("owner/repo", id: 1, itemType: "PullRequest", reviewDecision: reviewDecision),
+        ]);
+
+        WorkItem item = Assert.Single(response.Priorities);
+        Assert.Equal(expected: expected, actual: item.ReviewDecision);
+    }
+
+    [Fact]
+    public async Task GetPrioritisedIgnoresReviewDecisionOnIssueRowAsync()
+    {
+        PrioritiesResponse response = await this.GetPrioritisedAsync([
+            CreateWorkItemRow("owner/repo", id: 5, itemType: "Issue", reviewDecision: "Approved"),
+        ]);
+
+        WorkItem item = Assert.Single(response.Priorities);
+        Assert.Equal(expected: ReviewDecisionState.NOT_APPLICABLE, actual: item.ReviewDecision);
+    }
+
     [Fact]
     public async Task GetPrioritisedMapsIssueRowWithLinkedPullRequestAsync()
     {

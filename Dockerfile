@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/runtime-deps:11.0-resolute-chiseled-extra@sha256:40550ff1ce9a725731cfb8340b3dc179170a55591de535d4fe39ffed7bfcc347
+FROM mcr.microsoft.com/dotnet/runtime-deps:11.0-resolute-chiseled-extra@sha256:661d3e8cfdab9503453095a5b53b17f63402400266c0e0f6f2d1b1192e6da5c9
 
 WORKDIR /usr/src/app
 

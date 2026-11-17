@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
@@ -35,6 +35,8 @@ internal static class ServerStartup
     private const int HTTP_PORT = 8080;
     private const int HTTPS_PORT = 8081;
     private const int H2_PORT = 0;
+    private const string DATABASE_SECTION = "DatabaseConfiguration";
+    private const string GIT_HUB_SECTION = "GitHub";
 
     public static void SetThreads(int minThreads)
     {
@@ -108,14 +110,14 @@ internal static class ServerStartup
 
     private static WebApplicationBuilder ConfigureServices(this WebApplicationBuilder builder)
     {
-        IConfigurationSection databaseSection = builder.Configuration.GetSection("DatabaseConfiguration");
-        IConfigurationSection gitHubSection = builder.Configuration.GetSection("GitHub");
         IConfigurationSection snapshotSection = builder.Configuration.GetSection("Snapshot");
-        DatabaseConfiguration databaseConfiguration = databaseSection.Get<DatabaseConfiguration>() ?? new();
+        DatabaseConfiguration databaseConfiguration = builder
+            .Configuration.GetSection(DATABASE_SECTION)
+            .Get<DatabaseConfiguration>()
+            ?? new();
 
         builder
-            .Services.Configure<DatabaseConfiguration>(databaseSection)
-            .Configure<GitHubOptions>(gitHubSection)
+            .Services.AddValidatedOptions(builder.Configuration)
             .Configure<SnapshotOptions>(snapshotSection)
             .AddRandomNumbers()
             .AddRunOnStartupServices()
@@ -128,6 +130,17 @@ internal static class ServerStartup
             );
 
         return builder;
+    }
+
+    internal static IServiceCollection AddValidatedOptions(
+        this IServiceCollection services,
+        IConfiguration configuration
+    )
+    {
+        services.AddOptions<DatabaseConfiguration>().Bind(configuration.GetSection(DATABASE_SECTION)).ValidateOnStart();
+        services.AddOptions<GitHubOptions>().Bind(configuration.GetSection(GIT_HUB_SECTION)).ValidateOnStart();
+
+        return services;
     }
 
     private static WebApplicationBuilder ConfigureSettings(this WebApplicationBuilder builder, string configPath)
@@ -245,10 +258,8 @@ internal static class ServerStartup
         if (httpsPort != 0 && File.Exists(certFile))
         {
             Console.WriteLine($"Listening on HTTPS port: {httpsPort}");
-            options.Listen(
-                address: IPAddress.Any,
-                port: httpsPort,
-                configure: o => SetHttpsListenOptions(listenOptions: o, certFile: certFile)
+            options.Listen(address: IPAddress.Any, port: httpsPort, configure: o =>
+                SetHttpsListenOptions(listenOptions: o, certFile: certFile)
             );
         }
 

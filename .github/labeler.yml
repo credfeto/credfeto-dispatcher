@@ -22,6 +22,8 @@
   - any: ['src/Credfeto.Dispatcher.GitHub.Tests/**/*']
 "credfeto-dispatcher-server":
   - any: ['src/Credfeto.Dispatcher.Server/**/*']
+"credfeto-dispatcher-server-tests":
+  - any: ['src/Credfeto.Dispatcher.Server.Tests/**/*']
 "credfeto-dispatcher-shared":
   - any: ['src/Credfeto.Dispatcher.Shared/**/*']
 "credfeto-dispatcher-shared-tests":

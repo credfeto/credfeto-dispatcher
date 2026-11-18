@@ -160,6 +160,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Serilog.Enrichers.Demystifier package as it is not AOT-compatible
 - Ben.Demystifier dependency (transitive via Serilog.Enrichers.Demystifier) as it uses reflection and is not AOT-compatible
 - Removed the unused src/FunFair.props file
+- Removed unused Credfeto.Random package and AddRandomNumbers registration (#283)
 ### Deployment Changes
 - Removed Priorities configuration section; StuckDependabotTimeoutHours is now set under GitHub:Filter:StuckDependabotTimeoutHours and MaxIssues under GitHub:Filter:MaxIssues
 

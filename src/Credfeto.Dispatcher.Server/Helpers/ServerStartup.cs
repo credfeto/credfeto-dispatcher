@@ -14,7 +14,6 @@ using Credfeto.Dispatcher.Shared.Middleware;
 using Credfeto.Dispatcher.Storage;
 using Credfeto.Dispatcher.Storage.Configuration;
 using Credfeto.Dispatcher.Storage.InMemory;
-using Credfeto.Random;
 using Credfeto.Services.Startup;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -119,7 +118,6 @@ internal static class ServerStartup
         builder
             .Services.AddValidatedOptions(builder.Configuration)
             .Configure<SnapshotOptions>(snapshotSection)
-            .AddRandomNumbers()
             .AddRunOnStartupServices()
             .AddStorage(databaseConfiguration)
             .AddGitHub()

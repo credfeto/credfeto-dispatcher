@@ -17,5 +17,6 @@ internal sealed record ApiPullRequest(
     [property: JsonPropertyName("head")] ApiPullRequestHead Head,
     [property: JsonPropertyName("mergeable_state")] string? MergeableState,
     [property: JsonPropertyName("user")] ApiUser? User,
-    [property: JsonPropertyName("created_at")] DateTimeOffset CreatedAt
+    [property: JsonPropertyName("created_at")] DateTimeOffset CreatedAt,
+    [property: JsonPropertyName("url")] string? Url = null
 );

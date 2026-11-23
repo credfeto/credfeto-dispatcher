@@ -27,19 +27,6 @@ internal static partial class RepoEventPollerLoggingExtensions
     );
 
     [LoggerMessage(
-        EventId = 2,
-        Level = LogLevel.Information,
-        Message = "PR event upserted: {repo}#{number} action={action} isOnHold={isOnHold}"
-    )]
-    public static partial void LogProcessedPullRequestEvent(
-        this ILogger logger,
-        string repo,
-        int number,
-        string action,
-        bool isOnHold
-    );
-
-    [LoggerMessage(
         EventId = 3,
         Level = LogLevel.Information,
         Message = "Issue event upserted: {repo}#{number} action={action} isOnHold={isOnHold}"

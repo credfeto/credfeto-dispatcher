@@ -252,6 +252,38 @@ public sealed class WorkItemRefresherTests : TestBase
         Assert.Empty(this._tracker.SelectCandidates(5));
     }
 
+    [Fact]
+    public async Task RefreshPullRequestAsync_WithClosedOrMergedPullRequest_UpsertsItClosedAndStopsTrackingItAsync()
+    {
+        this._tracker.Observe(repo: REPO, number: 7, headSha: "sha7", isOnHold: false, isOpen: true);
+        WorkItemRefresher refresher = this.CreateRefresher(
+            details: BuildDetails(labels: ["AI-Work"]) with
+            {
+                Status = "Closed",
+            },
+            options: DependabotAdoptionOptions()
+        );
+
+        bool refreshed = await refresher.RefreshPullRequestAsync(
+            repo: REPO,
+            number: 7,
+            cancellationToken: this.CancellationToken()
+        );
+
+        Assert.True(refreshed, userMessage: "A closed PR is re-read and upserted");
+        await this
+            ._notificationStateTracker.Received(1)
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Is<PullRequestDetails>(d => d.Number == 7 && d.Status == "Closed"),
+                priority: Arg.Any<WorkPriority>(),
+                isOnHold: Arg.Any<bool>(),
+                isAdopted: Arg.Any<bool?>(),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+        Assert.Null(this._tracker.Get(repo: REPO, number: 7));
+    }
+
     private sealed class FixedPullRequestDetailFetcher : IPullRequestDetailFetcher
     {
         private readonly PullRequestDetails? _details;

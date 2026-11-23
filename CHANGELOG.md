@@ -119,6 +119,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Database and GitHub options are now bound with AddOptions<T>().Bind().ValidateOnStart() so invalid configuration fails host startup with a clear error instead of failing later at first use (#284)
 - /priorities refreshes continuously instead of catching up only on the hourly scan: the event poller re-reads PRs touched by reviews, review comments, PR comments and pushes to their branch, open PRs with unknown, pending or failed CI are re-checked each poll cycle with bounded conditional requests, and asOf/lagSeconds report the last complete sync rather than the newest served row (#292)
 - The event poller also re-reads a plain issue in a tracked repository when a human comments on it, so its stored state and lastUpdated stay current; comments by bots or the configured MentionedUser are skipped, and the re-reads share the MaxEventRefreshesPerPoll limit (#292)
+- PullRequestEvents are no longer dropped: the events API now trims payload.pull_request to its number, so every PR event in a tracked repo (opened, labeled, unlabeled, assigned, closed, merged, reopened, ...) re-reads that PR by number, de-duplicated and within MaxEventRefreshesPerPoll; an issue event with an incomplete payload re-reads the issue instead of being skipped (#292)
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934

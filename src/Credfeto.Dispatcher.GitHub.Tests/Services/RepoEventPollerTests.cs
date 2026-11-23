@@ -24,118 +24,6 @@ public sealed class RepoEventPollerTests : TestBase
 
     private const string EMPTY_JSON = "[]";
 
-    private const string PR_OPENED_EVENT_WITH_AI_WORK_LABEL_JSON = """
-        [{
-          "id": "100",
-          "type": "PullRequestEvent",
-          "repo": {"name": "owner/repo"},
-          "payload": {
-            "action": "opened",
-            "pull_request": {
-              "number": 40,
-              "title": "AI Work PR",
-              "state": "open",
-              "draft": false,
-              "html_url": "https://github.com/owner/repo/pull/40",
-              "assignees": [],
-              "labels": [{"name": "AI-Work"}],
-              "head": {"sha": "aaa111"},
-              "user": {"login": "dnyw4l3n13"}
-            }
-          },
-          "created_at": "2024-01-01T00:00:00Z"
-        }]
-        """;
-
-    private const string PR_OPENED_EVENT_WITH_UNRELATED_LABEL_JSON = """
-        [{
-          "id": "101",
-          "type": "PullRequestEvent",
-          "repo": {"name": "owner/repo"},
-          "payload": {
-            "action": "opened",
-            "pull_request": {
-              "number": 41,
-              "title": "Unrelated PR",
-              "state": "open",
-              "draft": false,
-              "html_url": "https://github.com/owner/repo/pull/41",
-              "assignees": [],
-              "labels": [{"name": "bug"}],
-              "head": {"sha": "bbb222"},
-              "user": {"login": "dnyw4l3n13"}
-            }
-          },
-          "created_at": "2024-01-01T00:00:00Z"
-        }]
-        """;
-
-    private const string PR_OPENED_EVENT_RESOLVING_OWN_ISSUE_JSON = """
-        [{
-          "id": "102",
-          "type": "PullRequestEvent",
-          "repo": {"name": "owner/repo"},
-          "payload": {
-            "action": "opened",
-            "pull_request": {
-              "number": 42,
-              "title": "Resolves own issue",
-              "state": "open",
-              "draft": false,
-              "html_url": "https://github.com/owner/repo/pull/42",
-              "assignees": [],
-              "labels": [{"name": "auto-pr"}],
-              "head": {"sha": "ccc333"},
-              "user": {"login": "dnyw4l3n13"}
-            }
-          },
-          "created_at": "2024-01-01T00:00:00Z"
-        }]
-        """;
-
-    private const string PR_CLOSED_THEN_OPENED_SAME_PR_JSON = """
-        [{
-          "id": "101",
-          "type": "PullRequestEvent",
-          "repo": {"name": "owner/repo"},
-          "payload": {
-            "action": "closed",
-            "pull_request": {
-              "number": 40,
-              "title": "AI Work PR",
-              "state": "closed",
-              "draft": false,
-              "html_url": "https://github.com/owner/repo/pull/40",
-              "assignees": [],
-              "labels": [{"name": "AI-Work"}],
-              "head": {"sha": "aaa111"},
-              "user": {"login": "dnyw4l3n13"}
-            }
-          },
-          "created_at": "2024-01-01T00:05:00Z"
-        },
-        {
-          "id": "100",
-          "type": "PullRequestEvent",
-          "repo": {"name": "owner/repo"},
-          "payload": {
-            "action": "opened",
-            "pull_request": {
-              "number": 40,
-              "title": "AI Work PR",
-              "state": "open",
-              "draft": false,
-              "html_url": "https://github.com/owner/repo/pull/40",
-              "assignees": [],
-              "labels": [{"name": "AI-Work"}],
-              "head": {"sha": "aaa111"},
-              "user": {"login": "dnyw4l3n13"}
-            }
-          },
-          "created_at": "2024-01-01T00:00:00Z"
-        }]
-        """;
-
     private const string ISSUE_OPENED_EVENT_WITH_AI_WORK_LABEL_JSON = """
         [{
           "id": "200",
@@ -208,10 +96,7 @@ public sealed class RepoEventPollerTests : TestBase
         this._eTagStore.GetETagAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns((string?)null);
     }
 
-    private RepoEventPoller CreatePoller(
-        GitHubOptions? options = null,
-        IPullRequestDetailFetcher? pullRequestDetailFetcher = null
-    )
+    private RepoEventPoller CreatePoller(GitHubOptions? options = null)
     {
         GitHubRepoHelper helper = new(
             httpClientFactory: this._httpClientFactory,
@@ -223,7 +108,6 @@ public sealed class RepoEventPollerTests : TestBase
             activeRepoTracker: this._activeRepoTracker,
             eTagStore: this._eTagStore,
             notificationStateTracker: this._notificationStateTracker,
-            pullRequestDetailFetcher: pullRequestDetailFetcher ?? new FakePullRequestDetailFetcher(result: null),
             workItemRefresher: this._workItemRefresher,
             checkRefresher: this._checkRefresher,
             checkTracker: this._checkTracker,
@@ -252,63 +136,6 @@ public sealed class RepoEventPollerTests : TestBase
         {
             handler?.Dispose();
         }
-    }
-
-    private sealed class FakePullRequestDetailFetcher : IPullRequestDetailFetcher
-    {
-        private readonly PullRequestDetails? _result;
-
-        public FakePullRequestDetailFetcher(PullRequestDetails? result)
-        {
-            this._result = result;
-        }
-
-        public int CallCount { get; private set; }
-
-        public ValueTask<PullRequestDetails?> FetchAsync(
-            GitHubNotification notification,
-            CancellationToken cancellationToken
-        )
-        {
-            this.CallCount++;
-
-            return ValueTask.FromResult(this._result);
-        }
-    }
-
-    private PullRequestDetails SinglePullRequestUpdate()
-    {
-        return Assert.Single(
-            this._notificationStateTracker.ReceivedCalls()
-                .Select(call => call.GetArguments()[1])
-                .OfType<PullRequestDetails>()
-        );
-    }
-
-    private static PullRequestDetails BuildEnrichedDetails(
-        string? author,
-        IReadOnlyList<string> commitAuthors,
-        IReadOnlyList<LinkedItem> linkedItems
-    )
-    {
-        return new PullRequestDetails(
-            Number: 42,
-            Title: "Resolves own issue",
-            Status: "Open",
-            HtmlUrl: new Uri("https://github.com/owner/repo/pull/42"),
-            Assignees: [],
-            Labels: [],
-            Body: null,
-            Comments: [],
-            Reviews: [],
-            Runs: [],
-            LinkedItems: linkedItems,
-            Repository: new ItemRepository(Owner: "owner", Name: "repo", Url: new Uri("https://github.com/owner/repo")),
-            LastNotification: new LastNotification(Id: "event:owner/repo:pr:42", Timestamp: DateTimeOffset.MinValue),
-            Author: author,
-            CommitAuthors: commitAuthors,
-            HasDetail: true
-        );
     }
 
     private static string BuildIssueEventJson(string id, string number)
@@ -356,192 +183,6 @@ public sealed class RepoEventPollerTests : TestBase
     {
         this._eTagStore.GetETagAsync(REPO_LAST_ID_KEY, Arg.Any<CancellationToken>()).Returns(lastId);
         this._eTagStore.GetETagAsync(REPO_SEEN_IDS_KEY, Arg.Any<CancellationToken>()).Returns(seenIds);
-    }
-
-    [Fact]
-    public async Task PollAsync_WithPrEventMatchingLabelFilter_CallsUpdateStateAsync()
-    {
-        using HttpClient repoFeedClient = CreateClient(HttpStatusCode.OK, PR_OPENED_EVENT_WITH_AI_WORK_LABEL_JSON);
-        using HttpClient ownerFeedClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
-        this._httpClientFactory.CreateClient("GitHub").Returns(repoFeedClient, ownerFeedClient);
-
-        GitHubOptions options = new() { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } };
-        RepoEventPoller poller = this.CreatePoller(options);
-
-        await poller.PollAsync(this.CancellationToken());
-
-        await this
-            ._notificationStateTracker.Received(1)
-            .UpdateStateAsync(
-                notification: Arg.Any<GitHubNotification>(),
-                details: Arg.Is<PullRequestDetails>(d => d.Number == 40 && !d.HasDetail),
-                priority: Arg.Any<WorkPriority>(),
-                isOnHold: Arg.Any<bool>(),
-                isAdopted: Arg.Any<bool?>(),
-                cancellationToken: Arg.Any<CancellationToken>()
-            );
-    }
-
-    [Fact]
-    public async Task PollAsync_WithPrClosedThenOpenedEventsInSameBatch_AppliesEventsOldestFirstSoClosedStateWinsAsync()
-    {
-        using HttpClient repoFeedClient = CreateClient(HttpStatusCode.OK, PR_CLOSED_THEN_OPENED_SAME_PR_JSON);
-        using HttpClient ownerFeedClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
-        this._httpClientFactory.CreateClient("GitHub").Returns(repoFeedClient, ownerFeedClient);
-
-        GitHubOptions options = new() { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } };
-        RepoEventPoller poller = this.CreatePoller(options);
-
-        await poller.PollAsync(this.CancellationToken());
-
-        List<string> statusesInCallOrder =
-        [
-            .. this
-                ._notificationStateTracker.ReceivedCalls()
-                .Select(call => call.GetArguments()[1])
-                .OfType<PullRequestDetails>()
-                .Select(details => details.Status),
-        ];
-
-        Assert.Equal(expected: ["Open", "Closed"], actual: statusesInCallOrder);
-    }
-
-    [Fact]
-    public async Task PollAsync_WithPrEventFailingLabelFilterAndNoEnrichment_DoesNotCallUpdateStateAsync()
-    {
-        using HttpClient repoFeedClient = CreateClient(HttpStatusCode.OK, PR_OPENED_EVENT_WITH_UNRELATED_LABEL_JSON);
-        using HttpClient ownerFeedClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
-        this._httpClientFactory.CreateClient("GitHub").Returns(repoFeedClient, ownerFeedClient);
-
-        GitHubOptions options = new() { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } };
-        RepoEventPoller poller = this.CreatePoller(options);
-
-        await poller.PollAsync(this.CancellationToken());
-
-        await this
-            ._notificationStateTracker.DidNotReceive()
-            .UpdateStateAsync(
-                notification: Arg.Any<GitHubNotification>(),
-                details: Arg.Any<PullRequestDetails>(),
-                priority: Arg.Any<WorkPriority>(),
-                isOnHold: Arg.Any<bool>(),
-                isAdopted: Arg.Any<bool?>(),
-                cancellationToken: Arg.Any<CancellationToken>()
-            );
-    }
-
-    [Fact]
-    public async Task PollAsync_WithPrEventFailingLabelFilterButResolvingOwnAssignedIssue_CallsUpdateWithElevatedPriorityAsync()
-    {
-        using HttpClient repoFeedClient = CreateClient(HttpStatusCode.OK, PR_OPENED_EVENT_RESOLVING_OWN_ISSUE_JSON);
-        using HttpClient ownerFeedClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
-        this._httpClientFactory.CreateClient("GitHub").Returns(repoFeedClient, ownerFeedClient);
-
-        LinkedItem linkedIssue = new(Number: 442, Labels: ["AI-Work", "urgent"], Assignees: ["dnyw4l3n13"]);
-        PullRequestDetails enriched = BuildEnrichedDetails(
-            author: "dnyw4l3n13",
-            commitAuthors: ["dnyw4l3n13"],
-            linkedItems: [linkedIssue]
-        );
-        FakePullRequestDetailFetcher fetcher = new(enriched);
-
-        GitHubOptions options = new() { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } };
-        RepoEventPoller poller = this.CreatePoller(options: options, pullRequestDetailFetcher: fetcher);
-
-        await poller.PollAsync(this.CancellationToken());
-
-        await this
-            ._notificationStateTracker.Received(1)
-            .UpdateStateAsync(
-                notification: Arg.Any<GitHubNotification>(),
-                details: Arg.Is<PullRequestDetails>(d => d.Number == 42),
-                priority: WorkPriority.URGENT,
-                isOnHold: Arg.Any<bool>(),
-                isAdopted: Arg.Any<bool?>(),
-                cancellationToken: Arg.Any<CancellationToken>()
-            );
-    }
-
-    [Fact]
-    public async Task PollAsync_WithPrEventFailingLabelFilterButResolvingOwnAssignedIssue_StoresEnrichedCommitAuthorsAsync()
-    {
-        using HttpClient repoFeedClient = CreateClient(HttpStatusCode.OK, PR_OPENED_EVENT_RESOLVING_OWN_ISSUE_JSON);
-        using HttpClient ownerFeedClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
-        this._httpClientFactory.CreateClient("GitHub").Returns(repoFeedClient, ownerFeedClient);
-
-        LinkedItem linkedIssue = new(Number: 442, Labels: ["AI-Work", "urgent"], Assignees: ["dnyw4l3n13"]);
-        PullRequestDetails enriched = BuildEnrichedDetails(
-            author: "dnyw4l3n13",
-            commitAuthors: ["dnyw4l3n13"],
-            linkedItems: [linkedIssue]
-        );
-        FakePullRequestDetailFetcher fetcher = new(enriched);
-
-        GitHubOptions options = new() { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } };
-        RepoEventPoller poller = this.CreatePoller(options: options, pullRequestDetailFetcher: fetcher);
-
-        await poller.PollAsync(this.CancellationToken());
-
-        PullRequestDetails details = this.SinglePullRequestUpdate();
-        Assert.Equal(expected: 42, actual: details.Number);
-        Assert.Equal(expected: ["dnyw4l3n13"], actual: details.CommitAuthors);
-    }
-
-    [Fact]
-    public async Task PollAsync_WithPrEventMatchingLabelFilter_DoesNotEnrichAndStoresUnknownCommitAuthorsAsync()
-    {
-        using HttpClient repoFeedClient = CreateClient(HttpStatusCode.OK, PR_OPENED_EVENT_WITH_AI_WORK_LABEL_JSON);
-        using HttpClient ownerFeedClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
-        this._httpClientFactory.CreateClient("GitHub").Returns(repoFeedClient, ownerFeedClient);
-
-        PullRequestDetails enriched = BuildEnrichedDetails(
-            author: "dnyw4l3n13",
-            commitAuthors: ["dnyw4l3n13"],
-            linkedItems: []
-        );
-        FakePullRequestDetailFetcher fetcher = new(enriched);
-
-        GitHubOptions options = new() { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } };
-        RepoEventPoller poller = this.CreatePoller(options: options, pullRequestDetailFetcher: fetcher);
-
-        await poller.PollAsync(this.CancellationToken());
-
-        PullRequestDetails details = this.SinglePullRequestUpdate();
-        Assert.Equal(expected: 40, actual: details.Number);
-        Assert.Empty(details.CommitAuthors);
-        Assert.Equal(expected: 0, actual: fetcher.CallCount);
-    }
-
-    [Fact]
-    public async Task PollAsync_WithPrEventFailingLabelFilterAndLinkedIssueAssignedToSomeoneElse_DoesNotCallUpdateStateAsync()
-    {
-        using HttpClient repoFeedClient = CreateClient(HttpStatusCode.OK, PR_OPENED_EVENT_RESOLVING_OWN_ISSUE_JSON);
-        using HttpClient ownerFeedClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
-        this._httpClientFactory.CreateClient("GitHub").Returns(repoFeedClient, ownerFeedClient);
-
-        LinkedItem linkedIssue = new(Number: 442, Labels: ["AI-Work"], Assignees: ["someone-else"]);
-        PullRequestDetails enriched = BuildEnrichedDetails(
-            author: "dnyw4l3n13",
-            commitAuthors: ["dnyw4l3n13"],
-            linkedItems: [linkedIssue]
-        );
-        FakePullRequestDetailFetcher fetcher = new(enriched);
-
-        GitHubOptions options = new() { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } };
-        RepoEventPoller poller = this.CreatePoller(options: options, pullRequestDetailFetcher: fetcher);
-
-        await poller.PollAsync(this.CancellationToken());
-
-        await this
-            ._notificationStateTracker.DidNotReceive()
-            .UpdateStateAsync(
-                notification: Arg.Any<GitHubNotification>(),
-                details: Arg.Any<PullRequestDetails>(),
-                priority: Arg.Any<WorkPriority>(),
-                isOnHold: Arg.Any<bool>(),
-                isAdopted: Arg.Any<bool?>(),
-                cancellationToken: Arg.Any<CancellationToken>()
-            );
     }
 
     [Fact]
@@ -1324,33 +965,151 @@ public sealed class RepoEventPollerTests : TestBase
         Assert.Equal(expected: 90, actual: interval);
     }
 
-    [Fact]
-    public async Task PollAsync_WithPrOpenedEvent_TracksThePullRequestForTheCheckRefreshAsync()
+    private static string TrimmedPullRequestEventJson(string id, int number, string action, string repo = REPO)
     {
-        using HttpClient repoFeedClient = CreateClient(HttpStatusCode.OK, PR_OPENED_EVENT_WITH_AI_WORK_LABEL_JSON);
-        using HttpClient ownerFeedClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
-        this._httpClientFactory.CreateClient("GitHub").Returns(repoFeedClient, ownerFeedClient);
-
-        GitHubOptions options = new() { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } };
-
-        await this.CreatePoller(options).PollAsync(this.CancellationToken());
-
-        PullRequestCheckState tracked = Assert.Single(this._checkTracker.SelectCandidates(5));
-        Assert.Equal(expected: 40, actual: tracked.Number);
-        Assert.Equal(expected: "aaa111", actual: tracked.HeadSha);
+        // The shape the Events API sends now: no html_url, title, state or labels.
+        return BuildEventJson(
+            id: id,
+            type: "PullRequestEvent",
+            payload: $$$"""
+            {"action": "{{{action}}}", "number": {{{number}}},
+              "pull_request": {"id": 1{{{number}}}, "number": {{{number}}},
+                "url": "https://api.github.com/repos/{{{repo}}}/pulls/{{{number}}}",
+                "base": {"ref": "main", "sha": "aaa111"}, "head": {"ref": "feature/x", "sha": "bbb222"}}
+            }
+            """,
+            repo: repo
+        );
     }
 
     [Fact]
-    public async Task PollAsync_WithPrClosedEvent_StopsTrackingThePullRequestAsync()
+    public async Task PollAsync_WithTrimmedPrEventPayload_RefreshesThePullRequestByNumberAsync()
     {
-        using HttpClient repoFeedClient = CreateClient(HttpStatusCode.OK, PR_CLOSED_THEN_OPENED_SAME_PR_JSON);
-        using HttpClient ownerFeedClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
-        this._httpClientFactory.CreateClient("GitHub").Returns(repoFeedClient, ownerFeedClient);
-
         GitHubOptions options = new() { Filter = new GitHubFilterOptions { LabelFilter = ["AI-Work"] } };
 
-        await this.CreatePoller(options).PollAsync(this.CancellationToken());
+        await this.PollWithRepoFeedAsync(
+            [TrimmedPullRequestEventJson(id: "400", number: 40, action: "opened")],
+            options: options
+        );
 
-        Assert.Equal(expected: 0, actual: this._checkTracker.Count);
+        Assert.Equal(expected: [(REPO, 40)], actual: this.RefreshedPullRequests());
+        Assert.Empty(this._notificationStateTracker.ReceivedCalls());
+    }
+
+    [Theory]
+    [InlineData("labeled")]
+    [InlineData("unlabeled")]
+    [InlineData("assigned")]
+    [InlineData("closed")]
+    [InlineData("reopened")]
+    [InlineData("synchronize")]
+    public async Task PollAsync_WithPrEventOfAnyAction_RefreshesThePullRequestAsync(string action)
+    {
+        await this.PollWithRepoFeedAsync([TrimmedPullRequestEventJson(id: "401", number: 41, action: action)]);
+
+        Assert.Equal(expected: [(REPO, 41)], actual: this.RefreshedPullRequests());
+    }
+
+    [Fact]
+    public async Task PollAsync_WithPrEventCarryingOnlyTheUrl_TakesTheNumberFromTheUrlAsync()
+    {
+        await this.PollWithRepoFeedAsync([
+            BuildEventJson(
+                id: "402",
+                type: "PullRequestEvent",
+                payload: """
+                {"action": "closed", "pull_request": {"url": "https://api.github.com/repos/owner/repo/pulls/44"}}
+                """
+            ),
+        ]);
+
+        Assert.Equal(expected: [(REPO, 44)], actual: this.RefreshedPullRequests());
+    }
+
+    [Fact]
+    public async Task PollAsync_WithPrEventInUntrackedRepo_RefreshesNothingAsync()
+    {
+        await this.PollWithRepoFeedAsync([
+            TrimmedPullRequestEventJson(id: "403", number: 40, action: "labeled", repo: "owner/untracked"),
+        ]);
+
+        Assert.Empty(this._workItemRefresher.ReceivedCalls());
+    }
+
+    [Fact]
+    public async Task PollAsync_WithSeveralPrEventsForOnePullRequest_RefreshesItOnceAsync()
+    {
+        await this.PollWithRepoFeedAsync([
+            TrimmedPullRequestEventJson(id: "406", number: 40, action: "closed"),
+            ReviewEventJson(id: "405", number: 40),
+            TrimmedPullRequestEventJson(id: "404", number: 40, action: "labeled"),
+        ]);
+
+        Assert.Equal(expected: [(REPO, 40)], actual: this.RefreshedPullRequests());
+    }
+
+    [Fact]
+    public async Task PollAsync_WithMorePrEventsThanTheBudget_DefersTheRestAsync()
+    {
+        GitHubOptions options = new() { Filter = new GitHubFilterOptions { MaxEventRefreshesPerPoll = 2 } };
+
+        await this.PollWithRepoFeedAsync(
+            [
+                TrimmedPullRequestEventJson(id: "409", number: 42, action: "labeled"),
+                TrimmedPullRequestEventJson(id: "408", number: 41, action: "unlabeled"),
+                TrimmedPullRequestEventJson(id: "407", number: 40, action: "opened"),
+            ],
+            options: options
+        );
+
+        Assert.Equal(expected: [(REPO, 40), (REPO, 41)], actual: this.RefreshedPullRequests());
+        PullRequestCheckState deferred = Assert.Single(this._checkTracker.SelectCandidates(5));
+        Assert.Equal(expected: 42, actual: deferred.Number);
+        await this
+            ._feedFreshnessStore.DidNotReceive()
+            .RecordSyncAsync(syncedAt: Arg.Any<DateTimeOffset>(), cancellationToken: Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task PollAsync_WithIssueEventMissingFields_RefreshesTheIssueByNumberAsync()
+    {
+        await this.PollWithRepoFeedAsync([
+            BuildEventJson(
+                id: "410",
+                type: "IssuesEvent",
+                payload: """{"action": "labeled", "issue": {"number": 53, "state": "open"}}"""
+            ),
+        ]);
+
+        Assert.Equal(expected: ["/repos/owner/repo/issues/53"], actual: this.RefreshedIssues());
+        Assert.Empty(this._notificationStateTracker.ReceivedCalls());
+    }
+
+    [Fact]
+    public async Task PollAsync_WithIssueEventCarryingOnlyTheUrl_TakesTheNumberFromTheUrlAsync()
+    {
+        await this.PollWithRepoFeedAsync([
+            BuildEventJson(
+                id: "411",
+                type: "IssuesEvent",
+                payload: """
+                {"action": "closed", "issue": {"url": "https://api.github.com/repos/owner/repo/issues/54"}}
+                """
+            ),
+        ]);
+
+        Assert.Equal(expected: ["/repos/owner/repo/issues/54"], actual: this.RefreshedIssues());
+    }
+
+    [Theory]
+    [InlineData("https://api.github.com/repos/owner/repo/pulls/45", 45)]
+    [InlineData("https://api.github.com/repos/owner/repo/issues/46/", 46)]
+    [InlineData("https://api.github.com/repos/owner/repo/pulls/abc", 0)]
+    [InlineData("https://api.github.com/repos/owner/repo/pulls/-3", 0)]
+    [InlineData("", 0)]
+    [InlineData(null, 0)]
+    public static void ParseTrailingNumber_TakesOnlyAPositiveNumberAtTheEnd(string? url, int expected)
+    {
+        Assert.Equal(expected: expected, actual: RepoEventPoller.ParseTrailingNumber(url));
     }
 }

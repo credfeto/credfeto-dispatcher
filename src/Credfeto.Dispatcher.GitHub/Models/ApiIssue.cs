@@ -15,5 +15,6 @@ internal sealed record ApiIssue(
     [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt,
     [property: JsonPropertyName("assignees")] IReadOnlyList<ApiUser>? Assignees,
     [property: JsonPropertyName("labels")] IReadOnlyList<ApiLabel>? Labels,
-    [property: JsonPropertyName("pull_request")] ApiIssuePullRequest? PullRequest
+    [property: JsonPropertyName("pull_request")] ApiIssuePullRequest? PullRequest,
+    [property: JsonPropertyName("url")] string? Url = null
 );

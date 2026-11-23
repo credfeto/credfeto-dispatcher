@@ -55,11 +55,15 @@ public sealed class WorkItemRefresherTests : TestBase
         };
     }
 
-    private WorkItemRefresher CreateRefresher(PullRequestDetails? details, GitHubOptions options)
+    private WorkItemRefresher CreateRefresher(
+        PullRequestDetails? details,
+        GitHubOptions options,
+        IssueDetails? issueDetails = null
+    )
     {
         return new WorkItemRefresher(
             pullRequestDetailFetcher: new FixedPullRequestDetailFetcher(details),
-            issueDetailFetcher: GetSubstitute<IIssueDetailFetcher>(),
+            issueDetailFetcher: new FixedIssueDetailFetcher(issueDetails),
             notificationStateTracker: this._notificationStateTracker,
             checkTracker: this._tracker,
             options: Options.Create(options),
@@ -282,6 +286,104 @@ public sealed class WorkItemRefresherTests : TestBase
                 cancellationToken: Arg.Any<CancellationToken>()
             );
         Assert.Null(this._tracker.Get(repo: REPO, number: 7));
+    }
+
+    private static IssueDetails BuildIssueDetails(Uri? linkedPullRequestUrl)
+    {
+        return new IssueDetails(
+            Number: 292,
+            Title: "Issue",
+            Status: "Open",
+            HtmlUrl: new Uri("https://github.com/owner/repo/issues/292"),
+            Assignees: [],
+            Labels: ["AI-Work"],
+            LinkedPullRequestUrl: linkedPullRequestUrl,
+            Repository: new ItemRepository(Owner: "owner", Name: "repo", Url: new Uri("https://github.com/owner/repo")),
+            LastNotification: new LastNotification(Id: "n", Timestamp: DateTimeOffset.MinValue)
+        );
+    }
+
+    private static GitHubNotification IssueNotification()
+    {
+        return SyntheticNotifications.BuildIssueApiNotification(
+            idPrefix: "test",
+            repo: REPO,
+            number: 292,
+            updatedAt: Now
+        );
+    }
+
+    [Fact]
+    public async Task RefreshIssueAsync_WithLabelPassingIssue_UpsertsItAsync()
+    {
+        WorkItemRefresher refresher = this.CreateRefresher(
+            details: null,
+            options: DependabotAdoptionOptions(),
+            issueDetails: BuildIssueDetails(linkedPullRequestUrl: null)
+        );
+
+        bool refreshed = await refresher.RefreshIssueAsync(
+            notification: IssueNotification(),
+            cancellationToken: this.CancellationToken()
+        );
+
+        Assert.True(refreshed, userMessage: "Expected the issue to be refreshed");
+        await this
+            ._notificationStateTracker.Received(1)
+            .UpdateStateAsync(
+                notification: Arg.Any<GitHubNotification>(),
+                details: Arg.Is<IssueDetails>(d => d.Number == 292),
+                priority: Arg.Any<WorkPriority>(),
+                isOnHold: false,
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task RefreshIssueAsync_WhenTheNumberIsAPullRequest_DoesNotUpsertAsync()
+    {
+        WorkItemRefresher refresher = this.CreateRefresher(
+            details: null,
+            options: DependabotAdoptionOptions(),
+            issueDetails: BuildIssueDetails(linkedPullRequestUrl: new Uri("https://github.com/owner/repo/pull/292"))
+        );
+
+        bool refreshed = await refresher.RefreshIssueAsync(
+            notification: IssueNotification(),
+            cancellationToken: this.CancellationToken()
+        );
+
+        Assert.False(refreshed, userMessage: "A PR read through the issues API is not upserted as an issue");
+        Assert.Empty(this._notificationStateTracker.ReceivedCalls());
+    }
+
+    [Fact]
+    public async Task RefreshIssueAsync_WhenTheIssueDoesNotExist_DoesNotUpsertAsync()
+    {
+        WorkItemRefresher refresher = this.CreateRefresher(details: null, options: DependabotAdoptionOptions());
+
+        bool refreshed = await refresher.RefreshIssueAsync(
+            notification: IssueNotification(),
+            cancellationToken: this.CancellationToken()
+        );
+
+        Assert.False(refreshed, userMessage: "A missing issue is not upserted");
+        Assert.Empty(this._notificationStateTracker.ReceivedCalls());
+    }
+
+    private sealed class FixedIssueDetailFetcher : IIssueDetailFetcher
+    {
+        private readonly IssueDetails? _details;
+
+        public FixedIssueDetailFetcher(IssueDetails? details)
+        {
+            this._details = details;
+        }
+
+        public ValueTask<IssueDetails?> FetchAsync(GitHubNotification notification, CancellationToken cancellationToken)
+        {
+            return ValueTask.FromResult(this._details);
+        }
     }
 
     private sealed class FixedPullRequestDetailFetcher : IPullRequestDetailFetcher

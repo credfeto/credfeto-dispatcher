@@ -1140,4 +1140,145 @@ public sealed class RepoEventPollerTests : TestBase
     {
         Assert.Equal(expected: expected, actual: RepoEventPoller.ParseTrailingNumber(url));
     }
+
+    private static string CreateEventJson(string id, string refName, string refType = "branch", string repo = REPO)
+    {
+        return BuildEventJson(
+            id: id,
+            type: "CreateEvent",
+            payload: $$"""
+            {"ref": "{{refName}}", "ref_type": "{{refType}}", "master_branch": "main", "pusher_type": "user"}
+            """,
+            repo: repo
+        );
+    }
+
+    [Theory]
+    [InlineData("fix/292-feed-continuous-refresh", "/repos/owner/repo/issues/292")]
+    [InlineData("feat/6-thing", "/repos/owner/repo/issues/6")]
+    [InlineData("292-thing", "/repos/owner/repo/issues/292")]
+    [InlineData("issue-292-thing", "/repos/owner/repo/issues/292")]
+    public async Task PollAsync_WithNewBranchNamingAnIssue_RefreshesThatIssueOnlyAsync(string branch, string issuePath)
+    {
+        await this.PollWithRepoFeedAsync([CreateEventJson(id: "500", refName: branch)]);
+
+        Assert.Equal(expected: [issuePath], actual: this.RefreshedIssues());
+        Assert.Empty(this.RefreshedPullRequests());
+        Assert.Empty(this._notificationStateTracker.ReceivedCalls());
+    }
+
+    [Theory]
+    [InlineData("v1.2.3", "tag")]
+    [InlineData("292-thing", "tag")]
+    [InlineData("feature/add-thing", "branch")]
+    [InlineData("main", "branch")]
+    [InlineData("main", "repository")]
+    public async Task PollAsync_WithNewTagOrUnnumberedBranch_RefreshesNothingAsync(string refName, string refType)
+    {
+        await this.PollWithRepoFeedAsync([CreateEventJson(id: "501", refName: refName, refType: refType)]);
+
+        Assert.Empty(this._workItemRefresher.ReceivedCalls());
+    }
+
+    [Fact]
+    public async Task PollAsync_WithNewBranchInUntrackedRepo_RefreshesNothingAsync()
+    {
+        await this.PollWithRepoFeedAsync([
+            CreateEventJson(id: "502", refName: "fix/292-thing", repo: "owner/untracked"),
+        ]);
+
+        Assert.Empty(this._workItemRefresher.ReceivedCalls());
+    }
+
+    [Theory]
+    [InlineData("depends/update-sdk", "depends%2Fupdate-sdk")]
+    [InlineData("dependabot/nuget/src/Foo-1.2.3", "dependabot%2Fnuget%2Fsrc%2FFoo-1.2.3")]
+    public async Task PollAsync_WithNewDependencyBranch_LooksUpItsOpenPullRequestAndRefreshesItAsync(
+        string branch,
+        string escapedBranch
+    )
+    {
+        using SequencedResponseHandler handler = new(
+            Ok(BuildFeedJson([CreateEventJson(id: "503", refName: branch)])),
+            Ok(EMPTY_JSON),
+            Ok("""[{"number": 77, "title": "Bump", "state": "open", "head": {"sha": "abc", "ref": "x"}}]""")
+        );
+        using HttpClient client = this.UseSequencedClient(handler);
+
+        await this.CreatePoller().PollAsync(this.CancellationToken());
+
+        Assert.Equal(
+            expected: "/repos/owner/repo/pulls?state=open&head=owner:" + escapedBranch + "&per_page=10",
+            actual: handler.RequestUris[2]?.PathAndQuery
+        );
+        Assert.Equal(expected: [(REPO, 77)], actual: this.RefreshedPullRequests());
+        Assert.Empty(this.RefreshedIssues());
+    }
+
+    [Fact]
+    public async Task PollAsync_WithNewDependencyBranchWithoutAPullRequestYet_RefreshesNothingAsync()
+    {
+        using SequencedResponseHandler handler = new(
+            Ok(BuildFeedJson([CreateEventJson(id: "504", refName: "dependabot/npm/left-pad-2.0.0")])),
+            Ok(EMPTY_JSON),
+            Ok(EMPTY_JSON)
+        );
+        using HttpClient client = this.UseSequencedClient(handler);
+
+        await this.CreatePoller().PollAsync(this.CancellationToken());
+
+        Assert.Equal(expected: 3, actual: handler.RequestUris.Count);
+        Assert.Empty(this._workItemRefresher.ReceivedCalls());
+    }
+
+    [Fact]
+    public async Task PollAsync_WithNewDependencyBranchAlsoPushed_LooksItUpOnceAsync()
+    {
+        using SequencedResponseHandler handler = new(
+            Ok(
+                BuildFeedJson([
+                    BuildEventJson(
+                        id: "506",
+                        type: "PushEvent",
+                        payload: """{"ref": "refs/heads/depends/update-sdk", "head": "def456"}"""
+                    ),
+                    CreateEventJson(id: "505", refName: "depends/update-sdk"),
+                ])
+            ),
+            Ok(EMPTY_JSON),
+            Ok(EMPTY_JSON)
+        );
+        using HttpClient client = this.UseSequencedClient(handler);
+
+        await this.CreatePoller().PollAsync(this.CancellationToken());
+
+        Assert.Equal(expected: 3, actual: handler.RequestUris.Count);
+    }
+
+    [Fact]
+    public async Task PollAsync_WithNewBranchAndCommentForOneIssue_RefreshesItOnceAsync()
+    {
+        await this.PollWithRepoFeedAsync([
+            IssueCommentEventJson(id: "508", number: 292, login: "someone"),
+            CreateEventJson(id: "507", refName: "fix/292-thing"),
+        ]);
+
+        Assert.Equal(expected: ["/repos/owner/repo/issues/292"], actual: this.RefreshedIssues());
+    }
+
+    [Fact]
+    public async Task PollAsync_WithMoreNewBranchesThanTheBudget_DefersTheRestAsync()
+    {
+        GitHubOptions options = new() { Filter = new GitHubFilterOptions { MaxEventRefreshesPerPoll = 1 } };
+
+        await this.PollWithRepoFeedAsync(
+            [CreateEventJson(id: "510", refName: "fix/7-b"), CreateEventJson(id: "509", refName: "fix/6-a")],
+            options: options
+        );
+
+        Assert.Equal(expected: ["/repos/owner/repo/issues/6"], actual: this.RefreshedIssues());
+        await this
+            ._feedFreshnessStore.DidNotReceive()
+            .RecordSyncAsync(syncedAt: Arg.Any<DateTimeOffset>(), cancellationToken: Arg.Any<CancellationToken>());
+    }
 }

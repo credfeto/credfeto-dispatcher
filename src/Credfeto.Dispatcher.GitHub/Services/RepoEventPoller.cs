@@ -24,6 +24,8 @@ public sealed class RepoEventPoller : IRepoEventPoller
     private const string PULL_REQUEST_REVIEW_COMMENT_EVENT_TYPE = "PullRequestReviewCommentEvent";
     private const string ISSUE_COMMENT_EVENT_TYPE = "IssueCommentEvent";
     private const string PUSH_EVENT_TYPE = "PushEvent";
+    private const string CREATE_EVENT_TYPE = "CreateEvent";
+    private const string BRANCH_REF_TYPE = "branch";
     private const string BRANCH_REF_PREFIX = "refs/heads/";
     private const string BOT_USER_TYPE = "Bot";
     private const string BOT_LOGIN_SUFFIX = "[bot]";
@@ -647,8 +649,35 @@ public sealed class RepoEventPoller : IRepoEventPoller
             PUSH_EVENT_TYPE => ev.Payload.Ref is { } pushedRef
                 && pushedRef.StartsWith(value: BRANCH_REF_PREFIX, comparisonType: StringComparison.Ordinal)
                 && refreshQueue.AddBranch(repo: repo, branch: pushedRef[BRANCH_REF_PREFIX.Length..]),
+            CREATE_EVENT_TYPE => QueueBranchCreatedRefresh(ev: ev, repo: repo, refreshQueue: refreshQueue),
             _ => false,
         };
+    }
+
+    // A new dependency branch (depends/*, dependabot/*) looks up its open PR, so the PR lands as soon as it exists. Any
+    // other new branch whose name carries an issue number re-reads that issue, which only refreshes its stored row: it
+    // does not mark the issue started. Tags and branches without a number are ignored.
+    private static bool QueueBranchCreatedRefresh(ApiEvent ev, string repo, EventRefreshQueue refreshQueue)
+    {
+        if (
+            !string.Equals(a: ev.Payload.RefType, b: BRANCH_REF_TYPE, comparisonType: StringComparison.Ordinal)
+            || string.IsNullOrEmpty(ev.Payload.Ref)
+        )
+        {
+            return false;
+        }
+
+        string branch = ev.Payload.Ref.StartsWith(value: BRANCH_REF_PREFIX, comparisonType: StringComparison.Ordinal)
+            ? ev.Payload.Ref[BRANCH_REF_PREFIX.Length..]
+            : ev.Payload.Ref;
+
+        if (BranchNameParser.IsDependencyBranch(branch))
+        {
+            return refreshQueue.AddBranch(repo: repo, branch: branch);
+        }
+
+        return BranchNameParser.TryGetIssueNumber(branch: branch, number: out int issueNumber)
+            && refreshQueue.AddIssue(repo: repo, number: issueNumber, commentedAt: ev.CreatedAt);
     }
 
     // An issue event whose payload is incomplete re-reads the issue by number rather than being dropped.

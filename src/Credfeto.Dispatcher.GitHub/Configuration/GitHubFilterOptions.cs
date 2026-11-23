@@ -30,9 +30,9 @@ public sealed class GitHubFilterOptions
     // Urgent and Security issues are never capped. A value of 0 or less means no cap.
     public int MaxIssues { get; set; } = 10;
 
-    // Upper bound on the GitHub calls one event-poll cycle spends re-reading the items its events touched (reviews,
-    // comments, pushes, and human comments on plain issues): each open-PR lookup for a pushed branch and each PR or
-    // issue re-read counts one. PRs past the bound are handed to the CI refresh instead; issues wait for the next
+    // Upper bound on the GitHub calls one event-poll cycle spends re-reading the items its events touched (PR events,
+    // reviews, comments, pushes, new branches, and human comments on plain issues): each open-PR lookup for a pushed or
+    // new dependency branch and each PR or issue re-read counts one. PRs past the bound are handed to the CI refresh instead; issues wait for the next
     // scan. A value of 0 or less hands them all over.
     public int MaxEventRefreshesPerPoll { get; set; } = 20;
 

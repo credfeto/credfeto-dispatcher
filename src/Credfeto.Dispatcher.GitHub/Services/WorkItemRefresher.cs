@@ -121,7 +121,12 @@ public sealed class WorkItemRefresher : IWorkItemRefresher
             cancellationToken: cancellationToken
         );
 
-        if (details is null || !LinkedIssueTrust.PassesLabelFilter(details.Labels, this._activeLabelFilter))
+        // The issues API serves PRs too (with a pull_request link): a number that turns out to be a PR is not an issue.
+        if (
+            details is null
+            || details.LinkedPullRequestUrl is not null
+            || !LinkedIssueTrust.PassesLabelFilter(details.Labels, this._activeLabelFilter)
+        )
         {
             return false;
         }

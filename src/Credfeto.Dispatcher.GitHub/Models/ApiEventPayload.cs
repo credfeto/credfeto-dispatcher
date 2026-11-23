@@ -11,5 +11,6 @@ internal sealed record ApiEventPayload(
     [property: JsonPropertyName("issue")] ApiIssue? Issue,
     [property: JsonPropertyName("ref")] string? Ref = null,
     [property: JsonPropertyName("head")] string? Head = null,
-    [property: JsonPropertyName("comment")] ApiIssueComment? Comment = null
+    [property: JsonPropertyName("comment")] ApiIssueComment? Comment = null,
+    [property: JsonPropertyName("ref_type")] string? RefType = null
 );

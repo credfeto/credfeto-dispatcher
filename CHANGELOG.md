@@ -47,6 +47,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Persist the in-memory dispatcher store to a periodic JSON snapshot and reload it at startup, so a container restart no longer wipes /priorities back to empty (#210)
 - Optional `user` query parameter on GET /priorities to exclude items assigned to other users (adopted bot PRs kept); persist pull request assignees and IsAdopted status in database
 - Add stateless MCP server on /mcp (Streamable HTTP) exposing priorities and db tools so AI assistants can query work item priorities and dispatcher database state, with supporting GetAll stored procedures and migration (#247)
+- The event poller refreshes on branch creation: a new depends/* or dependabot/* branch looks up its open PR and upserts it, and a new branch whose name carries an issue number (fix/292-..., feat/6-..., 292-..., issue-292-...) re-reads that issue's row without marking it started; both share MaxEventRefreshesPerPoll (#292)
 ### Fixed
 - Move the container runtime base to runtime-deps 11.0 resolute chiseled-extra (glibc 2.43) so the AOT binary built on Ubuntu 26.04 can start; on the azurelinux3.0 distroless base (glibc 2.38) the container restart-looped (#276)
 - /priorities no longer hides a user's issues behind an open PR that is assigned only to other people and not adopted, since that PR is never given to the user either (#260)

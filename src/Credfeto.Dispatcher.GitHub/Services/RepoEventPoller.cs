@@ -20,6 +20,11 @@ public sealed class RepoEventPoller : IRepoEventPoller
 {
     private const string PULL_REQUEST_EVENT_TYPE = "PullRequestEvent";
     private const string ISSUES_EVENT_TYPE = "IssuesEvent";
+    private const string PULL_REQUEST_REVIEW_EVENT_TYPE = "PullRequestReviewEvent";
+    private const string PULL_REQUEST_REVIEW_COMMENT_EVENT_TYPE = "PullRequestReviewCommentEvent";
+    private const string ISSUE_COMMENT_EVENT_TYPE = "IssueCommentEvent";
+    private const string PUSH_EVENT_TYPE = "PushEvent";
+    private const string BRANCH_REF_PREFIX = "refs/heads/";
 
     // Bounds how far back a single poll follows the feed's next link when every event on a page is newer than lastId.
     private const int MAX_PAGES_PER_FEED = 3;
@@ -29,12 +34,17 @@ public sealed class RepoEventPoller : IRepoEventPoller
 
     private readonly IReadOnlyList<string> _activeLabelFilter;
     private readonly IActiveRepoTracker _activeRepoTracker;
+    private readonly IPullRequestCheckRefresher _checkRefresher;
+    private readonly PullRequestCheckTracker _checkTracker;
     private readonly IETagStore _eTagStore;
+    private readonly IFeedFreshnessStore _feedFreshnessStore;
     private readonly GitHubRepoHelper _helper;
     private readonly ILogger<RepoEventPoller> _logger;
     private readonly INotificationStateTracker _notificationStateTracker;
     private readonly GitHubOptions _options;
     private readonly IPullRequestDetailFetcher _pullRequestDetailFetcher;
+    private readonly TimeProvider _timeProvider;
+    private readonly IWorkItemRefresher _workItemRefresher;
 
     public RepoEventPoller(
         GitHubRepoHelper helper,
@@ -42,7 +52,12 @@ public sealed class RepoEventPoller : IRepoEventPoller
         IETagStore eTagStore,
         INotificationStateTracker notificationStateTracker,
         IPullRequestDetailFetcher pullRequestDetailFetcher,
+        IWorkItemRefresher workItemRefresher,
+        IPullRequestCheckRefresher checkRefresher,
+        PullRequestCheckTracker checkTracker,
+        IFeedFreshnessStore feedFreshnessStore,
         IOptions<GitHubOptions> options,
+        TimeProvider timeProvider,
         ILogger<RepoEventPoller> logger
     )
     {
@@ -51,8 +66,13 @@ public sealed class RepoEventPoller : IRepoEventPoller
         this._eTagStore = eTagStore;
         this._notificationStateTracker = notificationStateTracker;
         this._pullRequestDetailFetcher = pullRequestDetailFetcher;
+        this._workItemRefresher = workItemRefresher;
+        this._checkRefresher = checkRefresher;
+        this._checkTracker = checkTracker;
+        this._feedFreshnessStore = feedFreshnessStore;
         this._options = options.Value;
         this._activeLabelFilter = LinkedIssueTrust.ActiveLabelFilter(this._options.Filter.LabelFilter);
+        this._timeProvider = timeProvider;
         this._logger = logger;
     }
 
@@ -62,6 +82,8 @@ public sealed class RepoEventPoller : IRepoEventPoller
         {
             return null;
         }
+
+        DateTimeOffset cycleStart = this._timeProvider.GetUtcNow();
 
         IReadOnlyList<string> repos = await this._activeRepoTracker.GetActiveReposAsync(cancellationToken);
 
@@ -79,21 +101,146 @@ public sealed class RepoEventPoller : IRepoEventPoller
         }
 
         IReadOnlyList<string> owners = [.. repos.Select(GetOwner).Distinct(StringComparer.OrdinalIgnoreCase)];
+        EventRefreshQueue refreshQueue = new(repos);
 
+        (int? suggestedPollIntervalSeconds, bool allFeedsRead) = await this.PollFeedsAsync(
+            repos: repos,
+            owners: owners,
+            refreshQueue: refreshQueue,
+            cancellationToken: cancellationToken
+        );
+
+        bool allRefreshed = await this.RefreshQueuedItemsAsync(
+            refreshQueue: refreshQueue,
+            cancellationToken: cancellationToken
+        );
+
+        // Every feed answered and every item its events touched was re-read: the store is in sync as of the start
+        // of this cycle, which is what /priorities reports as asOf.
+        if (allFeedsRead && allRefreshed)
+        {
+            await this._feedFreshnessStore.RecordSyncAsync(syncedAt: cycleStart, cancellationToken: cancellationToken);
+        }
+
+        int? checkPollIntervalSeconds = await this._checkRefresher.RefreshAsync(cancellationToken);
+
+        this._logger.LogEventPollComplete(repoCount: repos.Count, ownerCount: owners.Count);
+
+        return ETagHeaderUtility.MaxPollIntervalSeconds(suggestedPollIntervalSeconds, checkPollIntervalSeconds);
+    }
+
+    private async ValueTask<(int? PollIntervalSeconds, bool AllFeedsRead)> PollFeedsAsync(
+        IReadOnlyList<string> repos,
+        IReadOnlyList<string> owners,
+        EventRefreshQueue refreshQueue,
+        CancellationToken cancellationToken
+    )
+    {
         int? suggestedPollIntervalSeconds = null;
+        bool allFeedsRead = true;
 
         foreach (RepoEventFeed feed in BuildFeeds(repos: repos, owners: owners))
         {
-            int? feedPollIntervalSeconds = await this.PollFeedAsync(feed: feed, cancellationToken: cancellationToken);
+            (int? feedPollIntervalSeconds, bool feedRead) = await this.PollFeedAsync(
+                feed: feed,
+                refreshQueue: refreshQueue,
+                cancellationToken: cancellationToken
+            );
             suggestedPollIntervalSeconds = ETagHeaderUtility.MaxPollIntervalSeconds(
                 suggestedPollIntervalSeconds,
                 feedPollIntervalSeconds
             );
+            allFeedsRead &= feedRead;
         }
 
-        this._logger.LogEventPollComplete(repoCount: repos.Count, ownerCount: owners.Count);
+        return (suggestedPollIntervalSeconds, allFeedsRead);
+    }
 
-        return suggestedPollIntervalSeconds;
+    // Branch lookups first (they add PRs to the queue), then the PR re-reads, all within one call budget. PRs past
+    // the budget are marked stale for the CI refresh, which works through them on later cycles.
+    private async ValueTask<bool> RefreshQueuedItemsAsync(
+        EventRefreshQueue refreshQueue,
+        CancellationToken cancellationToken
+    )
+    {
+        int budget = this._options.Filter.MaxEventRefreshesPerPoll;
+        int lookupCount = 0;
+        int refreshedCount = 0;
+        int deferredCount = 0;
+
+        foreach ((string repo, string branch) in refreshQueue.Branches)
+        {
+            if (lookupCount >= budget)
+            {
+                ++deferredCount;
+
+                continue;
+            }
+
+            ++lookupCount;
+            await this.QueueOpenPullRequestsForBranchAsync(
+                repo: repo,
+                branch: branch,
+                refreshQueue: refreshQueue,
+                cancellationToken: cancellationToken
+            );
+        }
+
+        foreach ((string repo, int number) in refreshQueue.PullRequests)
+        {
+            if (lookupCount + refreshedCount >= budget)
+            {
+                this._checkTracker.MarkStale(repo: repo, number: number);
+                ++deferredCount;
+
+                continue;
+            }
+
+            ++refreshedCount;
+            await this._workItemRefresher.RefreshPullRequestAsync(
+                repo: repo,
+                number: number,
+                cancellationToken: cancellationToken
+            );
+        }
+
+        if (lookupCount + refreshedCount + deferredCount != 0)
+        {
+            this._logger.LogEventRefreshesComplete(
+                lookupCount: lookupCount,
+                refreshedCount: refreshedCount,
+                deferredCount: deferredCount
+            );
+        }
+
+        return deferredCount == 0;
+    }
+
+    // A push to a branch changes the head commit (and so the CI) of any open PR from that branch.
+    private async ValueTask QueueOpenPullRequestsForBranchAsync(
+        string repo,
+        string branch,
+        EventRefreshQueue refreshQueue,
+        CancellationToken cancellationToken
+    )
+    {
+        (ApiPullRequest[]? items, _, _) = await this._helper.GetPagedAsync(
+            url: BuildOpenPullRequestsForBranchUrl(repo: repo, branch: branch),
+            jsonTypeInfo: NotificationSerializerContext.Default.ApiPullRequestArray,
+            cancellationToken: cancellationToken
+        );
+
+        foreach (ApiPullRequest pr in items ?? [])
+        {
+            refreshQueue.AddPullRequest(repo: repo, number: pr.Number);
+        }
+    }
+
+    internal static string BuildOpenPullRequestsForBranchUrl(string repo, string branch)
+    {
+        string head = string.Concat(Uri.EscapeDataString(GetOwner(repo)), ":", Uri.EscapeDataString(branch));
+
+        return $"repos/{repo}/pulls?state=open&head={head}&per_page=10";
     }
 
     private static IEnumerable<RepoEventFeed> BuildFeeds(IReadOnlyList<string> repos, IReadOnlyList<string> owners)
@@ -117,7 +264,11 @@ public sealed class RepoEventPoller : IRepoEventPoller
             );
     }
 
-    private async Task<int?> PollFeedAsync(RepoEventFeed feed, CancellationToken cancellationToken)
+    private async Task<(int? PollIntervalSeconds, bool Read)> PollFeedAsync(
+        RepoEventFeed feed,
+        EventRefreshQueue refreshQueue,
+        CancellationToken cancellationToken
+    )
     {
         string? storedETag = await this._eTagStore.GetETagAsync(
             key: feed.ETagKey,
@@ -135,15 +286,21 @@ public sealed class RepoEventPoller : IRepoEventPoller
         {
             this._logger.LogFeedNotModified(feed: feed.Description);
 
-            return result.PollIntervalSeconds;
+            return (result.PollIntervalSeconds, true);
         }
 
-        if (result.Items is not null && result.Items.Length != 0)
+        if (result.Items is null)
+        {
+            return (result.PollIntervalSeconds, false);
+        }
+
+        if (result.Items.Length != 0)
         {
             await this.ProcessFeedItemsAsync(
                 feed: feed,
                 firstPageItems: result.Items,
                 nextUrl: result.NextUrl,
+                refreshQueue: refreshQueue,
                 cancellationToken: cancellationToken
             );
         }
@@ -156,13 +313,14 @@ public sealed class RepoEventPoller : IRepoEventPoller
             cancellationToken: cancellationToken
         );
 
-        return result.PollIntervalSeconds;
+        return (result.PollIntervalSeconds, true);
     }
 
     private async Task ProcessFeedItemsAsync(
         RepoEventFeed feed,
         ApiEvent[] firstPageItems,
         string? nextUrl,
+        EventRefreshQueue refreshQueue,
         CancellationToken cancellationToken
     )
     {
@@ -187,6 +345,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
         (int newCount, int upsertedCount, int skippedSeenCount) = await this.ProcessNewEventsAsync(
             events: events,
             seenIds: ParseSeenIds(storedSeenIds),
+            refreshQueue: refreshQueue,
             cancellationToken: cancellationToken
         );
 
@@ -369,6 +528,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
     private async ValueTask<(int NewCount, int UpsertedCount, int SkippedSeenCount)> ProcessNewEventsAsync(
         IReadOnlyList<(long Id, ApiEvent Event)> events,
         IReadOnlySet<long> seenIds,
+        EventRefreshQueue refreshQueue,
         CancellationToken cancellationToken
     )
     {
@@ -399,7 +559,13 @@ public sealed class RepoEventPoller : IRepoEventPoller
         // Feed is newest-first; apply oldest-first so the newest event's state wins the upsert.
         for (int i = newEvents.Count - 1; i >= 0; --i)
         {
-            if (await this.ProcessEventAsync(ev: newEvents[i], cancellationToken: cancellationToken))
+            if (
+                await this.ProcessEventAsync(
+                    ev: newEvents[i],
+                    refreshQueue: refreshQueue,
+                    cancellationToken: cancellationToken
+                )
+            )
             {
                 ++upsertedCount;
             }
@@ -408,9 +574,15 @@ public sealed class RepoEventPoller : IRepoEventPoller
         return (newEvents.Count, upsertedCount, skippedSeenCount);
     }
 
-    private async ValueTask<bool> ProcessEventAsync(ApiEvent ev, CancellationToken cancellationToken)
+    // PR and issue events carry the item's labels and state, so they are upserted straight from the payload. The other
+    // events that change a served PR (reviews, comments, pushes to its branch) are queued for a full re-read.
+    private async ValueTask<bool> ProcessEventAsync(
+        ApiEvent ev,
+        EventRefreshQueue refreshQueue,
+        CancellationToken cancellationToken
+    )
     {
-        if (string.Equals(a: ev.Type, b: PULL_REQUEST_EVENT_TYPE, comparisonType: StringComparison.Ordinal))
+        if (StringComparer.Ordinal.Equals(ev.Type, PULL_REQUEST_EVENT_TYPE))
         {
             return ev.Payload.PullRequest is { HtmlUrl: { } prHtmlUrl } pr
                 && await this.ProcessPullRequestEventAsync(
@@ -421,7 +593,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
                 );
         }
 
-        if (string.Equals(a: ev.Type, b: ISSUES_EVENT_TYPE, comparisonType: StringComparison.Ordinal))
+        if (StringComparer.Ordinal.Equals(ev.Type, ISSUES_EVENT_TYPE))
         {
             return ev.Payload.Issue is { HtmlUrl: { } issueHtmlUrl } issue
                 && issue.PullRequest is null
@@ -433,7 +605,31 @@ public sealed class RepoEventPoller : IRepoEventPoller
                 );
         }
 
+        QueueRefresh(ev: ev, refreshQueue: refreshQueue);
+
         return false;
+    }
+
+    // A comment on a plain issue changes nothing the store keeps for an issue, so it costs no API call.
+    internal static bool QueueRefresh(ApiEvent ev, EventRefreshQueue refreshQueue)
+    {
+        string repo = ev.Repo.Name;
+
+        return ev.Type switch
+        {
+            PULL_REQUEST_REVIEW_EVENT_TYPE or PULL_REQUEST_REVIEW_COMMENT_EVENT_TYPE => refreshQueue.AddPullRequest(
+                repo: repo,
+                number: ev.Payload.PullRequest is { Number: > 0 } reviewedPr
+                    ? reviewedPr.Number
+                    : ev.Payload.Number ?? 0
+            ),
+            ISSUE_COMMENT_EVENT_TYPE => ev.Payload.Issue is { PullRequest: not null } commentedPr
+                && refreshQueue.AddPullRequest(repo: repo, number: commentedPr.Number),
+            PUSH_EVENT_TYPE => ev.Payload.Ref is { } pushedRef
+                && pushedRef.StartsWith(value: BRANCH_REF_PREFIX, comparisonType: StringComparison.Ordinal)
+                && refreshQueue.AddBranch(repo: repo, branch: pushedRef[BRANCH_REF_PREFIX.Length..]),
+            _ => false,
+        };
     }
 
     private async ValueTask<bool> ProcessPullRequestEventAsync(
@@ -492,6 +688,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
             cancellationToken: cancellationToken
         );
 
+        this.ObserveForCheckRefresh(details: details, repo: repo, isOnHold: isOnHold);
         this._logger.LogProcessedPullRequestEvent(
             repo: repo,
             number: pr.Number,
@@ -500,6 +697,17 @@ public sealed class RepoEventPoller : IRepoEventPoller
         );
 
         return true;
+    }
+
+    private void ObserveForCheckRefresh(PullRequestDetails details, string repo, bool isOnHold)
+    {
+        this._checkTracker.Observe(
+            repo: repo,
+            number: details.Number,
+            headSha: details.HeadSha,
+            isOnHold: isOnHold,
+            isOpen: !StringComparer.Ordinal.Equals(details.Status, "Closed")
+        );
     }
 
     private static PullRequestDetails BuildEventPullRequestDetails(

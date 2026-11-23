@@ -29,6 +29,8 @@ public sealed class PullRequestDetailFetcher : IPullRequestDetailFetcher
               url
               body
               headRefOid
+              headRefName
+              createdAt
               author {
                 login
               }
@@ -175,7 +177,10 @@ public sealed class PullRequestDetailFetcher : IPullRequestDetailFetcher
             LastNotification: lastNotification,
             Author: pr.Author?.Login,
             CommitAuthors: ExtractCommitAuthors(pr),
-            HasDetail: true
+            HasDetail: true,
+            HeadSha: pr.HeadRefOid,
+            HeadRef: pr.HeadRefName,
+            CreatedAt: pr.CreatedAt
         );
     }
 

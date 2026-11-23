@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -11,16 +11,22 @@ namespace Credfeto.Dispatcher.Storage.InMemory;
 
 public sealed class InMemoryWorkItemRepository : IWorkItemRepository
 {
+    private readonly IFeedFreshnessStore _feedFreshnessStore;
     private readonly InMemoryDispatcherStore _store;
     private readonly TimeProvider _timeProvider;
 
-    public InMemoryWorkItemRepository(InMemoryDispatcherStore store, TimeProvider timeProvider)
+    public InMemoryWorkItemRepository(
+        InMemoryDispatcherStore store,
+        IFeedFreshnessStore feedFreshnessStore,
+        TimeProvider timeProvider
+    )
     {
         this._store = store;
+        this._feedFreshnessStore = feedFreshnessStore;
         this._timeProvider = timeProvider;
     }
 
-    public Task<PrioritiesResponse> GetPrioritisedWorkItemsAsync(
+    public async Task<PrioritiesResponse> GetPrioritisedWorkItemsAsync(
         IReadOnlyList<string> owners,
         int maxIssues,
         IReadOnlyList<string> boostedRepos,
@@ -56,12 +62,13 @@ public sealed class InMemoryWorkItemRepository : IWorkItemRepository
                 .ThenBy(static w => w.FirstSeen),
         ];
 
-        PrioritiesResponse response = WorkItemMapping.BuildPrioritiesResponse(
-            ordered: ordered,
-            now: this._timeProvider.GetUtcNow()
-        );
+        DateTimeOffset? lastSync = await this._feedFreshnessStore.GetLastSyncAsync(cancellationToken);
 
-        return Task.FromResult(response);
+        return WorkItemMapping.BuildPrioritiesResponse(
+            ordered: ordered,
+            now: this._timeProvider.GetUtcNow(),
+            lastSync: lastSync
+        );
     }
 
     private static Dictionary<string, int> BuildIndex(IReadOnlyList<string> values)

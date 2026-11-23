@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -18,23 +18,18 @@ public sealed class GitHubPollingWorker : PollingBackgroundService
     private const string PULL_REQUEST_TYPE = "PullRequest";
     private const string ISSUE_TYPE = "Issue";
 
-    private readonly IReadOnlyList<string> _activeLabelFilter;
-    private readonly IIssueDetailFetcher _issueDetailFetcher;
     private readonly ILogger<GitHubPollingWorker> _logger;
-    private readonly INotificationFilter _notificationFilter;
-    private readonly INotificationStateTracker _notificationStateTracker;
-    private readonly GitHubOptions _options;
     private readonly IModifiedIssueMentionPoller _modifiedIssueMentionPoller;
+    private readonly INotificationFilter _notificationFilter;
+    private readonly GitHubOptions _options;
     private readonly INotificationPoller _poller;
-    private readonly IPullRequestDetailFetcher _pullRequestDetailFetcher;
+    private readonly IWorkItemRefresher _workItemRefresher;
 
     public GitHubPollingWorker(
         INotificationPoller poller,
         IModifiedIssueMentionPoller modifiedIssueMentionPoller,
         INotificationFilter notificationFilter,
-        IPullRequestDetailFetcher pullRequestDetailFetcher,
-        IIssueDetailFetcher issueDetailFetcher,
-        INotificationStateTracker notificationStateTracker,
+        IWorkItemRefresher workItemRefresher,
         IOptions<GitHubOptions> options,
         ILogger<GitHubPollingWorker> logger
     )
@@ -46,11 +41,8 @@ public sealed class GitHubPollingWorker : PollingBackgroundService
         this._poller = poller;
         this._modifiedIssueMentionPoller = modifiedIssueMentionPoller;
         this._notificationFilter = notificationFilter;
-        this._pullRequestDetailFetcher = pullRequestDetailFetcher;
-        this._issueDetailFetcher = issueDetailFetcher;
-        this._notificationStateTracker = notificationStateTracker;
+        this._workItemRefresher = workItemRefresher;
         this._options = options.Value;
-        this._activeLabelFilter = LinkedIssueTrust.ActiveLabelFilter(this._options.Filter.LabelFilter);
         this._logger = logger;
     }
 
@@ -129,7 +121,10 @@ public sealed class GitHubPollingWorker : PollingBackgroundService
             )
         )
         {
-            await this.TrackPullRequestStateAsync(notification: notification, cancellationToken: cancellationToken);
+            await this._workItemRefresher.RefreshPullRequestAsync(
+                notification: notification,
+                cancellationToken: cancellationToken
+            );
         }
         else if (
             string.Equals(
@@ -139,83 +134,8 @@ public sealed class GitHubPollingWorker : PollingBackgroundService
             )
         )
         {
-            await this.TrackIssueStateAsync(notification: notification, cancellationToken: cancellationToken);
-        }
-    }
-
-    private bool PassesLabelFilter(IReadOnlyList<string> labelNames)
-    {
-        return LinkedIssueTrust.PassesLabelFilter(labelNames, this._activeLabelFilter);
-    }
-
-    private async ValueTask TrackPullRequestStateAsync(
-        GitHubNotification notification,
-        CancellationToken cancellationToken
-    )
-    {
-        PullRequestDetails? details = await this._pullRequestDetailFetcher.FetchAsync(
-            notification: notification,
-            cancellationToken: cancellationToken
-        );
-
-        if (details is null)
-        {
-            return;
-        }
-
-        bool ownLabelsPass = this.PassesLabelFilter(details.Labels);
-        LinkedItem? trustedLinkedIssue = ownLabelsPass ? null : this.FindTrustedLinkedIssue(details);
-
-        if (!ownLabelsPass && trustedLinkedIssue is null)
-        {
-            return;
-        }
-
-        WorkPriority priority = LinkedIssueTrust.ElevatePriority(
-            LabelParser.ParsePriority(details.Labels),
-            trustedLinkedIssue
-        );
-
-        bool isOnHold = LabelParser.IsOnHold(labels: details.Labels, noWorkFilter: this._options.Filter.NoWorkFilter);
-        await this._notificationStateTracker.UpdateStateAsync(
-            notification: notification,
-            details: details,
-            priority: priority,
-            isOnHold: isOnHold,
-            isAdopted: null,
-            cancellationToken: cancellationToken
-        );
-    }
-
-    private LinkedItem? FindTrustedLinkedIssue(PullRequestDetails details)
-    {
-        return LinkedIssueTrust.FindTrustedLinkedIssue(
-            author: details.Author,
-            commitAuthors: details.CommitAuthors,
-            linkedItems: details.LinkedItems,
-            activeLabelFilter: this._activeLabelFilter
-        );
-    }
-
-    private async ValueTask TrackIssueStateAsync(GitHubNotification notification, CancellationToken cancellationToken)
-    {
-        IssueDetails? details = await this._issueDetailFetcher.FetchAsync(
-            notification: notification,
-            cancellationToken: cancellationToken
-        );
-
-        if (details is not null && this.PassesLabelFilter(details.Labels))
-        {
-            WorkPriority priority = LabelParser.ParsePriority(details.Labels);
-            bool isOnHold = LabelParser.IsOnHold(
-                labels: details.Labels,
-                noWorkFilter: this._options.Filter.NoWorkFilter
-            );
-            await this._notificationStateTracker.UpdateStateAsync(
+            await this._workItemRefresher.RefreshIssueAsync(
                 notification: notification,
-                details: details,
-                priority: priority,
-                isOnHold: isOnHold,
                 cancellationToken: cancellationToken
             );
         }

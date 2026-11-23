@@ -43,7 +43,9 @@ Set the following in `appsettings.json` or environment variables:
       "AllowedRepos": [],
       "ExcludedRepos": [],
       "BoostedRepos": [],
-      "MaxIssues": 10
+      "MaxIssues": 10,
+      "MaxEventRefreshesPerPoll": 20,
+      "MaxCheckRefreshesPerPoll": 5
     }
   }
 }
@@ -61,6 +63,8 @@ Set the following in `appsettings.json` or environment variables:
 | `GitHub:Filter:ExcludedRepos` | string[] | Repository deny-list that is always ignored. |
 | `GitHub:Filter:BoostedRepos` | string[] | Ordered `owner/repo` list. Matching items sort to the front of their band (Security/Urgent PRs, other PRs, Security/Urgent issues, other issues) in `/priorities`, in list order. Ordering only; does not bypass `AllowedOwners`/`AllowedRepos`/`ExcludedRepos`. |
 | `GitHub:Filter:MaxIssues` | integer | Maximum number of regular (below Urgent) issues each owner gets in `/priorities`, at most one per repository. The cap applies per owner, so one owner cannot take every slot from the others. Urgent and Security issues are never capped. `0` or less means no cap. Defaults to `10`. |
+| `GitHub:Filter:MaxEventRefreshesPerPoll` | integer | Most GitHub calls one event-poll cycle spends re-reading the PRs its events touched: reviews, review comments, comments on a PR, and pushes to a branch with an open PR (one open-PR lookup per pushed branch plus one full re-read per PR, de-duplicated across the cycle). PRs past the limit are handed to the CI refresh. `0` or less hands them all over. Defaults to `20`. |
+| `GitHub:Filter:MaxCheckRefreshesPerPoll` | integer | How many open, non-on-hold PRs whose checks are unknown, pending or failed each poll cycle re-checks, least recently checked first. Each costs one conditional workflow-runs request (a `304` when nothing changed), plus a full re-read only when the runs changed; a `403`/`429` stops the batch until the next cycle. `0` or less turns the CI refresh off. Defaults to `5`. |
 
 When `DatabaseConfiguration:Provider` is `InMemory`, the in-memory store is periodically persisted to a JSON snapshot on disk and reloaded at startup, so a container restart doesn't mean starting from zero:
 
@@ -123,8 +127,8 @@ For example, `GET /priorities?user=octocat`.
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `as_of` | ISO-8601 UTC | Timestamp of the most recent ingest that contributed to this snapshot |
-| `lag_seconds` | integer | `now − as_of` in whole seconds; higher values indicate a staler snapshot |
+| `as_of` | ISO-8601 UTC | Start of the last complete sync: an event-poll cycle in which every feed answered and every item its events touched was re-read, or a full scan of every repository. Every change made on GitHub before it is in the snapshot. Falls back to the newest `lastUpdated` of the returned items when no sync has been recorded yet. CI results are re-checked in bounded batches, so a PR's checks can trail it by a few poll cycles |
+| `lag_seconds` | integer | `now − as_of` in whole seconds. About one poll interval while the event poller is healthy; it climbs towards the scan interval when the event poller stalls |
 | `priorities` | array | Ordered work items, banded Security/Urgent PRs, other PRs, Security/Urgent issues, other issues, then within each band by boosted repo, owner, repo, priority, age |
 
 ### `POST /mcp`

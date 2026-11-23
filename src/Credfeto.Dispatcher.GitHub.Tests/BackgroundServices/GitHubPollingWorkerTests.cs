@@ -6,6 +6,7 @@ using Credfeto.Dispatcher.GitHub.BackgroundServices;
 using Credfeto.Dispatcher.GitHub.Configuration;
 using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Interfaces;
+using Credfeto.Dispatcher.GitHub.Services;
 using Credfeto.Dispatcher.GitHub.Tests.Helpers;
 using FunFair.Test.Common;
 using Microsoft.Extensions.Logging;
@@ -155,14 +156,26 @@ public sealed class GitHubPollingWorkerTests : TestBase
         GitHubOptions? options = null
     )
     {
+        IOptions<GitHubOptions> workerOptions = Options.Create(
+            options ?? new GitHubOptions { PollIntervalSeconds = 30 }
+        );
+
+        WorkItemRefresher refresher = new(
+            pullRequestDetailFetcher: fetcher,
+            issueDetailFetcher: issueFetcher ?? new FakeIssueFetcher(result: null),
+            notificationStateTracker: this._stateTracker,
+            checkTracker: new PullRequestCheckTracker(TimeProvider.System),
+            options: workerOptions,
+            timeProvider: TimeProvider.System,
+            logger: this.GetTypedLogger<WorkItemRefresher>()
+        );
+
         return new GitHubPollingWorker(
             poller: poller,
             modifiedIssueMentionPoller: mentionPoller ?? new FakeMentionPoller(),
             notificationFilter: this._filter,
-            pullRequestDetailFetcher: fetcher,
-            issueDetailFetcher: issueFetcher ?? new FakeIssueFetcher(result: null),
-            notificationStateTracker: this._stateTracker,
-            options: Options.Create(options ?? new GitHubOptions { PollIntervalSeconds = 30 }),
+            workItemRefresher: refresher,
+            options: workerOptions,
             logger: this._logger
         );
     }

@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace Credfeto.Dispatcher.GitHub.Services.LoggingExtensions;
 
@@ -61,4 +61,16 @@ internal static partial class RepoEventPollerLoggingExtensions
         Message = "Feed {feed}: no new events, {skippedSeenCount} skipped as already seen, lastId={lastId}"
     )]
     public static partial void LogFeedNoNewEvents(this ILogger logger, string feed, int skippedSeenCount, long lastId);
+
+    [LoggerMessage(
+        EventId = 6,
+        Level = LogLevel.Information,
+        Message = "Event refreshes: {lookupCount} pushed-branch PR lookup(s), {refreshedCount} PR(s) re-read, {deferredCount} deferred to the CI refresh"
+    )]
+    public static partial void LogEventRefreshesComplete(
+        this ILogger logger,
+        int lookupCount,
+        int refreshedCount,
+        int deferredCount
+    );
 }

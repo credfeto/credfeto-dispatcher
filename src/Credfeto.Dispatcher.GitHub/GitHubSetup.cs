@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using Credfeto.Dispatcher.GitHub.BackgroundServices;
@@ -34,6 +34,9 @@ public static class GitHubSetup
             .AddSingleton<IPullRequestDetailFetcher, PullRequestDetailFetcher>()
             .AddSingleton<IIssueDetailFetcher, IssueDetailFetcher>()
             .AddSingleton<IWorkItemScanner, WorkItemScanner>()
+            .AddSingleton<PullRequestCheckTracker>()
+            .AddSingleton<IWorkItemRefresher, WorkItemRefresher>()
+            .AddSingleton<IPullRequestCheckRefresher, PullRequestCheckRefresher>()
             .AddHostedService<StartupGitHubAuthCheckService>()
             .AddHostedService<GitHubPollingWorker>()
             .AddHostedService<WorkItemScannerService>()

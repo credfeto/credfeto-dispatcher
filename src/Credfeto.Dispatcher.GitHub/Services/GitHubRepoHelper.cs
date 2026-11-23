@@ -92,6 +92,51 @@ public sealed class GitHubRepoHelper
     )
         where T : class
     {
+        (ETagResult<T[]> result, string? nextUrl) = await this.GetWithETagAndNextLinkAsync(
+            url: url,
+            jsonTypeInfo: jsonTypeInfo,
+            eTag: eTag,
+            cancellationToken: cancellationToken
+        );
+
+        return new(
+            Items: result.Item,
+            NextUrl: nextUrl,
+            FailureStatus: result.FailureStatus,
+            ETag: result.ETag,
+            NotModified: result.NotModified,
+            PollIntervalSeconds: result.PollIntervalSeconds
+        );
+    }
+
+    // A conditional GET of a single JSON object: a 304 for an unchanged resource does not count against the
+    // primary rate limit.
+    internal async ValueTask<ETagResult<T>> GetWithETagAsync<T>(
+        string url,
+        JsonTypeInfo<T> jsonTypeInfo,
+        string? eTag,
+        CancellationToken cancellationToken
+    )
+        where T : class
+    {
+        (ETagResult<T> result, _) = await this.GetWithETagAndNextLinkAsync(
+            url: url,
+            jsonTypeInfo: jsonTypeInfo,
+            eTag: eTag,
+            cancellationToken: cancellationToken
+        );
+
+        return result;
+    }
+
+    private async ValueTask<(ETagResult<T> Result, string? NextUrl)> GetWithETagAndNextLinkAsync<T>(
+        string url,
+        JsonTypeInfo<T> jsonTypeInfo,
+        string? eTag,
+        CancellationToken cancellationToken
+    )
+        where T : class
+    {
         HttpClient httpClient = this._httpClientFactory.CreateClient("GitHub");
 
         using HttpRequestMessage request = new(method: HttpMethod.Get, requestUri: url);
@@ -108,13 +153,15 @@ public sealed class GitHubRepoHelper
 
         if (response.StatusCode == HttpStatusCode.NotModified)
         {
-            return new(
-                Items: null,
-                NextUrl: null,
-                FailureStatus: null,
-                ETag: responseETag,
-                NotModified: true,
-                PollIntervalSeconds: pollIntervalSeconds
+            return (
+                new(
+                    Item: null,
+                    FailureStatus: null,
+                    ETag: responseETag,
+                    NotModified: true,
+                    PollIntervalSeconds: pollIntervalSeconds
+                ),
+                null
             );
         }
 
@@ -122,27 +169,30 @@ public sealed class GitHubRepoHelper
         {
             this._logger.LogPageFetchFailed(url: url);
 
-            return new(
-                Items: null,
-                NextUrl: null,
-                FailureStatus: response.StatusCode,
-                ETag: null,
-                NotModified: false,
-                PollIntervalSeconds: pollIntervalSeconds
+            return (
+                new(
+                    Item: null,
+                    FailureStatus: response.StatusCode,
+                    ETag: null,
+                    NotModified: false,
+                    PollIntervalSeconds: pollIntervalSeconds
+                ),
+                null
             );
         }
 
         string json = await response.Content.ReadAsStringAsync(cancellationToken);
-        T[]? items = JsonSerializer.Deserialize(json: json, jsonTypeInfo: jsonTypeInfo);
-        string? nextUrl = ParseNextLink(response.Headers);
+        T? item = JsonSerializer.Deserialize(json: json, jsonTypeInfo: jsonTypeInfo);
 
-        return new(
-            Items: items,
-            NextUrl: nextUrl,
-            FailureStatus: null,
-            ETag: responseETag,
-            NotModified: false,
-            PollIntervalSeconds: pollIntervalSeconds
+        return (
+            new(
+                Item: item,
+                FailureStatus: null,
+                ETag: responseETag,
+                NotModified: false,
+                PollIntervalSeconds: pollIntervalSeconds
+            ),
+            ParseNextLink(response.Headers)
         );
     }
 

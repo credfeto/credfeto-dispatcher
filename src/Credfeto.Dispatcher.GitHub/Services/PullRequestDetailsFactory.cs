@@ -41,7 +41,10 @@ internal static class PullRequestDetailsFactory
             LastNotification: new LastNotification(Id: lastNotificationId, Timestamp: lastNotificationTimestamp),
             Author: pr.User?.Login,
             CommitAuthors: commitAuthors,
-            HasDetail: false
+            HasDetail: false,
+            HeadSha: pr.Head?.Sha,
+            HeadRef: pr.Head?.Ref,
+            CreatedAt: pr.CreatedAt
         );
     }
 }

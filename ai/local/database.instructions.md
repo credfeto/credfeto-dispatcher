@@ -80,6 +80,7 @@ One row per commit author of a PR, same shape and keys as `dbo.PullRequestAssign
 ### `dbo.PollingStates`
 
 Stores ETags for GitHub notification polling endpoints to support conditional requests.
+It is a generic key/value store: the event poller also keeps its feed cursors there, and `freshness.lastsync` holds the start of the last complete sync (ISO-8601 round-trip format) that `/priorities` reports as `asOf`.
 
 ## Indexes
 

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.Storage.InMemory;
+using Credfeto.Dispatcher.Storage.Services;
 using FunFair.Test.Common;
 using FunFair.Test.Infrastructure.Mocks;
 using Xunit;
@@ -15,6 +16,7 @@ public sealed class InMemoryWorkItemRepositoryTests : TestBase
     private const string REPOSITORY = "owner/repo";
     private const string OTHER_REPOSITORY = "other/repo";
 
+    private readonly FeedFreshnessStore _feedFreshnessStore;
     private readonly InMemoryWorkItemRepository _repository;
     private readonly InMemoryDispatcherStore _store;
 
@@ -22,7 +24,12 @@ public sealed class InMemoryWorkItemRepositoryTests : TestBase
     {
         TimeProvider timeProvider = MockDateTimeSources.Past;
         this._store = new InMemoryDispatcherStore(timeProvider);
-        this._repository = new InMemoryWorkItemRepository(store: this._store, timeProvider: timeProvider);
+        this._feedFreshnessStore = new FeedFreshnessStore(new InMemoryETagStore(this._store));
+        this._repository = new InMemoryWorkItemRepository(
+            store: this._store,
+            feedFreshnessStore: this._feedFreshnessStore,
+            timeProvider: timeProvider
+        );
     }
 
     [Fact]
@@ -60,6 +67,46 @@ public sealed class InMemoryWorkItemRepositoryTests : TestBase
         );
 
         Assert.NotEmpty(response.Priorities);
+    }
+
+    [Fact]
+    public async Task GetPrioritisedWorkItemsAsyncReportsLagFromTheLastCompleteSyncAsync()
+    {
+        this.UpsertOpenPullRequest(repository: REPOSITORY, id: 10);
+        DateTimeOffset lastSync = MockDateTimeSources.Past.GetUtcNow().AddSeconds(-75);
+        await this._feedFreshnessStore.RecordSyncAsync(syncedAt: lastSync, cancellationToken: this.CancellationToken());
+
+        PrioritiesResponse response = await this.GetPrioritisedForOwnerAsync();
+
+        Assert.Equal(expected: lastSync, actual: response.AsOf);
+        Assert.Equal(expected: 75, actual: response.LagSeconds);
+    }
+
+    [Fact]
+    public async Task GetPrioritisedWorkItemsAsyncNeverReportsASyncInTheFutureAsync()
+    {
+        this.UpsertOpenPullRequest(repository: REPOSITORY, id: 10);
+        DateTimeOffset now = MockDateTimeSources.Past.GetUtcNow();
+        await this._feedFreshnessStore.RecordSyncAsync(
+            syncedAt: now.AddMinutes(5),
+            cancellationToken: this.CancellationToken()
+        );
+
+        PrioritiesResponse response = await this.GetPrioritisedForOwnerAsync();
+
+        Assert.Equal(expected: now, actual: response.AsOf);
+        Assert.Equal(expected: 0, actual: response.LagSeconds);
+    }
+
+    private Task<PrioritiesResponse> GetPrioritisedForOwnerAsync()
+    {
+        return this._repository.GetPrioritisedWorkItemsAsync(
+            owners: ["owner"],
+            maxIssues: 10,
+            boostedRepos: [],
+            user: null,
+            cancellationToken: this.CancellationToken()
+        );
     }
 
     [Fact]

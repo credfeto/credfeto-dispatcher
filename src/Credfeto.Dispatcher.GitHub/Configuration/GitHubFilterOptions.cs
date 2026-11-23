@@ -26,5 +26,14 @@ public sealed class GitHubFilterOptions
     // Urgent and Security issues are never capped. A value of 0 or less means no cap.
     public int MaxIssues { get; set; } = 10;
 
+    // Upper bound on the GitHub calls one event-poll cycle spends re-reading the PRs its events touched (reviews,
+    // comments, pushes): each open-PR lookup for a pushed branch and each PR re-read counts one. PRs past the bound
+    // are handed to the CI refresh instead. A value of 0 or less hands them all over.
+    public int MaxEventRefreshesPerPoll { get; set; } = 20;
+
+    // How many open PRs with unknown, pending or failed checks one poll cycle re-checks. Each costs one conditional
+    // request, plus a full re-read only when its workflow runs changed. A value of 0 or less turns the CI refresh off.
+    public int MaxCheckRefreshesPerPoll { get; set; } = 5;
+
     public GitHubPullRequestFilterOptions PullRequests { get; set; } = new();
 }

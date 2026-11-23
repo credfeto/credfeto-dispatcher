@@ -29,6 +29,8 @@ public sealed class PullRequestDetailFetcherTests : TestBase
                 "url": "https://github.com/owner/repo/pull/42",
                 "body": null,
                 "headRefOid": "abc123",
+                "headRefName": "feature/x",
+                "createdAt": "2026-11-20T10:00:00Z",
                 "baseRef": {"name": "main"},
                 "assignees": {"nodes": []},
                 "labels": {"nodes": []},
@@ -450,6 +452,35 @@ public sealed class PullRequestDetailFetcherTests : TestBase
         Assert.True(
             result.HasDetail,
             userMessage: "Expected notification-fetched details to be marked as having detail"
+        );
+    }
+
+    [Fact]
+    public async Task MapsHeadCommitBranchAndCreationTimeAsync()
+    {
+        using HttpClient graphQlClient = CreateClient(HttpStatusCode.OK, OPEN_PR_JSON);
+        using HttpClient notFoundClient = CreateClient(HttpStatusCode.NotFound);
+        this._httpClientFactory.CreateClient("GitHub").Returns(graphQlClient, notFoundClient);
+
+        PullRequestDetails? result = await this._fetcher.FetchAsync(
+            notification: BuildNotification(type: "PullRequest", reason: "mention"),
+            cancellationToken: this.CancellationToken()
+        );
+
+        Assert.NotNull(result);
+        Assert.Equal(expected: "abc123", actual: result.HeadSha);
+        Assert.Equal(expected: "feature/x", actual: result.HeadRef);
+        Assert.Equal(
+            expected: new DateTimeOffset(
+                year: 2026,
+                month: 11,
+                day: 20,
+                hour: 10,
+                minute: 0,
+                second: 0,
+                offset: TimeSpan.Zero
+            ),
+            actual: result.CreatedAt
         );
     }
 

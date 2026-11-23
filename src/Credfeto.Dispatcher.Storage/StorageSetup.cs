@@ -43,6 +43,7 @@ public static class StorageSetup
             .AddRunOnStartupTask<DatabaseMigrationService>()
             .AddSingleton<IActiveRepoTracker, ActiveRepoTracker>()
             .AddSingleton<IETagStore, ETagStore>()
+            .AddSingleton<IFeedFreshnessStore, FeedFreshnessStore>()
             .AddSingleton<INotificationStateTracker, NotificationStateTracker>()
             .AddSingleton<IWorkItemRepository, WorkItemRepository>()
             .AddSingleton<IDispatcherStoreSnapshotLoader, NullDispatcherStoreSnapshotLoader>();

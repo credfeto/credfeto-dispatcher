@@ -136,6 +136,12 @@ public sealed class WorkItemRefresher : IWorkItemRefresher
             cancellationToken: cancellationToken
         );
 
+        this._logger.LogRefreshedIssue(
+            repo: notification.Repository.FullName,
+            number: details.Number,
+            isOnHold: isOnHold
+        );
+
         return true;
     }
 

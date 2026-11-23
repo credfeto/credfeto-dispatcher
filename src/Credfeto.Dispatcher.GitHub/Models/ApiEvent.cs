@@ -10,5 +10,6 @@ internal sealed record ApiEvent(
     [property: JsonPropertyName("type")] string Type,
     [property: JsonPropertyName("repo")] ApiEventRepo Repo,
     [property: JsonPropertyName("payload")] ApiEventPayload Payload,
-    [property: JsonPropertyName("created_at")] DateTimeOffset CreatedAt
+    [property: JsonPropertyName("created_at")] DateTimeOffset CreatedAt,
+    [property: JsonPropertyName("actor")] ApiUser? Actor = null
 );

@@ -982,6 +982,55 @@ public sealed class RepoEventPollerTests : TestBase
         );
     }
 
+    private static string IssueCommentEventJson(
+        string id,
+        int number,
+        string login,
+        string userType = "User",
+        string repo = REPO,
+        string createdAt = "2024-01-01T00:00:00Z"
+    )
+    {
+        return $$"""
+            {
+              "id": "{{id}}",
+              "type": "IssueCommentEvent",
+              "actor": {"login": "{{login}}"},
+              "repo": {"name": "{{repo}}"},
+              "payload": {
+                "action": "created",
+                "issue": {"number": {{number}}, "title": "Issue", "state": "open"},
+                "comment": {
+                  "body": "A comment",
+                  "user": {"login": "{{login}}", "type": "{{userType}}"},
+                  "html_url": "https://github.com/{{repo}}/issues/{{number}}#issuecomment-1"
+                }
+              },
+              "created_at": "{{createdAt}}"
+            }
+            """;
+    }
+
+    private List<GitHubNotification> RefreshedIssueNotifications()
+    {
+        List<GitHubNotification> refreshed = [];
+
+        foreach (object?[] args in this._workItemRefresher.ReceivedCalls().Select(static call => call.GetArguments()))
+        {
+            if (args is [GitHubNotification { Subject.Type: "Issue" } notification, _])
+            {
+                refreshed.Add(notification);
+            }
+        }
+
+        return refreshed;
+    }
+
+    private List<string?> RefreshedIssues()
+    {
+        return [.. this.RefreshedIssueNotifications().Select(static n => n.Subject.Url?.AbsolutePath)];
+    }
+
     private async Task PollWithRepoFeedAsync(IReadOnlyList<string> repoFeedEvents, GitHubOptions? options = null)
     {
         using SequencedResponseHandler handler = new(Ok(BuildFeedJson(repoFeedEvents)), Ok(EMPTY_JSON));
@@ -1045,14 +1094,81 @@ public sealed class RepoEventPollerTests : TestBase
     }
 
     [Fact]
-    public async Task PollAsync_WithCommentOnPlainIssue_RefreshesNothingAsync()
+    public async Task PollAsync_WithHumanCommentOnPlainIssue_RefreshesThatIssueAsync()
+    {
+        await this.PollWithRepoFeedAsync([IssueCommentEventJson(id: "303", number: 50, login: "someone")]);
+
+        Assert.Equal(expected: ["/repos/owner/repo/issues/50"], actual: this.RefreshedIssues());
+        Assert.Empty(this.RefreshedPullRequests());
+    }
+
+    [Theory]
+    [InlineData("github-actions[bot]", "Bot")]
+    [InlineData("renovate[bot]", "User")]
+    [InlineData("helper-app", "Bot")]
+    [InlineData("dispatcher-user", "User")]
+    [InlineData("Dispatcher-User", "User")]
+    public async Task PollAsync_WithBotOrOwnCommentOnPlainIssue_RefreshesNothingAsync(string login, string userType)
+    {
+        GitHubOptions options = new() { Filter = new GitHubFilterOptions { MentionedUser = "dispatcher-user" } };
+
+        await this.PollWithRepoFeedAsync(
+            [IssueCommentEventJson(id: "304", number: 50, login: login, userType: userType)],
+            options: options
+        );
+
+        Assert.Empty(this._workItemRefresher.ReceivedCalls());
+    }
+
+    [Fact]
+    public async Task PollAsync_WithSeveralCommentsOnOneIssue_RefreshesItOnceStampedWithTheNewestAsync()
     {
         await this.PollWithRepoFeedAsync([
-            BuildEventJson(
-                id: "303",
-                type: "IssueCommentEvent",
-                payload: """{"action": "created", "issue": {"number": 50, "title": "Issue", "state": "open"}}"""
+            IssueCommentEventJson(id: "306", number: 50, login: "someone", createdAt: "2024-01-01T00:02:00Z"),
+            IssueCommentEventJson(id: "305", number: 50, login: "other", createdAt: "2024-01-01T00:01:00Z"),
+        ]);
+
+        GitHubNotification refreshed = Assert.Single(this.RefreshedIssueNotifications());
+        Assert.Equal(
+            expected: new DateTimeOffset(
+                year: 2024,
+                month: 1,
+                day: 1,
+                hour: 0,
+                minute: 2,
+                second: 0,
+                offset: TimeSpan.Zero
             ),
+            actual: refreshed.UpdatedAt
+        );
+    }
+
+    [Fact]
+    public async Task PollAsync_WithIssueCommentPastTheBudget_DefersItAsync()
+    {
+        GitHubOptions options = new() { Filter = new GitHubFilterOptions { MaxEventRefreshesPerPoll = 2 } };
+
+        await this.PollWithRepoFeedAsync(
+            [
+                IssueCommentEventJson(id: "309", number: 52, login: "someone"),
+                IssueCommentEventJson(id: "308", number: 51, login: "someone"),
+                ReviewEventJson(id: "307", number: 40),
+            ],
+            options: options
+        );
+
+        Assert.Equal(expected: [(REPO, 40)], actual: this.RefreshedPullRequests());
+        Assert.Equal(expected: ["/repos/owner/repo/issues/51"], actual: this.RefreshedIssues());
+        await this
+            ._feedFreshnessStore.DidNotReceive()
+            .RecordSyncAsync(syncedAt: Arg.Any<DateTimeOffset>(), cancellationToken: Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task PollAsync_WithCommentOnPlainIssueInUntrackedRepo_RefreshesNothingAsync()
+    {
+        await this.PollWithRepoFeedAsync([
+            IssueCommentEventJson(id: "310", number: 50, login: "someone", repo: "owner/untracked"),
         ]);
 
         Assert.Empty(this._workItemRefresher.ReceivedCalls());

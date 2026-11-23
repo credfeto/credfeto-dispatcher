@@ -25,6 +25,8 @@ public sealed class RepoEventPoller : IRepoEventPoller
     private const string ISSUE_COMMENT_EVENT_TYPE = "IssueCommentEvent";
     private const string PUSH_EVENT_TYPE = "PushEvent";
     private const string BRANCH_REF_PREFIX = "refs/heads/";
+    private const string BOT_USER_TYPE = "Bot";
+    private const string BOT_LOGIN_SUFFIX = "[bot]";
 
     // Bounds how far back a single poll follows the feed's next link when every event on a page is newer than lastId.
     private const int MAX_PAGES_PER_FEED = 3;
@@ -156,64 +158,89 @@ public sealed class RepoEventPoller : IRepoEventPoller
         return (suggestedPollIntervalSeconds, allFeedsRead);
     }
 
-    // Branch lookups first (they add PRs to the queue), then the PR re-reads, all within one call budget. PRs past
-    // the budget are marked stale for the CI refresh, which works through them on later cycles.
+    // Branch lookups first (they add PRs to the queue), then the PR re-reads, then the issue re-reads, all within one
+    // call budget. PRs past the budget are marked stale for the CI refresh, which works through them on later cycles;
+    // issues past it wait for the next scan. Either way the cycle does not count as a complete sync.
     private async ValueTask<bool> RefreshQueuedItemsAsync(
         EventRefreshQueue refreshQueue,
         CancellationToken cancellationToken
     )
     {
-        int budget = this._options.Filter.MaxEventRefreshesPerPoll;
-        int lookupCount = 0;
-        int refreshedCount = 0;
-        int deferredCount = 0;
+        EventRefreshBudget budget = new(this._options.Filter.MaxEventRefreshesPerPoll);
 
         foreach ((string repo, string branch) in refreshQueue.Branches)
         {
-            if (lookupCount >= budget)
+            if (budget.TrySpendLookup())
             {
-                ++deferredCount;
-
-                continue;
+                await this.QueueOpenPullRequestsForBranchAsync(
+                    repo: repo,
+                    branch: branch,
+                    refreshQueue: refreshQueue,
+                    cancellationToken: cancellationToken
+                );
             }
-
-            ++lookupCount;
-            await this.QueueOpenPullRequestsForBranchAsync(
-                repo: repo,
-                branch: branch,
-                refreshQueue: refreshQueue,
-                cancellationToken: cancellationToken
-            );
         }
 
         foreach ((string repo, int number) in refreshQueue.PullRequests)
         {
-            if (lookupCount + refreshedCount >= budget)
+            if (budget.TrySpendPullRequest())
+            {
+                await this._workItemRefresher.RefreshPullRequestAsync(
+                    repo: repo,
+                    number: number,
+                    cancellationToken: cancellationToken
+                );
+            }
+            else
             {
                 this._checkTracker.MarkStale(repo: repo, number: number);
-                ++deferredCount;
+            }
+        }
 
+        await this.RefreshQueuedIssuesAsync(
+            refreshQueue: refreshQueue,
+            budget: budget,
+            cancellationToken: cancellationToken
+        );
+
+        if (!budget.IsUnused)
+        {
+            this._logger.LogEventRefreshesComplete(
+                lookupCount: budget.LookupCount,
+                refreshedCount: budget.PullRequestCount,
+                issueCount: budget.IssueCount,
+                deferredCount: budget.DeferredCount
+            );
+        }
+
+        return budget.DeferredCount == 0;
+    }
+
+    private async ValueTask RefreshQueuedIssuesAsync(
+        EventRefreshQueue refreshQueue,
+        EventRefreshBudget budget,
+        CancellationToken cancellationToken
+    )
+    {
+        foreach ((string repo, int number, DateTimeOffset commentedAt) in refreshQueue.Issues)
+        {
+            if (!budget.TrySpendIssue())
+            {
                 continue;
             }
 
-            ++refreshedCount;
-            await this._workItemRefresher.RefreshPullRequestAsync(
+            GitHubNotification notification = SyntheticNotifications.BuildIssueApiNotification(
+                idPrefix: "event-refresh",
                 repo: repo,
                 number: number,
+                updatedAt: commentedAt
+            );
+
+            await this._workItemRefresher.RefreshIssueAsync(
+                notification: notification,
                 cancellationToken: cancellationToken
             );
         }
-
-        if (lookupCount + refreshedCount + deferredCount != 0)
-        {
-            this._logger.LogEventRefreshesComplete(
-                lookupCount: lookupCount,
-                refreshedCount: refreshedCount,
-                deferredCount: deferredCount
-            );
-        }
-
-        return deferredCount == 0;
     }
 
     // A push to a branch changes the head commit (and so the CI) of any open PR from that branch.
@@ -575,7 +602,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
     }
 
     // PR and issue events carry the item's labels and state, so they are upserted straight from the payload. The other
-    // events that change a served PR (reviews, comments, pushes to its branch) are queued for a full re-read.
+    // events that change a served item (reviews, comments, pushes to a PR's branch) are queued for a full re-read.
     private async ValueTask<bool> ProcessEventAsync(
         ApiEvent ev,
         EventRefreshQueue refreshQueue,
@@ -605,13 +632,12 @@ public sealed class RepoEventPoller : IRepoEventPoller
                 );
         }
 
-        QueueRefresh(ev: ev, refreshQueue: refreshQueue);
+        this.QueueRefresh(ev: ev, refreshQueue: refreshQueue);
 
         return false;
     }
 
-    // A comment on a plain issue changes nothing the store keeps for an issue, so it costs no API call.
-    internal static bool QueueRefresh(ApiEvent ev, EventRefreshQueue refreshQueue)
+    internal bool QueueRefresh(ApiEvent ev, EventRefreshQueue refreshQueue)
     {
         string repo = ev.Repo.Name;
 
@@ -623,13 +649,63 @@ public sealed class RepoEventPoller : IRepoEventPoller
                     ? reviewedPr.Number
                     : ev.Payload.Number ?? 0
             ),
-            ISSUE_COMMENT_EVENT_TYPE => ev.Payload.Issue is { PullRequest: not null } commentedPr
-                && refreshQueue.AddPullRequest(repo: repo, number: commentedPr.Number),
+            ISSUE_COMMENT_EVENT_TYPE => this.QueueCommentRefresh(ev: ev, repo: repo, refreshQueue: refreshQueue),
             PUSH_EVENT_TYPE => ev.Payload.Ref is { } pushedRef
                 && pushedRef.StartsWith(value: BRANCH_REF_PREFIX, comparisonType: StringComparison.Ordinal)
                 && refreshQueue.AddBranch(repo: repo, branch: pushedRef[BRANCH_REF_PREFIX.Length..]),
             _ => false,
         };
+    }
+
+    // A comment on a PR re-reads the PR. A comment on a plain issue re-reads the issue so its stored state is current,
+    // unless a bot or the dispatcher's own user wrote it: re-reading for those would spend the shared API budget on
+    // automated traffic.
+    private bool QueueCommentRefresh(ApiEvent ev, string repo, EventRefreshQueue refreshQueue)
+    {
+        if (ev.Payload.Issue is not { } issue)
+        {
+            return false;
+        }
+
+        if (issue.PullRequest is not null)
+        {
+            return refreshQueue.AddPullRequest(repo: repo, number: issue.Number);
+        }
+
+        return !this.IsIgnoredCommentAuthor(ev)
+            && refreshQueue.AddIssue(repo: repo, number: issue.Number, commentedAt: ev.CreatedAt);
+    }
+
+    private bool IsIgnoredCommentAuthor(ApiEvent ev)
+    {
+        ApiUser? commenter = ev.Payload.Comment?.User;
+
+        return IsBot(ev.Actor) || IsBot(commenter) || this.IsOwnUser(ev.Actor) || this.IsOwnUser(commenter);
+    }
+
+    private static bool IsBot(ApiUser? user)
+    {
+        if (user is null)
+        {
+            return false;
+        }
+
+        if (string.Equals(a: user.Type, b: BOT_USER_TYPE, comparisonType: StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return !string.IsNullOrEmpty(user.Login)
+            && user.Login.EndsWith(value: BOT_LOGIN_SUFFIX, comparisonType: StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool IsOwnUser(ApiUser? user)
+    {
+        string ownLogin = this._options.Filter.MentionedUser;
+
+        return user is not null
+            && !string.IsNullOrWhiteSpace(ownLogin)
+            && string.Equals(a: user.Login, b: ownLogin, comparisonType: StringComparison.OrdinalIgnoreCase);
     }
 
     private async ValueTask<bool> ProcessPullRequestEventAsync(

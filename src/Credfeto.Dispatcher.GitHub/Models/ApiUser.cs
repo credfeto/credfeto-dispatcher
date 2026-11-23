@@ -4,4 +4,7 @@ using System.Text.Json.Serialization;
 namespace Credfeto.Dispatcher.GitHub.Models;
 
 [DebuggerDisplay("{Login}")]
-internal sealed record ApiUser([property: JsonPropertyName("login")] string Login);
+internal sealed record ApiUser(
+    [property: JsonPropertyName("login")] string Login,
+    [property: JsonPropertyName("type")] string? Type = null
+);

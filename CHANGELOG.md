@@ -118,6 +118,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Health check now logs failure reason to console instead of using NullLogger
 - Database and GitHub options are now bound with AddOptions<T>().Bind().ValidateOnStart() so invalid configuration fails host startup with a clear error instead of failing later at first use (#284)
 - /priorities refreshes continuously instead of catching up only on the hourly scan: the event poller re-reads PRs touched by reviews, review comments, PR comments and pushes to their branch, open PRs with unknown, pending or failed CI are re-checked each poll cycle with bounded conditional requests, and asOf/lagSeconds report the last complete sync rather than the newest served row (#292)
+- The event poller also re-reads a plain issue in a tracked repository when a human comments on it, so its stored state and lastUpdated stay current; comments by bots or the configured MentionedUser are skipped, and the re-reads share the MaxEventRefreshesPerPoll limit (#292)
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934

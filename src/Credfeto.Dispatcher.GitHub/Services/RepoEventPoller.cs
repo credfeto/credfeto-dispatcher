@@ -704,8 +704,8 @@ public sealed class RepoEventPoller : IRepoEventPoller
     }
 
     // A comment on a PR re-reads the PR. A comment on a plain issue re-reads the issue so its stored state is current,
-    // unless a bot or the dispatcher's own user wrote it: re-reading for those would spend the shared API budget on
-    // automated traffic.
+    // unless a bot or a login in Filter:IgnoredCommenters wrote it: re-reading for those would spend the shared API
+    // budget on automated traffic.
     private bool QueueCommentRefresh(ApiEvent ev, string repo, EventRefreshQueue refreshQueue)
     {
         if (ev.Payload.Issue is not { } issue)
@@ -726,7 +726,10 @@ public sealed class RepoEventPoller : IRepoEventPoller
     {
         ApiUser? commenter = ev.Payload.Comment?.User;
 
-        return IsBot(ev.Actor) || IsBot(commenter) || this.IsOwnUser(ev.Actor) || this.IsOwnUser(commenter);
+        return IsBot(ev.Actor)
+            || IsBot(commenter)
+            || this.IsIgnoredCommenter(ev.Actor)
+            || this.IsIgnoredCommenter(commenter);
     }
 
     private static bool IsBot(ApiUser? user)
@@ -745,13 +748,12 @@ public sealed class RepoEventPoller : IRepoEventPoller
             && user.Login.EndsWith(value: BOT_LOGIN_SUFFIX, comparisonType: StringComparison.OrdinalIgnoreCase);
     }
 
-    private bool IsOwnUser(ApiUser? user)
+    private bool IsIgnoredCommenter(ApiUser? user)
     {
-        string ownLogin = this._options.Filter.MentionedUser;
-
-        return user is not null
-            && !string.IsNullOrWhiteSpace(ownLogin)
-            && string.Equals(a: user.Login, b: ownLogin, comparisonType: StringComparison.OrdinalIgnoreCase);
+        return user is { Login: { } login }
+            && this._options.Filter.IgnoredCommenters.Any(ignored =>
+                string.Equals(a: ignored, b: login, comparisonType: StringComparison.OrdinalIgnoreCase)
+            );
     }
 
     private bool PassesLabelFilter(IReadOnlyList<string> labelNames)

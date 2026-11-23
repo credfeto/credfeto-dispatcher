@@ -45,7 +45,8 @@ Set the following in `appsettings.json` or environment variables:
       "BoostedRepos": [],
       "MaxIssues": 10,
       "MaxEventRefreshesPerPoll": 20,
-      "MaxCheckRefreshesPerPoll": 5
+      "MaxCheckRefreshesPerPoll": 5,
+      "IgnoredCommenters": []
     }
   }
 }
@@ -63,8 +64,9 @@ Set the following in `appsettings.json` or environment variables:
 | `GitHub:Filter:ExcludedRepos` | string[] | Repository deny-list that is always ignored. |
 | `GitHub:Filter:BoostedRepos` | string[] | Ordered `owner/repo` list. Matching items sort to the front of their band (Security/Urgent PRs, other PRs, Security/Urgent issues, other issues) in `/priorities`, in list order. Ordering only; does not bypass `AllowedOwners`/`AllowedRepos`/`ExcludedRepos`. |
 | `GitHub:Filter:MaxIssues` | integer | Maximum number of regular (below Urgent) issues each owner gets in `/priorities`, at most one per repository. The cap applies per owner, so one owner cannot take every slot from the others. Urgent and Security issues are never capped. `0` or less means no cap. Defaults to `10`. |
-| `GitHub:Filter:MaxEventRefreshesPerPoll` | integer | Most GitHub calls one event-poll cycle spends re-reading the items its events touched: every PR event (opened, labeled, unlabeled, assigned, closed, merged, reopened and so on; the Events API trims its PR payload to the number, so the PR is re-read by number), reviews, review comments, comments on a PR, pushes to a branch with an open PR, issue events whose payload lacks a field, and comments on a plain issue in a tracked repository (one open-PR lookup per pushed branch plus one full re-read per PR or issue, de-duplicated across the cycle). Complete issue events are upserted from the payload and cost nothing. Comments written by a bot (login ending `[bot]` or user type `Bot`) or by `MentionedUser` re-read nothing. Pushed tags are ignored. PRs past the limit are handed to the CI refresh; issues past it wait for the next scan. `0` or less hands them all over. Defaults to `20`. |
+| `GitHub:Filter:MaxEventRefreshesPerPoll` | integer | Most GitHub calls one event-poll cycle spends re-reading the items its events touched: every PR event (opened, labeled, unlabeled, assigned, closed, merged, reopened and so on; the Events API trims its PR payload to the number, so the PR is re-read by number), reviews, review comments, comments on a PR, pushes to a branch with an open PR, issue events whose payload lacks a field, and comments on a plain issue in a tracked repository (one open-PR lookup per pushed branch plus one full re-read per PR or issue, de-duplicated across the cycle). Complete issue events are upserted from the payload and cost nothing. Comments written by a bot (login ending `[bot]` or user type `Bot`) or by a login in `IgnoredCommenters` re-read nothing. Pushed tags are ignored. PRs past the limit are handed to the CI refresh; issues past it wait for the next scan. `0` or less hands them all over. Defaults to `20`. |
 | `GitHub:Filter:MaxCheckRefreshesPerPoll` | integer | How many open, non-on-hold PRs whose checks are unknown, pending or failed each poll cycle re-checks, least recently checked first. Each costs one conditional workflow-runs request (a `304` when nothing changed), plus a full re-read only when the runs changed; a `403`/`429` stops the batch until the next cycle. `0` or less turns the CI refresh off. Defaults to `5`. |
+| `GitHub:Filter:IgnoredCommenters` | string[] | Logins (matched case-insensitively) whose comments on a plain issue never trigger a re-read of it, in addition to bots (login ending `[bot]` or user type `Bot`). Use it for automation that posts as a normal user account, such as an orchestrator posting status comments. Everyone else's comments, including the owner's, always trigger a re-read. Defaults to empty. |
 
 When `DatabaseConfiguration:Provider` is `InMemory`, the in-memory store is periodically persisted to a JSON snapshot on disk and reloaded at startup, so a container restart doesn't mean starting from zero:
 

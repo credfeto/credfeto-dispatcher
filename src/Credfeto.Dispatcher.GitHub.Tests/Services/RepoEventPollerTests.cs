@@ -747,11 +747,15 @@ public sealed class RepoEventPollerTests : TestBase
     [InlineData("github-actions[bot]", "Bot")]
     [InlineData("renovate[bot]", "User")]
     [InlineData("helper-app", "Bot")]
-    [InlineData("dispatcher-user", "User")]
-    [InlineData("Dispatcher-User", "User")]
-    public async Task PollAsync_WithBotOrOwnCommentOnPlainIssue_RefreshesNothingAsync(string login, string userType)
+    [InlineData("status-poster", "User")]
+    [InlineData("Status-Poster", "User")]
+    [InlineData("other-automation", "User")]
+    public async Task PollAsync_WithBotOrIgnoredCommentOnPlainIssue_RefreshesNothingAsync(string login, string userType)
     {
-        GitHubOptions options = new() { Filter = new GitHubFilterOptions { MentionedUser = "dispatcher-user" } };
+        GitHubOptions options = new()
+        {
+            Filter = new GitHubFilterOptions { IgnoredCommenters = ["status-poster", "OTHER-AUTOMATION"] },
+        };
 
         await this.PollWithRepoFeedAsync(
             [IssueCommentEventJson(id: "304", number: 50, login: login, userType: userType)],
@@ -759,6 +763,30 @@ public sealed class RepoEventPollerTests : TestBase
         );
 
         Assert.Empty(this._workItemRefresher.ReceivedCalls());
+    }
+
+    [Fact]
+    public async Task PollAsync_WithCommentFromTheMentionedUser_StillRefreshesTheIssueAsync()
+    {
+        GitHubOptions options = new()
+        {
+            Filter = new GitHubFilterOptions { MentionedUser = "owner-login", IgnoredCommenters = ["status-poster"] },
+        };
+
+        await this.PollWithRepoFeedAsync(
+            [IssueCommentEventJson(id: "312", number: 50, login: "owner-login")],
+            options: options
+        );
+
+        Assert.Equal(expected: ["/repos/owner/repo/issues/50"], actual: this.RefreshedIssues());
+    }
+
+    [Fact]
+    public async Task PollAsync_WithNoIgnoredCommenters_RefreshesOnAnyHumanCommentAsync()
+    {
+        await this.PollWithRepoFeedAsync([IssueCommentEventJson(id: "313", number: 50, login: "status-poster")]);
+
+        Assert.Equal(expected: ["/repos/owner/repo/issues/50"], actual: this.RefreshedIssues());
     }
 
     [Fact]

@@ -22,6 +22,10 @@ public sealed class GitHubFilterOptions
 
     public string MentionedUser { get; set; } = string.Empty;
 
+    // Logins (matched case-insensitively) whose comments on a plain issue never trigger a re-read of that issue, on top
+    // of bot accounts: e.g. an automation that posts as a normal user account. Empty by default.
+    public IReadOnlyList<string> IgnoredCommenters { get; set; } = [];
+
     // Maximum number of regular (below Urgent) issues returned per owner by /priorities.
     // Urgent and Security issues are never capped. A value of 0 or less means no cap.
     public int MaxIssues { get; set; } = 10;

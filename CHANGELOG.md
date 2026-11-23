@@ -154,6 +154,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - The /priorities ordering, filtering, per-repository top-issue selection and cap are now computed in the database by the new WorkItems_GetPrioritised stored procedure, with an equivalent LINQ implementation in the in-memory store, so only the prioritised work items are loaded
 - Target .NET 11 and enable runtime-async (#270)
 - SDK - Updated DotNet SDK to 11.0.100
+- Filter:IgnoredCommenters (default empty) lists logins whose comments on a plain issue never trigger a re-read, alongside bot accounts; comments by MentionedUser are no longer skipped (#292)
 ### Deprecated
 ### Removed
 - Removed IsUpToDate field from WorkItem and PullRequestDetails as it was never populated in production

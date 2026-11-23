@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics;
 using System.Text.Json.Serialization;
 
@@ -19,5 +20,7 @@ internal sealed record GraphQlPullRequestData(
     [property: JsonPropertyName("reviews")] GraphQlReviewConnection? Reviews,
     [property: JsonPropertyName("author")] GraphQlActor? Author,
     [property: JsonPropertyName("commits")] GraphQlCommitConnection? Commits,
-    [property: JsonPropertyName("closingIssuesReferences")] GraphQlClosingIssuesConnection? ClosingIssuesReferences
+    [property: JsonPropertyName("closingIssuesReferences")] GraphQlClosingIssuesConnection? ClosingIssuesReferences,
+    [property: JsonPropertyName("headRefName")] string? HeadRefName = null,
+    [property: JsonPropertyName("createdAt")] DateTimeOffset? CreatedAt = null
 );

@@ -47,6 +47,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Persist the in-memory dispatcher store to a periodic JSON snapshot and reload it at startup, so a container restart no longer wipes /priorities back to empty (#210)
 - Optional `user` query parameter on GET /priorities to exclude items assigned to other users (adopted bot PRs kept); persist pull request assignees and IsAdopted status in database
 - Add stateless MCP server on /mcp (Streamable HTTP) exposing priorities and db tools so AI assistants can query work item priorities and dispatcher database state, with supporting GetAll stored procedures and migration (#247)
+- The event poller refreshes on branch creation: a new depends/* or dependabot/* branch looks up its open PR and upserts it, and a new branch whose name carries an issue number (fix/292-..., feat/6-..., 292-..., issue-292-...) re-reads that issue's row without marking it started; both share MaxEventRefreshesPerPoll (#292)
 ### Fixed
 - Move the container runtime base to runtime-deps 11.0 resolute chiseled-extra (glibc 2.43) so the AOT binary built on Ubuntu 26.04 can start; on the azurelinux3.0 distroless base (glibc 2.38) the container restart-looped (#276)
 - /priorities no longer hides a user's issues behind an open PR that is assigned only to other people and not adopted, since that PR is never given to the user either (#260)
@@ -117,6 +118,9 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - Failed check names are now stored as a JSON array so check names containing commas (e.g. matrix jobs) round-trip intact; legacy comma-separated values are still read (#194)
 - Health check now logs failure reason to console instead of using NullLogger
 - Database and GitHub options are now bound with AddOptions<T>().Bind().ValidateOnStart() so invalid configuration fails host startup with a clear error instead of failing later at first use (#284)
+- /priorities refreshes continuously instead of catching up only on the hourly scan: the event poller re-reads PRs touched by reviews, review comments, PR comments and pushes to their branch, open PRs with unknown, pending or failed CI are re-checked each poll cycle with bounded conditional requests, and asOf/lagSeconds report the last complete sync rather than the newest served row (#292)
+- The event poller also re-reads a plain issue in a tracked repository when a human comments on it, so its stored state and lastUpdated stay current; comments by bots or the configured MentionedUser are skipped, and the re-reads share the MaxEventRefreshesPerPoll limit (#292)
+- PullRequestEvents are no longer dropped: the events API now trims payload.pull_request to its number, so every PR event in a tracked repo (opened, labeled, unlabeled, assigned, closed, merged, reopened, ...) re-reads that PR by number, de-duplicated and within MaxEventRefreshesPerPoll; an issue event with an incomplete payload re-reads the issue instead of being skipped (#292)
 ### Changed
 - Dependencies - Updated Credfeto.Version.Information.Generator to 1.0.124.1183
 - Dependencies - Updated FunFair.CodeAnalysis to 7.1.41.1934
@@ -151,6 +155,7 @@ Please ADD ALL Changes to the UNRELEASED SECTION and not a specific release
 - The /priorities ordering, filtering, per-repository top-issue selection and cap are now computed in the database by the new WorkItems_GetPrioritised stored procedure, with an equivalent LINQ implementation in the in-memory store, so only the prioritised work items are loaded
 - Target .NET 11 and enable runtime-async (#270)
 - SDK - Updated DotNet SDK to 11.0.100
+- Filter:IgnoredCommenters (default empty) lists logins whose comments on a plain issue never trigger a re-read, alongside bot accounts; comments by MentionedUser are no longer skipped (#292)
 ### Deprecated
 ### Removed
 - Removed IsUpToDate field from WorkItem and PullRequestDetails as it was never populated in production

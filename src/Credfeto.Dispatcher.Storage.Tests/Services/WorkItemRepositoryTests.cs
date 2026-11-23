@@ -1,12 +1,16 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Interfaces;
 using Credfeto.Dispatcher.Storage.Database.Rows;
+using Credfeto.Dispatcher.Storage.Services;
 using FunFair.Test.Common;
 using FunFair.Test.Infrastructure.Mocks;
+using NSubstitute;
 using Xunit;
 
 namespace Credfeto.Dispatcher.Storage.Tests.Services;
@@ -16,14 +20,20 @@ public sealed class WorkItemRepositoryTests : TestBase
     private static readonly DateTimeOffset BaseTime = MockDateTimeSources.Past.GetUtcNow();
 
     private readonly TestDatabaseStub _database;
+    private readonly IETagStore _eTagStore;
     private readonly TimeProvider _timeProvider;
     private readonly IWorkItemRepository _repository;
 
     public WorkItemRepositoryTests()
     {
         this._database = new TestDatabaseStub();
+        this._eTagStore = GetSubstitute<IETagStore>();
         this._timeProvider = MockDateTimeSources.Past;
-        this._repository = new WorkItemRepository(this._database, this._timeProvider);
+        this._repository = new WorkItemRepository(
+            this._database,
+            new FeedFreshnessStore(this._eTagStore),
+            this._timeProvider
+        );
     }
 
     private Task<PrioritiesResponse> GetPrioritisedAsync(IReadOnlyList<WorkItemRow> rows)
@@ -161,6 +171,21 @@ public sealed class WorkItemRepositoryTests : TestBase
 
         Assert.Equal(expected: latest, actual: response.AsOf);
         Assert.Equal(expected: 30, actual: response.LagSeconds);
+    }
+
+    [Fact]
+    public async Task GetPrioritisedAsOfIsTheLastCompleteSyncWhenOneIsRecordedAsync()
+    {
+        DateTimeOffset lastSync = BaseTime.AddSeconds(-45);
+        this._eTagStore.GetETagAsync(FeedFreshnessStore.LAST_SYNC_KEY, Arg.Any<CancellationToken>())
+            .Returns(lastSync.ToString(format: "O", formatProvider: CultureInfo.InvariantCulture));
+
+        PrioritiesResponse response = await this.GetPrioritisedAsync([
+            CreateWorkItemRow("owner/a", id: 1, itemType: "PullRequest", lastUpdated: BaseTime.AddHours(-2)),
+        ]);
+
+        Assert.Equal(expected: lastSync, actual: response.AsOf);
+        Assert.Equal(expected: 45, actual: response.LagSeconds);
     }
 
     [Fact]

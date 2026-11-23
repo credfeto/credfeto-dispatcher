@@ -21,5 +21,8 @@ public sealed record PullRequestDetails(
     LastNotification LastNotification,
     string? Author,
     IReadOnlyList<string> CommitAuthors,
-    bool HasDetail
+    bool HasDetail,
+    string? HeadSha = null,
+    string? HeadRef = null,
+    DateTimeOffset? CreatedAt = null
 );

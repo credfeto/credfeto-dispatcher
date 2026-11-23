@@ -20,6 +20,15 @@ public sealed class RepoEventPoller : IRepoEventPoller
 {
     private const string PULL_REQUEST_EVENT_TYPE = "PullRequestEvent";
     private const string ISSUES_EVENT_TYPE = "IssuesEvent";
+    private const string PULL_REQUEST_REVIEW_EVENT_TYPE = "PullRequestReviewEvent";
+    private const string PULL_REQUEST_REVIEW_COMMENT_EVENT_TYPE = "PullRequestReviewCommentEvent";
+    private const string ISSUE_COMMENT_EVENT_TYPE = "IssueCommentEvent";
+    private const string PUSH_EVENT_TYPE = "PushEvent";
+    private const string CREATE_EVENT_TYPE = "CreateEvent";
+    private const string BRANCH_REF_TYPE = "branch";
+    private const string BRANCH_REF_PREFIX = "refs/heads/";
+    private const string BOT_USER_TYPE = "Bot";
+    private const string BOT_LOGIN_SUFFIX = "[bot]";
 
     // Bounds how far back a single poll follows the feed's next link when every event on a page is newer than lastId.
     private const int MAX_PAGES_PER_FEED = 3;
@@ -29,20 +38,28 @@ public sealed class RepoEventPoller : IRepoEventPoller
 
     private readonly IReadOnlyList<string> _activeLabelFilter;
     private readonly IActiveRepoTracker _activeRepoTracker;
+    private readonly IPullRequestCheckRefresher _checkRefresher;
+    private readonly PullRequestCheckTracker _checkTracker;
     private readonly IETagStore _eTagStore;
+    private readonly IFeedFreshnessStore _feedFreshnessStore;
     private readonly GitHubRepoHelper _helper;
     private readonly ILogger<RepoEventPoller> _logger;
     private readonly INotificationStateTracker _notificationStateTracker;
     private readonly GitHubOptions _options;
-    private readonly IPullRequestDetailFetcher _pullRequestDetailFetcher;
+    private readonly TimeProvider _timeProvider;
+    private readonly IWorkItemRefresher _workItemRefresher;
 
     public RepoEventPoller(
         GitHubRepoHelper helper,
         IActiveRepoTracker activeRepoTracker,
         IETagStore eTagStore,
         INotificationStateTracker notificationStateTracker,
-        IPullRequestDetailFetcher pullRequestDetailFetcher,
+        IWorkItemRefresher workItemRefresher,
+        IPullRequestCheckRefresher checkRefresher,
+        PullRequestCheckTracker checkTracker,
+        IFeedFreshnessStore feedFreshnessStore,
         IOptions<GitHubOptions> options,
+        TimeProvider timeProvider,
         ILogger<RepoEventPoller> logger
     )
     {
@@ -50,9 +67,13 @@ public sealed class RepoEventPoller : IRepoEventPoller
         this._activeRepoTracker = activeRepoTracker;
         this._eTagStore = eTagStore;
         this._notificationStateTracker = notificationStateTracker;
-        this._pullRequestDetailFetcher = pullRequestDetailFetcher;
+        this._workItemRefresher = workItemRefresher;
+        this._checkRefresher = checkRefresher;
+        this._checkTracker = checkTracker;
+        this._feedFreshnessStore = feedFreshnessStore;
         this._options = options.Value;
         this._activeLabelFilter = LinkedIssueTrust.ActiveLabelFilter(this._options.Filter.LabelFilter);
+        this._timeProvider = timeProvider;
         this._logger = logger;
     }
 
@@ -62,6 +83,8 @@ public sealed class RepoEventPoller : IRepoEventPoller
         {
             return null;
         }
+
+        DateTimeOffset cycleStart = this._timeProvider.GetUtcNow();
 
         IReadOnlyList<string> repos = await this._activeRepoTracker.GetActiveReposAsync(cancellationToken);
 
@@ -79,21 +102,171 @@ public sealed class RepoEventPoller : IRepoEventPoller
         }
 
         IReadOnlyList<string> owners = [.. repos.Select(GetOwner).Distinct(StringComparer.OrdinalIgnoreCase)];
+        EventRefreshQueue refreshQueue = new(repos);
 
+        (int? suggestedPollIntervalSeconds, bool allFeedsRead) = await this.PollFeedsAsync(
+            repos: repos,
+            owners: owners,
+            refreshQueue: refreshQueue,
+            cancellationToken: cancellationToken
+        );
+
+        bool allRefreshed = await this.RefreshQueuedItemsAsync(
+            refreshQueue: refreshQueue,
+            cancellationToken: cancellationToken
+        );
+
+        // Every feed answered and every item its events touched was re-read: the store is in sync as of the start
+        // of this cycle, which is what /priorities reports as asOf.
+        if (allFeedsRead && allRefreshed)
+        {
+            await this._feedFreshnessStore.RecordSyncAsync(syncedAt: cycleStart, cancellationToken: cancellationToken);
+        }
+
+        int? checkPollIntervalSeconds = await this._checkRefresher.RefreshAsync(cancellationToken);
+
+        this._logger.LogEventPollComplete(repoCount: repos.Count, ownerCount: owners.Count);
+
+        return ETagHeaderUtility.MaxPollIntervalSeconds(suggestedPollIntervalSeconds, checkPollIntervalSeconds);
+    }
+
+    private async ValueTask<(int? PollIntervalSeconds, bool AllFeedsRead)> PollFeedsAsync(
+        IReadOnlyList<string> repos,
+        IReadOnlyList<string> owners,
+        EventRefreshQueue refreshQueue,
+        CancellationToken cancellationToken
+    )
+    {
         int? suggestedPollIntervalSeconds = null;
+        bool allFeedsRead = true;
 
         foreach (RepoEventFeed feed in BuildFeeds(repos: repos, owners: owners))
         {
-            int? feedPollIntervalSeconds = await this.PollFeedAsync(feed: feed, cancellationToken: cancellationToken);
+            (int? feedPollIntervalSeconds, bool feedRead) = await this.PollFeedAsync(
+                feed: feed,
+                refreshQueue: refreshQueue,
+                cancellationToken: cancellationToken
+            );
             suggestedPollIntervalSeconds = ETagHeaderUtility.MaxPollIntervalSeconds(
                 suggestedPollIntervalSeconds,
                 feedPollIntervalSeconds
             );
+            allFeedsRead &= feedRead;
         }
 
-        this._logger.LogEventPollComplete(repoCount: repos.Count, ownerCount: owners.Count);
+        return (suggestedPollIntervalSeconds, allFeedsRead);
+    }
 
-        return suggestedPollIntervalSeconds;
+    // Branch lookups first (they add PRs to the queue), then the PR re-reads, then the issue re-reads, all within one
+    // call budget. PRs past the budget are marked stale for the CI refresh, which works through them on later cycles;
+    // issues past it wait for the next scan. Either way the cycle does not count as a complete sync.
+    private async ValueTask<bool> RefreshQueuedItemsAsync(
+        EventRefreshQueue refreshQueue,
+        CancellationToken cancellationToken
+    )
+    {
+        EventRefreshBudget budget = new(this._options.Filter.MaxEventRefreshesPerPoll);
+
+        foreach ((string repo, string branch) in refreshQueue.Branches)
+        {
+            if (budget.TrySpendLookup())
+            {
+                await this.QueueOpenPullRequestsForBranchAsync(
+                    repo: repo,
+                    branch: branch,
+                    refreshQueue: refreshQueue,
+                    cancellationToken: cancellationToken
+                );
+            }
+        }
+
+        foreach ((string repo, int number) in refreshQueue.PullRequests)
+        {
+            if (budget.TrySpendPullRequest())
+            {
+                await this._workItemRefresher.RefreshPullRequestAsync(
+                    repo: repo,
+                    number: number,
+                    cancellationToken: cancellationToken
+                );
+            }
+            else
+            {
+                this._checkTracker.MarkStale(repo: repo, number: number);
+            }
+        }
+
+        await this.RefreshQueuedIssuesAsync(
+            refreshQueue: refreshQueue,
+            budget: budget,
+            cancellationToken: cancellationToken
+        );
+
+        if (!budget.IsUnused)
+        {
+            this._logger.LogEventRefreshesComplete(
+                lookupCount: budget.LookupCount,
+                refreshedCount: budget.PullRequestCount,
+                issueCount: budget.IssueCount,
+                deferredCount: budget.DeferredCount
+            );
+        }
+
+        return budget.DeferredCount == 0;
+    }
+
+    private async ValueTask RefreshQueuedIssuesAsync(
+        EventRefreshQueue refreshQueue,
+        EventRefreshBudget budget,
+        CancellationToken cancellationToken
+    )
+    {
+        foreach ((string repo, int number, DateTimeOffset commentedAt) in refreshQueue.Issues)
+        {
+            if (!budget.TrySpendIssue())
+            {
+                continue;
+            }
+
+            GitHubNotification notification = SyntheticNotifications.BuildIssueApiNotification(
+                idPrefix: "event-refresh",
+                repo: repo,
+                number: number,
+                updatedAt: commentedAt
+            );
+
+            await this._workItemRefresher.RefreshIssueAsync(
+                notification: notification,
+                cancellationToken: cancellationToken
+            );
+        }
+    }
+
+    // A push to a branch changes the head commit (and so the CI) of any open PR from that branch.
+    private async ValueTask QueueOpenPullRequestsForBranchAsync(
+        string repo,
+        string branch,
+        EventRefreshQueue refreshQueue,
+        CancellationToken cancellationToken
+    )
+    {
+        (ApiPullRequest[]? items, _, _) = await this._helper.GetPagedAsync(
+            url: BuildOpenPullRequestsForBranchUrl(repo: repo, branch: branch),
+            jsonTypeInfo: NotificationSerializerContext.Default.ApiPullRequestArray,
+            cancellationToken: cancellationToken
+        );
+
+        foreach (ApiPullRequest pr in items ?? [])
+        {
+            refreshQueue.AddPullRequest(repo: repo, number: pr.Number);
+        }
+    }
+
+    internal static string BuildOpenPullRequestsForBranchUrl(string repo, string branch)
+    {
+        string head = string.Concat(Uri.EscapeDataString(GetOwner(repo)), ":", Uri.EscapeDataString(branch));
+
+        return $"repos/{repo}/pulls?state=open&head={head}&per_page=10";
     }
 
     private static IEnumerable<RepoEventFeed> BuildFeeds(IReadOnlyList<string> repos, IReadOnlyList<string> owners)
@@ -117,7 +290,11 @@ public sealed class RepoEventPoller : IRepoEventPoller
             );
     }
 
-    private async Task<int?> PollFeedAsync(RepoEventFeed feed, CancellationToken cancellationToken)
+    private async Task<(int? PollIntervalSeconds, bool Read)> PollFeedAsync(
+        RepoEventFeed feed,
+        EventRefreshQueue refreshQueue,
+        CancellationToken cancellationToken
+    )
     {
         string? storedETag = await this._eTagStore.GetETagAsync(
             key: feed.ETagKey,
@@ -135,15 +312,21 @@ public sealed class RepoEventPoller : IRepoEventPoller
         {
             this._logger.LogFeedNotModified(feed: feed.Description);
 
-            return result.PollIntervalSeconds;
+            return (result.PollIntervalSeconds, true);
         }
 
-        if (result.Items is not null && result.Items.Length != 0)
+        if (result.Items is null)
+        {
+            return (result.PollIntervalSeconds, false);
+        }
+
+        if (result.Items.Length != 0)
         {
             await this.ProcessFeedItemsAsync(
                 feed: feed,
                 firstPageItems: result.Items,
                 nextUrl: result.NextUrl,
+                refreshQueue: refreshQueue,
                 cancellationToken: cancellationToken
             );
         }
@@ -156,13 +339,14 @@ public sealed class RepoEventPoller : IRepoEventPoller
             cancellationToken: cancellationToken
         );
 
-        return result.PollIntervalSeconds;
+        return (result.PollIntervalSeconds, true);
     }
 
     private async Task ProcessFeedItemsAsync(
         RepoEventFeed feed,
         ApiEvent[] firstPageItems,
         string? nextUrl,
+        EventRefreshQueue refreshQueue,
         CancellationToken cancellationToken
     )
     {
@@ -187,6 +371,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
         (int newCount, int upsertedCount, int skippedSeenCount) = await this.ProcessNewEventsAsync(
             events: events,
             seenIds: ParseSeenIds(storedSeenIds),
+            refreshQueue: refreshQueue,
             cancellationToken: cancellationToken
         );
 
@@ -369,6 +554,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
     private async ValueTask<(int NewCount, int UpsertedCount, int SkippedSeenCount)> ProcessNewEventsAsync(
         IReadOnlyList<(long Id, ApiEvent Event)> events,
         IReadOnlySet<long> seenIds,
+        EventRefreshQueue refreshQueue,
         CancellationToken cancellationToken
     )
     {
@@ -399,7 +585,13 @@ public sealed class RepoEventPoller : IRepoEventPoller
         // Feed is newest-first; apply oldest-first so the newest event's state wins the upsert.
         for (int i = newEvents.Count - 1; i >= 0; --i)
         {
-            if (await this.ProcessEventAsync(ev: newEvents[i], cancellationToken: cancellationToken))
+            if (
+                await this.ProcessEventAsync(
+                    ev: newEvents[i],
+                    refreshQueue: refreshQueue,
+                    cancellationToken: cancellationToken
+                )
+            )
             {
                 ++upsertedCount;
             }
@@ -408,169 +600,194 @@ public sealed class RepoEventPoller : IRepoEventPoller
         return (newEvents.Count, upsertedCount, skippedSeenCount);
     }
 
-    private async ValueTask<bool> ProcessEventAsync(ApiEvent ev, CancellationToken cancellationToken)
+    // Issue events carry the issue's labels and state, so a complete one is upserted straight from the payload. Every
+    // other event that changes a served item is queued for a full re-read by number: PR events (whose pull_request
+    // payload the Events API now trims to base, head, id, number and url), reviews, comments, pushes to a PR's branch,
+    // and issue events whose payload is missing a field the upsert needs.
+    private async ValueTask<bool> ProcessEventAsync(
+        ApiEvent ev,
+        EventRefreshQueue refreshQueue,
+        CancellationToken cancellationToken
+    )
     {
-        if (string.Equals(a: ev.Type, b: PULL_REQUEST_EVENT_TYPE, comparisonType: StringComparison.Ordinal))
+        if (
+            StringComparer.Ordinal.Equals(ev.Type, ISSUES_EVENT_TYPE)
+            && ev.Payload.Issue
+                is {
+                    Number: > 0,
+                    HtmlUrl: { } issueHtmlUrl,
+                    Title: { },
+                    State: { },
+                    Labels: { },
+                    PullRequest: null,
+                } issue
+        )
         {
-            return ev.Payload.PullRequest is { HtmlUrl: { } prHtmlUrl } pr
-                && await this.ProcessPullRequestEventAsync(
-                    ev: ev,
-                    pr: pr,
-                    htmlUrl: new Uri(prHtmlUrl),
-                    cancellationToken: cancellationToken
-                );
+            return await this.ProcessIssueEventAsync(
+                ev: ev,
+                issue: issue,
+                htmlUrl: new Uri(issueHtmlUrl),
+                cancellationToken: cancellationToken
+            );
         }
 
-        if (string.Equals(a: ev.Type, b: ISSUES_EVENT_TYPE, comparisonType: StringComparison.Ordinal))
-        {
-            return ev.Payload.Issue is { HtmlUrl: { } issueHtmlUrl } issue
-                && issue.PullRequest is null
-                && await this.ProcessIssueEventAsync(
-                    ev: ev,
-                    issue: issue,
-                    htmlUrl: new Uri(issueHtmlUrl),
-                    cancellationToken: cancellationToken
-                );
-        }
+        this.QueueRefresh(ev: ev, refreshQueue: refreshQueue);
 
         return false;
     }
 
-    private async ValueTask<bool> ProcessPullRequestEventAsync(
-        ApiEvent ev,
-        ApiPullRequest pr,
-        Uri htmlUrl,
-        CancellationToken cancellationToken
-    )
+    internal bool QueueRefresh(ApiEvent ev, EventRefreshQueue refreshQueue)
     {
         string repo = ev.Repo.Name;
-        IReadOnlyList<string> labelNames = [.. pr.Labels.Select(l => l.Name)];
 
-        PullRequestEligibility eligibility = await this.ResolvePullRequestEligibilityAsync(
-            pr: pr,
-            repo: repo,
-            labelNames: labelNames,
-            cancellationToken: cancellationToken
-        );
+        return ev.Type switch
+        {
+            PULL_REQUEST_EVENT_TYPE or PULL_REQUEST_REVIEW_EVENT_TYPE or PULL_REQUEST_REVIEW_COMMENT_EVENT_TYPE =>
+                refreshQueue.AddPullRequest(repo: repo, number: GetPullRequestNumber(ev.Payload)),
+            ISSUES_EVENT_TYPE => QueueIssueEventRefresh(ev: ev, repo: repo, refreshQueue: refreshQueue),
+            ISSUE_COMMENT_EVENT_TYPE => this.QueueCommentRefresh(ev: ev, repo: repo, refreshQueue: refreshQueue),
+            PUSH_EVENT_TYPE => ev.Payload.Ref is { } pushedRef
+                && pushedRef.StartsWith(value: BRANCH_REF_PREFIX, comparisonType: StringComparison.Ordinal)
+                && refreshQueue.AddBranch(repo: repo, branch: pushedRef[BRANCH_REF_PREFIX.Length..]),
+            CREATE_EVENT_TYPE => QueueBranchCreatedRefresh(ev: ev, repo: repo, refreshQueue: refreshQueue),
+            _ => false,
+        };
+    }
 
-        if (!eligibility.Allowed)
+    // A new dependency branch (depends/*, dependabot/*) looks up its open PR, so the PR lands as soon as it exists. Any
+    // other new branch whose name carries an issue number re-reads that issue, which only refreshes its stored row: it
+    // does not mark the issue started. Tags and branches without a number are ignored.
+    private static bool QueueBranchCreatedRefresh(ApiEvent ev, string repo, EventRefreshQueue refreshQueue)
+    {
+        if (
+            !string.Equals(a: ev.Payload.RefType, b: BRANCH_REF_TYPE, comparisonType: StringComparison.Ordinal)
+            || string.IsNullOrEmpty(ev.Payload.Ref)
+        )
         {
             return false;
         }
 
-        GitHubNotification notification = BuildEventNotification(
-            ev: ev,
-            repo: repo,
-            itemType: "PullRequest",
-            itemUrl: htmlUrl.OriginalString,
-            itemTitle: pr.Title
-        );
+        string branch = ev.Payload.Ref.StartsWith(value: BRANCH_REF_PREFIX, comparisonType: StringComparison.Ordinal)
+            ? ev.Payload.Ref[BRANCH_REF_PREFIX.Length..]
+            : ev.Payload.Ref;
 
-        PullRequestDetails details = BuildEventPullRequestDetails(
-            ev: ev,
-            pr: pr,
-            repo: repo,
-            labelNames: labelNames,
-            htmlUrl: htmlUrl,
-            linkedItems: eligibility.LinkedItems,
-            commitAuthors: eligibility.CommitAuthors
-        );
+        if (BranchNameParser.IsDependencyBranch(branch))
+        {
+            return refreshQueue.AddBranch(repo: repo, branch: branch);
+        }
 
-        WorkPriority priority = LinkedIssueTrust.ElevatePriority(
-            LabelParser.ParsePriority(details.Labels),
-            eligibility.TrustedLinkedIssue
-        );
-
-        bool isOnHold = LabelParser.IsOnHold(labels: details.Labels, noWorkFilter: this._options.Filter.NoWorkFilter);
-
-        await this._notificationStateTracker.UpdateStateAsync(
-            notification: notification,
-            details: details,
-            priority: priority,
-            isOnHold: isOnHold,
-            isAdopted: null,
-            cancellationToken: cancellationToken
-        );
-
-        this._logger.LogProcessedPullRequestEvent(
-            repo: repo,
-            number: pr.Number,
-            action: ev.Payload.Action ?? string.Empty,
-            isOnHold: isOnHold
-        );
-
-        return true;
+        return BranchNameParser.TryGetIssueNumber(branch: branch, number: out int issueNumber)
+            && refreshQueue.AddIssue(repo: repo, number: issueNumber, commentedAt: ev.CreatedAt);
     }
 
-    private static PullRequestDetails BuildEventPullRequestDetails(
-        ApiEvent ev,
-        ApiPullRequest pr,
-        string repo,
-        IReadOnlyList<string> labelNames,
-        Uri htmlUrl,
-        IReadOnlyList<LinkedItem> linkedItems,
-        IReadOnlyList<string> commitAuthors
-    )
+    // An issue event whose payload is incomplete re-reads the issue by number rather than being dropped.
+    private static bool QueueIssueEventRefresh(ApiEvent ev, string repo, EventRefreshQueue refreshQueue)
     {
-        return PullRequestDetailsFactory.Build(
-            pr: pr,
-            repo: repo,
-            labelNames: labelNames,
-            status: MapPrStatus(pr),
-            htmlUrl: htmlUrl,
-            linkedItems: linkedItems,
-            commitAuthors: commitAuthors,
-            lastNotificationId: $"event:{repo}:pr:{pr.Number}",
-            lastNotificationTimestamp: ev.CreatedAt
-        );
+        if (ev.Payload.Issue is not { } issue)
+        {
+            return false;
+        }
+
+        int number = issue.Number > 0 ? issue.Number : ParseTrailingNumber(issue.Url);
+
+        return issue.PullRequest is null
+            ? refreshQueue.AddIssue(repo: repo, number: number, commentedAt: ev.CreatedAt)
+            : refreshQueue.AddPullRequest(repo: repo, number: number);
+    }
+
+    // The PR's number from the payload: pull_request.number, else the top-level number, else the tail of
+    // pull_request.url (an api.github.com/repos/{owner}/{repo}/pulls/{number} URL).
+    internal static int GetPullRequestNumber(ApiEventPayload payload)
+    {
+        if (payload.PullRequest is { Number: > 0 } pr)
+        {
+            return pr.Number;
+        }
+
+        if (payload.Number is int number && number > 0)
+        {
+            return number;
+        }
+
+        return ParseTrailingNumber(payload.PullRequest?.Url);
+    }
+
+    internal static int ParseTrailingNumber(string? url)
+    {
+        if (string.IsNullOrEmpty(url))
+        {
+            return 0;
+        }
+
+        string trimmed = url.TrimEnd('/');
+        int slash = trimmed.AsSpan().LastIndexOf('/');
+
+        return int.TryParse(
+            s: trimmed[(slash + 1)..],
+            style: NumberStyles.None,
+            provider: CultureInfo.InvariantCulture,
+            result: out int parsed
+        )
+            ? parsed
+            : 0;
+    }
+
+    // A comment on a PR re-reads the PR. A comment on a plain issue re-reads the issue so its stored state is current,
+    // unless a bot or a login in Filter:IgnoredCommenters wrote it: re-reading for those would spend the shared API
+    // budget on automated traffic.
+    private bool QueueCommentRefresh(ApiEvent ev, string repo, EventRefreshQueue refreshQueue)
+    {
+        if (ev.Payload.Issue is not { } issue)
+        {
+            return false;
+        }
+
+        if (issue.PullRequest is not null)
+        {
+            return refreshQueue.AddPullRequest(repo: repo, number: issue.Number);
+        }
+
+        return !this.IsIgnoredCommentAuthor(ev)
+            && refreshQueue.AddIssue(repo: repo, number: issue.Number, commentedAt: ev.CreatedAt);
+    }
+
+    private bool IsIgnoredCommentAuthor(ApiEvent ev)
+    {
+        ApiUser? commenter = ev.Payload.Comment?.User;
+
+        return IsBot(ev.Actor)
+            || IsBot(commenter)
+            || this.IsIgnoredCommenter(ev.Actor)
+            || this.IsIgnoredCommenter(commenter);
+    }
+
+    private static bool IsBot(ApiUser? user)
+    {
+        if (user is null)
+        {
+            return false;
+        }
+
+        if (string.Equals(a: user.Type, b: BOT_USER_TYPE, comparisonType: StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return !string.IsNullOrEmpty(user.Login)
+            && user.Login.EndsWith(value: BOT_LOGIN_SUFFIX, comparisonType: StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool IsIgnoredCommenter(ApiUser? user)
+    {
+        return user is { Login: { } login }
+            && this._options.Filter.IgnoredCommenters.Any(ignored =>
+                string.Equals(a: ignored, b: login, comparisonType: StringComparison.OrdinalIgnoreCase)
+            );
     }
 
     private bool PassesLabelFilter(IReadOnlyList<string> labelNames)
     {
         return LinkedIssueTrust.PassesLabelFilter(labelNames, this._activeLabelFilter);
-    }
-
-    // A PR whose own labels fail the filter is still trusted when it unambiguously resolves the
-    // author's own assigned, label-passing issue - matching the same rule applied during full scans
-    // and notification polling.
-    private async Task<PullRequestEligibility> ResolvePullRequestEligibilityAsync(
-        ApiPullRequest pr,
-        string repo,
-        IReadOnlyList<string> labelNames,
-        CancellationToken cancellationToken
-    )
-    {
-        if (this.PassesLabelFilter(labelNames))
-        {
-            return PullRequestEligibility.AllowedWithoutEnrichment;
-        }
-
-        GitHubNotification apiNotification = SyntheticNotifications.BuildPullRequestApiNotification(
-            idPrefix: "event-enrich",
-            repo: repo,
-            number: pr.Number
-        );
-
-        PullRequestDetails? enriched = await this._pullRequestDetailFetcher.FetchAsync(
-            notification: apiNotification,
-            cancellationToken: cancellationToken
-        );
-
-        if (enriched is null)
-        {
-            return PullRequestEligibility.Rejected;
-        }
-
-        LinkedItem? trustedLinkedIssue = LinkedIssueTrust.FindTrustedLinkedIssue(
-            author: enriched.Author,
-            commitAuthors: enriched.CommitAuthors,
-            linkedItems: enriched.LinkedItems,
-            activeLabelFilter: this._activeLabelFilter
-        );
-
-        return trustedLinkedIssue is null
-            ? PullRequestEligibility.Rejected
-            : PullRequestEligibility.Trusted(enriched: enriched, trustedLinkedIssue: trustedLinkedIssue);
     }
 
     private async ValueTask<bool> ProcessIssueEventAsync(
@@ -651,16 +868,6 @@ public sealed class RepoEventPoller : IRepoEventPoller
             UpdatedAt: ev.CreatedAt,
             Unread: false
         );
-    }
-
-    private static string MapPrStatus(ApiPullRequest pr)
-    {
-        if (string.Equals(a: pr.State, b: "closed", comparisonType: StringComparison.OrdinalIgnoreCase))
-        {
-            return "Closed";
-        }
-
-        return pr.Draft ? "Draft" : "Open";
     }
 
     private static string MapIssueStatus(ApiIssue issue)

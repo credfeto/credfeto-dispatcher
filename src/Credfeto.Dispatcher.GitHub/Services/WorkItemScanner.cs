@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -18,6 +18,8 @@ public sealed class WorkItemScanner : IWorkItemScanner
 {
     private readonly IReadOnlyList<string> _activeLabelFilter;
     private readonly IActiveRepoTracker _activeRepoTracker;
+    private readonly PullRequestCheckTracker _checkTracker;
+    private readonly IFeedFreshnessStore _feedFreshnessStore;
     private readonly GitHubRepoHelper _helper;
     private readonly ILogger<WorkItemScanner> _logger;
     private readonly INotificationStateTracker _notificationStateTracker;
@@ -32,11 +34,15 @@ public sealed class WorkItemScanner : IWorkItemScanner
         INotificationStateTracker notificationStateTracker,
         IWorkItemRepository workItemRepository,
         IPullRequestDetailFetcher pullRequestDetailFetcher,
+        PullRequestCheckTracker checkTracker,
+        IFeedFreshnessStore feedFreshnessStore,
         IOptions<GitHubOptions> options,
         TimeProvider timeProvider,
         ILogger<WorkItemScanner> logger
     )
     {
+        this._checkTracker = checkTracker;
+        this._feedFreshnessStore = feedFreshnessStore;
         this._helper = helper;
         this._activeRepoTracker = activeRepoTracker;
         this._notificationStateTracker = notificationStateTracker;
@@ -50,6 +56,8 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
     public async Task ScanAsync(CancellationToken cancellationToken)
     {
+        DateTimeOffset scanStart = this._timeProvider.GetUtcNow();
+
         (bool discoveryComplete, IReadOnlyList<string> repos, IReadOnlyList<string> inactiveRepos) =
             await this._helper.DiscoverReposAsync(
                 shouldInclude: this.ShouldIncludeRepo,
@@ -76,9 +84,17 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
         this._logger.LogDiscoveredRepos(count: repos.Count);
 
+        bool allReposScanned = true;
+
         foreach (string repo in repos)
         {
-            await this.ScanRepoAsync(repo: repo, cancellationToken: cancellationToken);
+            allReposScanned &= await this.ScanRepoAsync(repo: repo, cancellationToken: cancellationToken);
+        }
+
+        // The safety net: a complete scan is a full sync as of when it started, even if the event poller is down.
+        if (allReposScanned)
+        {
+            await this._feedFreshnessStore.RecordSyncAsync(syncedAt: scanStart, cancellationToken: cancellationToken);
         }
 
         this._logger.LogScanComplete();
@@ -137,7 +153,7 @@ public sealed class WorkItemScanner : IWorkItemScanner
         return slash >= 0 ? fullName[..slash] : fullName;
     }
 
-    private async Task ScanRepoAsync(string repo, CancellationToken cancellationToken)
+    private async Task<bool> ScanRepoAsync(string repo, CancellationToken cancellationToken)
     {
         this._logger.LogScanningRepo(repo: repo);
 
@@ -150,6 +166,11 @@ public sealed class WorkItemScanner : IWorkItemScanner
             cancellationToken: cancellationToken
         );
 
+        if (activePrNumbers is not null)
+        {
+            this._checkTracker.RetainOnly(repo: repo, openNumbers: activePrNumbers);
+        }
+
         if (activePrNumbers is not null && activeIssueNumbers is not null)
         {
             await this._workItemRepository.CloseStaleItemsForRepoAsync(
@@ -159,21 +180,24 @@ public sealed class WorkItemScanner : IWorkItemScanner
                 cancellationToken: cancellationToken
             );
 
-            return;
+            return true;
         }
 
         if (prConfirmedGone || issueConfirmedGone)
         {
             this._logger.LogRepoConfirmedGone(repo: repo);
+            this._checkTracker.RetainOnly(repo: repo, openNumbers: []);
             await this._workItemRepository.RemoveItemsForRepositoriesAsync(
                 repositories: [repo],
                 cancellationToken: cancellationToken
             );
 
-            return;
+            return true;
         }
 
         this._logger.LogRepoScanFailed(repo: repo);
+
+        return false;
     }
 
     private static bool IsGoneStatus(HttpStatusCode? status)
@@ -292,6 +316,8 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
         if (!eligibility.Allowed || pr.HtmlUrl is not { } prHtmlUrl)
         {
+            this._checkTracker.Remove(repo: repo, number: pr.Number);
+
             return;
         }
 
@@ -318,6 +344,14 @@ public sealed class WorkItemScanner : IWorkItemScanner
             isOnHold: isOnHold,
             isAdopted: this.IsAdoptedBotPr(pr),
             cancellationToken: cancellationToken
+        );
+
+        this._checkTracker.Observe(
+            repo: repo,
+            number: pr.Number,
+            headSha: pr.Head.Sha,
+            isOnHold: isOnHold,
+            isOpen: true
         );
 
         this._logger.LogScannedPullRequest(repo: repo, number: pr.Number, status: status);
@@ -381,51 +415,23 @@ public sealed class WorkItemScanner : IWorkItemScanner
 
     private bool IsAdoptedBotPr(ApiPullRequest pr)
     {
-        return this._options.Filter.PullRequests.AdoptionRules.Any(rule => MatchesAdoptionRule(pr: pr, rule: rule));
+        return PullRequestAdoption.IsAdopted(
+            rules: this._options.Filter.PullRequests.AdoptionRules,
+            author: pr.User?.Login,
+            headRef: pr.Head.Ref
+        );
     }
 
     private WorkPriority CalculatePullRequestPriority(ApiPullRequest pr, IReadOnlyList<string> labelNames)
     {
-        WorkPriority labelPriority = LabelParser.ParsePriority(labelNames);
-
-        BotPrRule? matchingRule = this._options.Filter.PullRequests.AdoptionRules.FirstOrDefault(rule =>
-            MatchesAdoptionRule(pr: pr, rule: rule)
+        return PullRequestAdoption.CalculatePriority(
+            rules: this._options.Filter.PullRequests.AdoptionRules,
+            author: pr.User?.Login,
+            headRef: pr.Head.Ref,
+            createdAt: pr.CreatedAt,
+            labelPriority: LabelParser.ParsePriority(labelNames),
+            now: this._timeProvider.GetUtcNow()
         );
-
-        if (matchingRule is null)
-        {
-            return labelPriority;
-        }
-
-        WorkPriority effectivePriority = HighestPriority(matchingRule.DefaultPriority, labelPriority);
-
-        DateTimeOffset now = this._timeProvider.GetUtcNow();
-
-        return now - pr.CreatedAt >= TimeSpan.FromHours(matchingRule.TimeoutHours)
-            ? HighestPriority(matchingRule.Priority, labelPriority)
-            : effectivePriority;
-    }
-
-    private static WorkPriority HighestPriority(WorkPriority first, WorkPriority second)
-    {
-        return first < second ? second : first;
-    }
-
-    private static bool MatchesAdoptionRule(ApiPullRequest pr, BotPrRule rule)
-    {
-        if (rule.TimeoutHours <= 0)
-        {
-            return false;
-        }
-
-        if (!StringComparer.OrdinalIgnoreCase.Equals(pr.User?.Login, rule.Author))
-        {
-            return false;
-        }
-
-        return string.IsNullOrEmpty(rule.BranchPrefix)
-            || !string.IsNullOrEmpty(pr.Head.Ref)
-                && pr.Head.Ref.StartsWith(value: rule.BranchPrefix, comparisonType: StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task ProcessFilteredIssueAsync(ApiIssue issue, string repo, CancellationToken cancellationToken)

@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace Credfeto.Dispatcher.GitHub.Services.LoggingExtensions;
 
@@ -27,19 +27,6 @@ internal static partial class RepoEventPollerLoggingExtensions
     );
 
     [LoggerMessage(
-        EventId = 2,
-        Level = LogLevel.Information,
-        Message = "PR event upserted: {repo}#{number} action={action} isOnHold={isOnHold}"
-    )]
-    public static partial void LogProcessedPullRequestEvent(
-        this ILogger logger,
-        string repo,
-        int number,
-        string action,
-        bool isOnHold
-    );
-
-    [LoggerMessage(
         EventId = 3,
         Level = LogLevel.Information,
         Message = "Issue event upserted: {repo}#{number} action={action} isOnHold={isOnHold}"
@@ -61,4 +48,17 @@ internal static partial class RepoEventPollerLoggingExtensions
         Message = "Feed {feed}: no new events, {skippedSeenCount} skipped as already seen, lastId={lastId}"
     )]
     public static partial void LogFeedNoNewEvents(this ILogger logger, string feed, int skippedSeenCount, long lastId);
+
+    [LoggerMessage(
+        EventId = 6,
+        Level = LogLevel.Information,
+        Message = "Event refreshes: {lookupCount} pushed-branch PR lookup(s), {refreshedCount} PR(s) re-read, {issueCount} issue(s) re-read, {deferredCount} deferred (PRs to the CI refresh, issues to the next scan)"
+    )]
+    public static partial void LogEventRefreshesComplete(
+        this ILogger logger,
+        int lookupCount,
+        int refreshedCount,
+        int issueCount,
+        int deferredCount
+    );
 }

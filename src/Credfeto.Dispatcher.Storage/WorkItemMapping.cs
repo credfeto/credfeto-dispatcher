@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -84,12 +84,31 @@ internal static class WorkItemMapping
         return slash >= 0 ? (repository[..slash], repository[(slash + 1)..]) : (repository, string.Empty);
     }
 
-    public static PrioritiesResponse BuildPrioritiesResponse(IReadOnlyList<WorkItem> ordered, in DateTimeOffset now)
+    // asOf is the start of the last complete sync (an event-poll cycle in which every feed answered, or a full
+    // scan): every change made on GitHub before it is in the store, whether or not it changed a served row. A
+    // quiet item is not stale just because nothing has rewritten it. Without a recorded sync, fall back to the
+    // newest served row.
+    public static PrioritiesResponse BuildPrioritiesResponse(
+        IReadOnlyList<WorkItem> ordered,
+        in DateTimeOffset now,
+        DateTimeOffset? lastSync
+    )
     {
-        DateTimeOffset asOf = ordered.Count > 0 ? ordered.Max(static w => w.LastUpdated) : now;
+        DateTimeOffset asOf = lastSync ?? NewestRowOrNow(ordered: ordered, now: now);
+
+        if (asOf > now)
+        {
+            asOf = now;
+        }
+
         long lagSeconds = Math.Max(0, (long)(now - asOf).TotalSeconds);
 
         return new PrioritiesResponse(Priorities: ordered, AsOf: asOf, LagSeconds: lagSeconds);
+    }
+
+    private static DateTimeOffset NewestRowOrNow(IReadOnlyList<WorkItem> ordered, in DateTimeOffset now)
+    {
+        return ordered.Count > 0 ? ordered.Max(static w => w.LastUpdated) : now;
     }
 
     public static bool IsPullRequest(string itemType)

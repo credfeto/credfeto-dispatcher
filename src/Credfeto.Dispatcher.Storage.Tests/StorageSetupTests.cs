@@ -26,6 +26,7 @@ public sealed class StorageSetupTests : TestBase
         AssertRegistered<IValidateOptions<DatabaseConfiguration>, DatabaseConfigurationValidator>(services);
         AssertRegistered<IActiveRepoTracker, InMemoryActiveRepoTracker>(services);
         AssertRegistered<IETagStore, InMemoryETagStore>(services);
+        AssertRegistered<IFeedFreshnessStore, FeedFreshnessStore>(services);
         AssertRegistered<INotificationStateTracker, InMemoryNotificationStateTracker>(services);
         AssertRegistered<IWorkItemRepository, InMemoryWorkItemRepository>(services);
     }
@@ -40,6 +41,7 @@ public sealed class StorageSetupTests : TestBase
         AssertRegistered<IValidateOptions<DatabaseConfiguration>, DatabaseConfigurationValidator>(services);
         AssertRegistered<IActiveRepoTracker, ActiveRepoTracker>(services);
         AssertRegistered<IETagStore, ETagStore>(services);
+        AssertRegistered<IFeedFreshnessStore, FeedFreshnessStore>(services);
         AssertRegistered<INotificationStateTracker, NotificationStateTracker>(services);
         AssertRegistered<IWorkItemRepository, WorkItemRepository>(services);
         AssertRegistered<IDispatcherStoreSnapshotLoader, NullDispatcherStoreSnapshotLoader>(services);

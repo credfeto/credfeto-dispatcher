@@ -43,7 +43,10 @@ Set the following in `appsettings.json` or environment variables:
       "AllowedRepos": [],
       "ExcludedRepos": [],
       "BoostedRepos": [],
-      "MaxIssues": 10
+      "MaxIssues": 10,
+      "MaxEventRefreshesPerPoll": 20,
+      "MaxCheckRefreshesPerPoll": 5,
+      "IgnoredCommenters": []
     }
   }
 }
@@ -61,6 +64,9 @@ Set the following in `appsettings.json` or environment variables:
 | `GitHub:Filter:ExcludedRepos` | string[] | Repository deny-list that is always ignored. |
 | `GitHub:Filter:BoostedRepos` | string[] | Ordered `owner/repo` list. Matching items sort to the front of their band (Security/Urgent PRs, other PRs, Security/Urgent issues, other issues) in `/priorities`, in list order. Ordering only; does not bypass `AllowedOwners`/`AllowedRepos`/`ExcludedRepos`. |
 | `GitHub:Filter:MaxIssues` | integer | Maximum number of regular (below Urgent) issues each owner gets in `/priorities`, at most one per repository. The cap applies per owner, so one owner cannot take every slot from the others. Urgent and Security issues are never capped. `0` or less means no cap. Defaults to `10`. |
+| `GitHub:Filter:MaxEventRefreshesPerPoll` | integer | Most GitHub calls one event-poll cycle spends re-reading the items its events touched: every PR event (opened, labeled, unlabeled, assigned, closed, merged, reopened and so on; the Events API trims its PR payload to the number, so the PR is re-read by number), reviews, review comments, comments on a PR, pushes to a branch with an open PR, issue events whose payload lacks a field, newly created branches, and comments on a plain issue in a tracked repository (one open-PR lookup per pushed branch plus one full re-read per PR or issue, de-duplicated across the cycle). Complete issue events are upserted from the payload and cost nothing. Comments written by a bot (login ending `[bot]` or user type `Bot`) or by a login in `IgnoredCommenters` re-read nothing. A new `depends/*` or `dependabot/*` branch costs one open-PR lookup for that branch and re-reads the PR if there is one. Any other new branch whose name carries an issue number (`fix/292-…`, `feat/6-…`, `292-…`, `issue-292-…`: the first path segment that starts with a number) re-reads that issue; this only refreshes its stored row and does not mark it started. Pushed or created tags, and new branches without a number, are ignored. PRs past the limit are handed to the CI refresh; issues past it wait for the next scan. `0` or less hands them all over. Defaults to `20`. |
+| `GitHub:Filter:MaxCheckRefreshesPerPoll` | integer | How many open, non-on-hold PRs whose checks are unknown, pending or failed each poll cycle re-checks, least recently checked first. Each costs one conditional workflow-runs request (a `304` when nothing changed), plus a full re-read only when the runs changed; a `403`/`429` stops the batch until the next cycle. `0` or less turns the CI refresh off. Defaults to `5`. |
+| `GitHub:Filter:IgnoredCommenters` | string[] | Logins (matched case-insensitively) whose comments on a plain issue never trigger a re-read of it, in addition to bots (login ending `[bot]` or user type `Bot`). Use it for automation that posts as a normal user account, such as an orchestrator posting status comments. Everyone else's comments, including the owner's, always trigger a re-read. Defaults to empty. |
 
 When `DatabaseConfiguration:Provider` is `InMemory`, the in-memory store is periodically persisted to a JSON snapshot on disk and reloaded at startup, so a container restart doesn't mean starting from zero:
 
@@ -123,8 +129,8 @@ For example, `GET /priorities?user=octocat`.
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `as_of` | ISO-8601 UTC | Timestamp of the most recent ingest that contributed to this snapshot |
-| `lag_seconds` | integer | `now − as_of` in whole seconds; higher values indicate a staler snapshot |
+| `as_of` | ISO-8601 UTC | Start of the last complete sync: an event-poll cycle in which every feed answered and every item its events touched was re-read, or a full scan of every repository. Every change made on GitHub before it is in the snapshot. Falls back to the newest `lastUpdated` of the returned items when no sync has been recorded yet. CI results are re-checked in bounded batches, so a PR's checks can trail it by a few poll cycles |
+| `lag_seconds` | integer | `now − as_of` in whole seconds. About one poll interval while the event poller is healthy; it climbs towards the scan interval when the event poller stalls |
 | `priorities` | array | Ordered work items, banded Security/Urgent PRs, other PRs, Security/Urgent issues, other issues, then within each band by boosted repo, owner, repo, priority, age |
 
 ### `POST /mcp`

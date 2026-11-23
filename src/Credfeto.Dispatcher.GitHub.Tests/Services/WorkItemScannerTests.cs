@@ -411,6 +411,8 @@ public sealed class WorkItemScannerTests : TestBase
     private readonly System.Net.Http.IHttpClientFactory _httpClientFactory;
     private readonly INotificationStateTracker _notificationStateTracker;
     private readonly IWorkItemRepository _workItemRepository;
+    private readonly IFeedFreshnessStore _feedFreshnessStore;
+    private readonly PullRequestCheckTracker _checkTracker;
 
     public WorkItemScannerTests()
     {
@@ -418,6 +420,8 @@ public sealed class WorkItemScannerTests : TestBase
         this._activeRepoTracker = GetSubstitute<IActiveRepoTracker>();
         this._notificationStateTracker = GetSubstitute<INotificationStateTracker>();
         this._workItemRepository = GetSubstitute<IWorkItemRepository>();
+        this._feedFreshnessStore = GetSubstitute<IFeedFreshnessStore>();
+        this._checkTracker = new PullRequestCheckTracker(MockDateTimeSources.Past);
     }
 
     private WorkItemScanner CreateScanner(
@@ -437,6 +441,8 @@ public sealed class WorkItemScannerTests : TestBase
             notificationStateTracker: this._notificationStateTracker,
             workItemRepository: this._workItemRepository,
             pullRequestDetailFetcher: pullRequestDetailFetcher ?? new FakePullRequestDetailFetcher(result: null),
+            checkTracker: this._checkTracker,
+            feedFreshnessStore: this._feedFreshnessStore,
             options: Options.Create(options ?? new GitHubOptions()),
             timeProvider: timeProvider ?? MockDateTimeSources.Past,
             logger: this.GetTypedLogger<WorkItemScanner>()
@@ -669,6 +675,54 @@ public sealed class WorkItemScannerTests : TestBase
                 isAdopted: Arg.Any<bool?>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WithOpenPullRequest_TracksItsHeadForTheCheckRefreshAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, OPEN_PR_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        await this.CreateScanner().ScanAsync(this.CancellationToken());
+
+        PullRequestCheckState tracked = Assert.Single(this._checkTracker.SelectCandidates(5));
+        Assert.Equal(expected: 1, actual: tracked.Number);
+        Assert.Equal(expected: "abc123", actual: tracked.HeadSha);
+    }
+
+    [Fact]
+    public async Task ScanAsync_WhenEveryRepoIsScanned_RecordsTheSyncAsOfTheStartOfTheScanAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.OK, OPEN_PR_JSON);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        await this.CreateScanner().ScanAsync(this.CancellationToken());
+
+        await this
+            ._feedFreshnessStore.Received(1)
+            .RecordSyncAsync(
+                syncedAt: MockDateTimeSources.Past.GetUtcNow(),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task ScanAsync_WhenARepoScanFails_DoesNotRecordTheSyncAsync()
+    {
+        using HttpClient repoClient = CreateClient(HttpStatusCode.OK, USER_REPOS_JSON);
+        using HttpClient prClient = CreateClient(HttpStatusCode.InternalServerError);
+        using HttpClient issueClient = CreateClient(HttpStatusCode.OK, EMPTY_JSON);
+        this._httpClientFactory.CreateClient("GitHub").Returns(repoClient, prClient, issueClient);
+
+        await this.CreateScanner().ScanAsync(this.CancellationToken());
+
+        await this
+            ._feedFreshnessStore.DidNotReceive()
+            .RecordSyncAsync(syncedAt: Arg.Any<DateTimeOffset>(), cancellationToken: Arg.Any<CancellationToken>());
     }
 
     [Fact]

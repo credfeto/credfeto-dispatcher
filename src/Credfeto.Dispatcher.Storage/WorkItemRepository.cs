@@ -14,11 +14,13 @@ namespace Credfeto.Dispatcher.Storage;
 public sealed class WorkItemRepository : IWorkItemRepository
 {
     private readonly IDatabase _database;
+    private readonly IFeedFreshnessStore _feedFreshnessStore;
     private readonly TimeProvider _timeProvider;
 
-    public WorkItemRepository(IDatabase database, TimeProvider timeProvider)
+    public WorkItemRepository(IDatabase database, IFeedFreshnessStore feedFreshnessStore, TimeProvider timeProvider)
     {
         this._database = database;
+        this._feedFreshnessStore = feedFreshnessStore;
         this._timeProvider = timeProvider;
     }
 
@@ -48,7 +50,13 @@ public sealed class WorkItemRepository : IWorkItemRepository
 
         IReadOnlyList<WorkItem> ordered = [.. rows.Select(WorkItemMapping.MapWorkItem)];
 
-        return WorkItemMapping.BuildPrioritiesResponse(ordered: ordered, now: this._timeProvider.GetUtcNow());
+        DateTimeOffset? lastSync = await this._feedFreshnessStore.GetLastSyncAsync(cancellationToken);
+
+        return WorkItemMapping.BuildPrioritiesResponse(
+            ordered: ordered,
+            now: this._timeProvider.GetUtcNow(),
+            lastSync: lastSync
+        );
     }
 
     public async Task<DbStateResponse> GetDatabaseStateAsync(

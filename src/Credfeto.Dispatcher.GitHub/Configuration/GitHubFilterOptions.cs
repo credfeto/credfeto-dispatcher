@@ -32,8 +32,9 @@ public sealed class GitHubFilterOptions
 
     // Upper bound on the GitHub calls one event-poll cycle spends re-reading the items its events touched (PR events,
     // reviews, comments, pushes, new branches, and human comments on plain issues): each open-PR lookup for a pushed or
-    // new dependency branch and each PR or issue re-read counts one. PRs past the bound are handed to the CI refresh instead; issues wait for the next
-    // scan. A value of 0 or less hands them all over.
+    // new dependency branch and each PR or issue re-read counts one. Items past the bound are carried over to the next
+    // cycle, ahead of its new work. A value of 0 or less turns the re-reads off: PRs are handed to the CI refresh and
+    // issues wait for the next scan.
     public int MaxEventRefreshesPerPoll { get; set; } = 20;
 
     // How many open PRs with unknown, pending or failed checks one poll cycle re-checks. Each costs one conditional

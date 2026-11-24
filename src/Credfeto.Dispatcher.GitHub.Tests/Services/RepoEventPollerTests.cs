@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -672,12 +673,43 @@ public sealed class RepoEventPollerTests : TestBase
         return [.. this.RefreshedIssueNotifications().Select(static n => n.Subject.Url?.AbsolutePath)];
     }
 
-    private async Task PollWithRepoFeedAsync(IReadOnlyList<string> repoFeedEvents, GitHubOptions? options = null)
+    private Task PollWithRepoFeedAsync(IReadOnlyList<string> repoFeedEvents, GitHubOptions? options = null)
+    {
+        return this.PollWithRepoFeedAsync(poller: this.CreatePoller(options), repoFeedEvents: repoFeedEvents);
+    }
+
+    // Polls with the same poller each time, so whatever one poll carries over reaches the next.
+    private async Task PollWithRepoFeedAsync(RepoEventPoller poller, IReadOnlyList<string> repoFeedEvents)
     {
         using SequencedResponseHandler handler = new(Ok(BuildFeedJson(repoFeedEvents)), Ok(EMPTY_JSON));
         using HttpClient client = this.UseSequencedClient(handler);
 
-        await this.CreatePoller(options).PollAsync(this.CancellationToken());
+        await poller.PollAsync(this.CancellationToken());
+    }
+
+    private List<DateTimeOffset> RecordedSyncs()
+    {
+        List<DateTimeOffset> recorded = [];
+
+        foreach (object?[] args in this._feedFreshnessStore.ReceivedCalls().Select(static call => call.GetArguments()))
+        {
+            if (args is [DateTimeOffset syncedAt, _])
+            {
+                recorded.Add(syncedAt);
+            }
+        }
+
+        return recorded;
+    }
+
+    private static string FormatEventTime(in DateTimeOffset time)
+    {
+        return time.ToUniversalTime().ToString(format: "O", formatProvider: CultureInfo.InvariantCulture);
+    }
+
+    private static GitHubOptions WithEventRefreshBudget(int maxEventRefreshesPerPoll)
+    {
+        return new() { Filter = new GitHubFilterOptions { MaxEventRefreshesPerPoll = maxEventRefreshesPerPoll } };
     }
 
     private List<(string Repo, int Number)> RefreshedPullRequests()
@@ -813,24 +845,29 @@ public sealed class RepoEventPollerTests : TestBase
     }
 
     [Fact]
-    public async Task PollAsync_WithIssueCommentPastTheBudget_DefersItAsync()
+    public async Task PollAsync_WithIssueCommentPastTheBudget_ReReadsItOnTheNextPollAsync()
     {
-        GitHubOptions options = new() { Filter = new GitHubFilterOptions { MaxEventRefreshesPerPoll = 2 } };
+        RepoEventPoller poller = this.CreatePoller(WithEventRefreshBudget(2));
 
         await this.PollWithRepoFeedAsync(
+            poller: poller,
+            repoFeedEvents:
             [
                 IssueCommentEventJson(id: "309", number: 52, login: "someone"),
                 IssueCommentEventJson(id: "308", number: 51, login: "someone"),
                 ReviewEventJson(id: "307", number: 40),
-            ],
-            options: options
+            ]
         );
 
         Assert.Equal(expected: [(REPO, 40)], actual: this.RefreshedPullRequests());
         Assert.Equal(expected: ["/repos/owner/repo/issues/51"], actual: this.RefreshedIssues());
-        await this
-            ._feedFreshnessStore.DidNotReceive()
-            .RecordSyncAsync(syncedAt: Arg.Any<DateTimeOffset>(), cancellationToken: Arg.Any<CancellationToken>());
+
+        await this.PollWithRepoFeedAsync(poller: poller, repoFeedEvents: []);
+
+        Assert.Equal(
+            expected: ["/repos/owner/repo/issues/51", "/repos/owner/repo/issues/52"],
+            actual: this.RefreshedIssues()
+        );
     }
 
     [Fact]
@@ -920,21 +957,129 @@ public sealed class RepoEventPollerTests : TestBase
     }
 
     [Fact]
-    public async Task PollAsync_WithMoreRefreshesThanTheBudget_DefersTheRestToTheCheckRefreshAsync()
+    public async Task PollAsync_WithMoreRefreshesThanTheBudget_CarriesTheRestOverToTheNextPollAsync()
     {
-        GitHubOptions options = new() { Filter = new GitHubFilterOptions { MaxEventRefreshesPerPoll = 1 } };
+        RepoEventPoller poller = this.CreatePoller(WithEventRefreshBudget(1));
 
         await this.PollWithRepoFeedAsync(
-            [ReviewEventJson(id: "341", number: 41), ReviewEventJson(id: "340", number: 40)],
-            options: options
+            poller: poller,
+            repoFeedEvents: [ReviewEventJson(id: "341", number: 41), ReviewEventJson(id: "340", number: 40)]
         );
 
         Assert.Equal(expected: [(REPO, 40)], actual: this.RefreshedPullRequests());
+        Assert.Empty(this._checkTracker.SelectCandidates(5));
+
+        await this.PollWithRepoFeedAsync(poller: poller, repoFeedEvents: []);
+
+        Assert.Equal(expected: [(REPO, 40), (REPO, 41)], actual: this.RefreshedPullRequests());
+    }
+
+    [Fact]
+    public async Task PollAsync_WithIssuesPastTheBudget_ReReadsTheCarriedOverOnesAheadOfNewWorkAsync()
+    {
+        RepoEventPoller poller = this.CreatePoller(WithEventRefreshBudget(1));
+
+        await this.PollWithRepoFeedAsync(
+            poller: poller,
+            repoFeedEvents:
+            [
+                IssueCommentEventJson(id: "601", number: 52, login: "someone"),
+                IssueCommentEventJson(id: "600", number: 51, login: "someone"),
+            ]
+        );
+        await this.PollWithRepoFeedAsync(
+            poller: poller,
+            repoFeedEvents: [IssueCommentEventJson(id: "602", number: 53, login: "someone")]
+        );
+
+        Assert.Equal(
+            expected: ["/repos/owner/repo/issues/51", "/repos/owner/repo/issues/52"],
+            actual: this.RefreshedIssues()
+        );
+
+        await this.PollWithRepoFeedAsync(poller: poller, repoFeedEvents: []);
+        await this.PollWithRepoFeedAsync(poller: poller, repoFeedEvents: []);
+
+        Assert.Equal(
+            expected: ["/repos/owner/repo/issues/51", "/repos/owner/repo/issues/52", "/repos/owner/repo/issues/53"],
+            actual: this.RefreshedIssues()
+        );
+    }
+
+    [Fact]
+    public async Task PollAsync_WhilePollsDefer_RecordsTheSyncAsOfTheOldestPendingEventUntilTheCarryOverClearsAsync()
+    {
+        DateTimeOffset cycleStart = this._timeProvider.GetUtcNow();
+        DateTimeOffset oldest = cycleStart.AddMinutes(-15);
+        DateTimeOffset older = cycleStart.AddMinutes(-10);
+        DateTimeOffset newer = cycleStart.AddMinutes(-5);
+        RepoEventPoller poller = this.CreatePoller(WithEventRefreshBudget(1));
+
+        await this.PollWithRepoFeedAsync(
+            poller: poller,
+            repoFeedEvents:
+            [
+                IssueCommentEventJson(id: "612", number: 62, login: "someone", createdAt: FormatEventTime(newer)),
+                IssueCommentEventJson(id: "611", number: 61, login: "someone", createdAt: FormatEventTime(older)),
+                IssueCommentEventJson(id: "610", number: 60, login: "someone", createdAt: FormatEventTime(oldest)),
+            ]
+        );
+        await this.PollWithRepoFeedAsync(poller: poller, repoFeedEvents: []);
+        await this.PollWithRepoFeedAsync(poller: poller, repoFeedEvents: []);
+
+        Assert.Equal(expected: [older, newer, cycleStart], actual: this.RecordedSyncs());
+        Assert.Equal(expected: 3, actual: this.RefreshedIssues().Count);
+    }
+
+    [Fact]
+    public async Task PollAsync_WithAPendingEventNewerThanTheStartOfThePoll_RecordsTheStartOfThePollAsync()
+    {
+        DateTimeOffset cycleStart = this._timeProvider.GetUtcNow();
+
+        await this.PollWithRepoFeedAsync(
+            repoFeedEvents:
+            [
+                IssueCommentEventJson(
+                    id: "621",
+                    number: 71,
+                    login: "someone",
+                    createdAt: FormatEventTime(cycleStart.AddSeconds(30))
+                ),
+                IssueCommentEventJson(
+                    id: "620",
+                    number: 70,
+                    login: "someone",
+                    createdAt: FormatEventTime(cycleStart.AddMinutes(-1))
+                ),
+            ],
+            options: WithEventRefreshBudget(1)
+        );
+
+        Assert.Equal(expected: [cycleStart], actual: this.RecordedSyncs());
+    }
+
+    [Fact]
+    public async Task PollAsync_WithTheBudgetTurnedOff_HandsPullRequestsToTheCheckRefreshAndCarriesNothingOverAsync()
+    {
+        RepoEventPoller poller = this.CreatePoller(WithEventRefreshBudget(0));
+
+        await this.PollWithRepoFeedAsync(
+            poller: poller,
+            repoFeedEvents:
+            [
+                IssueCommentEventJson(id: "631", number: 51, login: "someone"),
+                ReviewEventJson(id: "630", number: 40),
+            ]
+        );
+
         PullRequestCheckState deferred = Assert.Single(this._checkTracker.SelectCandidates(5));
-        Assert.Equal(expected: 41, actual: deferred.Number);
-        await this
-            ._feedFreshnessStore.DidNotReceive()
-            .RecordSyncAsync(syncedAt: Arg.Any<DateTimeOffset>(), cancellationToken: Arg.Any<CancellationToken>());
+        Assert.Equal(expected: 40, actual: deferred.Number);
+        Assert.Empty(this.RecordedSyncs());
+
+        await this.PollWithRepoFeedAsync(poller: poller, repoFeedEvents: []);
+
+        Assert.Empty(this._workItemRefresher.ReceivedCalls());
+        Assert.Equal(expected: [this._timeProvider.GetUtcNow()], actual: this.RecordedSyncs());
     }
 
     [Fact]
@@ -1077,25 +1222,25 @@ public sealed class RepoEventPollerTests : TestBase
     }
 
     [Fact]
-    public async Task PollAsync_WithMorePrEventsThanTheBudget_DefersTheRestAsync()
+    public async Task PollAsync_WithMorePrEventsThanTheBudget_ReReadsTheRestOnTheNextPollAsync()
     {
-        GitHubOptions options = new() { Filter = new GitHubFilterOptions { MaxEventRefreshesPerPoll = 2 } };
+        RepoEventPoller poller = this.CreatePoller(WithEventRefreshBudget(2));
 
         await this.PollWithRepoFeedAsync(
+            poller: poller,
+            repoFeedEvents:
             [
                 TrimmedPullRequestEventJson(id: "409", number: 42, action: "labeled"),
                 TrimmedPullRequestEventJson(id: "408", number: 41, action: "unlabeled"),
                 TrimmedPullRequestEventJson(id: "407", number: 40, action: "opened"),
-            ],
-            options: options
+            ]
         );
 
         Assert.Equal(expected: [(REPO, 40), (REPO, 41)], actual: this.RefreshedPullRequests());
-        PullRequestCheckState deferred = Assert.Single(this._checkTracker.SelectCandidates(5));
-        Assert.Equal(expected: 42, actual: deferred.Number);
-        await this
-            ._feedFreshnessStore.DidNotReceive()
-            .RecordSyncAsync(syncedAt: Arg.Any<DateTimeOffset>(), cancellationToken: Arg.Any<CancellationToken>());
+
+        await this.PollWithRepoFeedAsync(poller: poller, repoFeedEvents: []);
+
+        Assert.Equal(expected: [(REPO, 40), (REPO, 41), (REPO, 42)], actual: this.RefreshedPullRequests());
     }
 
     [Fact]
@@ -1267,18 +1412,26 @@ public sealed class RepoEventPollerTests : TestBase
     }
 
     [Fact]
-    public async Task PollAsync_WithMoreNewBranchesThanTheBudget_DefersTheRestAsync()
+    public async Task PollAsync_WithMoreNewBranchesThanTheBudget_ReReadsTheRestOnTheNextPollAsync()
     {
-        GitHubOptions options = new() { Filter = new GitHubFilterOptions { MaxEventRefreshesPerPoll = 1 } };
+        RepoEventPoller poller = this.CreatePoller(WithEventRefreshBudget(1));
 
         await this.PollWithRepoFeedAsync(
-            [CreateEventJson(id: "510", refName: "fix/7-b"), CreateEventJson(id: "509", refName: "fix/6-a")],
-            options: options
+            poller: poller,
+            repoFeedEvents:
+            [
+                CreateEventJson(id: "510", refName: "fix/7-b"),
+                CreateEventJson(id: "509", refName: "fix/6-a"),
+            ]
         );
 
         Assert.Equal(expected: ["/repos/owner/repo/issues/6"], actual: this.RefreshedIssues());
-        await this
-            ._feedFreshnessStore.DidNotReceive()
-            .RecordSyncAsync(syncedAt: Arg.Any<DateTimeOffset>(), cancellationToken: Arg.Any<CancellationToken>());
+
+        await this.PollWithRepoFeedAsync(poller: poller, repoFeedEvents: []);
+
+        Assert.Equal(
+            expected: ["/repos/owner/repo/issues/6", "/repos/owner/repo/issues/7"],
+            actual: this.RefreshedIssues()
+        );
     }
 }

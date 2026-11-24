@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+using System;
+using System.Collections.Generic;
 using System.Data.Common;
 using System.Threading;
 using System.Threading.Tasks;
@@ -139,6 +140,75 @@ internal static partial class DispatcherDatabase
         DbConnection connection,
         string repository,
         string? activeIssueIds,
+        CancellationToken cancellationToken
+    );
+
+    [SqlObjectMap("DependencyBranches_RecordCreated", SqlObjectType.STORED_PROCEDURE, SqlDialect.MICROSOFT_SQL_SERVER)]
+    public static partial ValueTask DependencyBranches_RecordCreatedAsync(
+        DbConnection connection,
+        string repository,
+        string branch,
+        DateTimeOffset createdAt,
+        CancellationToken cancellationToken
+    );
+
+    [SqlObjectMap("DependencyBranches_RecordDeleted", SqlObjectType.STORED_PROCEDURE, SqlDialect.MICROSOFT_SQL_SERVER)]
+    public static partial ValueTask DependencyBranches_RecordDeletedAsync(
+        DbConnection connection,
+        string repository,
+        string branch,
+        DateTimeOffset deletedAt,
+        CancellationToken cancellationToken
+    );
+
+    [SqlObjectMap(
+        "DependencyBranches_RecordPullRequest",
+        SqlObjectType.STORED_PROCEDURE,
+        SqlDialect.MICROSOFT_SQL_SERVER
+    )]
+    public static partial ValueTask DependencyBranches_RecordPullRequestAsync(
+        DbConnection connection,
+        string repository,
+        string branch,
+        int pullRequestNumber,
+        CancellationToken cancellationToken
+    );
+
+    [SqlObjectMap(
+        "DependencyBranches_GetDueForRecheck",
+        SqlObjectType.STORED_PROCEDURE,
+        SqlDialect.MICROSOFT_SQL_SERVER
+    )]
+    public static partial ValueTask<IReadOnlyList<DependencyBranchRow>> DependencyBranches_GetDueForRecheckAsync(
+        DbConnection connection,
+        int maxCount,
+        DateTimeOffset checkedBefore,
+        CancellationToken cancellationToken
+    );
+
+    [SqlObjectMap("DependencyBranches_RecordChecked", SqlObjectType.STORED_PROCEDURE, SqlDialect.MICROSOFT_SQL_SERVER)]
+    public static partial ValueTask DependencyBranches_RecordCheckedAsync(
+        DbConnection connection,
+        string repository,
+        string branch,
+        string? eTag,
+        CancellationToken cancellationToken
+    );
+
+    [SqlObjectMap("DependencyBranches_Prune", SqlObjectType.STORED_PROCEDURE, SqlDialect.MICROSOFT_SQL_SERVER)]
+    public static partial ValueTask DependencyBranches_PruneAsync(
+        DbConnection connection,
+        DateTimeOffset settledBefore,
+        DateTimeOffset firstSeenBefore,
+        CancellationToken cancellationToken
+    );
+
+    [SqlObjectMap("DependencyBranches_GetOrphaned", SqlObjectType.STORED_PROCEDURE, SqlDialect.MICROSOFT_SQL_SERVER)]
+    public static partial ValueTask<IReadOnlyList<DependencyBranchRow>> DependencyBranches_GetOrphanedAsync(
+        DbConnection connection,
+        string? owner,
+        string? repo,
+        DateTimeOffset firstSeenBefore,
         CancellationToken cancellationToken
     );
 }

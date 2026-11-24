@@ -10,7 +10,7 @@ namespace Credfeto.Dispatcher.Storage.InMemory;
 // Repository names are compared ordinally (case-sensitively): unlike SQL Server's default
 // case-insensitive collation, but every writer here sources the name from the GitHub API,
 // which is already canonical, so the two never disagree in practice.
-public sealed class InMemoryDispatcherStore
+public sealed partial class InMemoryDispatcherStore
 {
     private const string OPEN_STATUS = "Open";
     private const string DRAFT_STATUS = "Draft";
@@ -518,7 +518,8 @@ public sealed class InMemoryDispatcherStore
                 PollingStates: new Dictionary<string, string>(this._pollingStates, StringComparer.Ordinal),
                 PullRequestAssignees: ExportAssignees(this._pullRequestAssignees),
                 IssueAssignees: ExportAssignees(this._issueAssignees),
-                PullRequestCommitAuthors: ExportAssignees(this._pullRequestCommitAuthors)
+                PullRequestCommitAuthors: ExportAssignees(this._pullRequestCommitAuthors),
+                DependencyBranches: this.ExportDependencyBranchesNoLock()
             );
         }
     }
@@ -531,20 +532,17 @@ public sealed class InMemoryDispatcherStore
         lock (this._gate)
         {
             ReplaceAll(target: this._repos, source: snapshot.Repos);
-            ReplaceAll(
-                target: this._pullRequests,
-                source: snapshot.PullRequests,
-                keySelector: static row => (row.Repository, row.Id)
+            ReplaceAll(target: this._pullRequests, source: snapshot.PullRequests, keySelector: static row =>
+                (row.Repository, row.Id)
             );
-            ReplaceAll(
-                target: this._issues,
-                source: snapshot.Issues,
-                keySelector: static row => (row.Repository, row.Id)
+            ReplaceAll(target: this._issues, source: snapshot.Issues, keySelector: static row =>
+                (row.Repository, row.Id)
             );
             ReplaceAll(target: this._pollingStates, source: snapshot.PollingStates);
             ImportAssignees(target: this._pullRequestAssignees, source: snapshot.PullRequestAssignees);
             ImportAssignees(target: this._issueAssignees, source: snapshot.IssueAssignees);
             ImportAssignees(target: this._pullRequestCommitAuthors, source: snapshot.PullRequestCommitAuthors);
+            this.ImportDependencyBranchesNoLock(snapshot.DependencyBranches);
         }
     }
 

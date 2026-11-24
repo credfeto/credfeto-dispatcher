@@ -258,18 +258,50 @@ public sealed class WorkItemRepositoryTests : TestBase
 
     private Task<DbStateResponse> GetDatabaseStateAsync(
         IReadOnlyList<PullRequestStateRow> pullRequests,
-        IReadOnlyList<IssueStateRow> issues
+        IReadOnlyList<IssueStateRow> issues,
+        IReadOnlyList<DependencyBranchRow>? orphanedBranches = null
     )
     {
         this._database.SetReturn(pullRequests);
         this._database.SetReturn(issues);
+        this._database.SetReturn(orphanedBranches ?? []);
 
         return this._repository.GetDatabaseStateAsync(
             owner: null,
             repo: null,
             user: null,
+            orphanedBranchAge: TimeSpan.FromHours(6),
             cancellationToken: this.CancellationToken()
         );
+    }
+
+    [Fact]
+    public async Task GetDatabaseStateMapsOrphanedDependencyBranchesAsync()
+    {
+        DependencyBranchRow row = new(
+            Repository: "owner/repo",
+            Branch: "depends/update-sdk",
+            FirstSeen: BaseTime.AddHours(-7),
+            LastChecked: BaseTime.AddMinutes(-20),
+            LastUpdated: BaseTime.AddHours(-7),
+            PullRequestNumber: null,
+            DeletedAt: null,
+            ETag: "\"e\""
+        );
+
+        DbStateResponse response = await this.GetDatabaseStateAsync(
+            pullRequests: [],
+            issues: [],
+            orphanedBranches: [row]
+        );
+
+        DependencyBranchState branch = Assert.Single(response.OrphanedDependencyBranches);
+        Assert.Equal(expected: "owner", actual: branch.Owner);
+        Assert.Equal(expected: "repo", actual: branch.Repo);
+        Assert.Equal(expected: "owner/repo", actual: branch.Repository);
+        Assert.Equal(expected: "depends/update-sdk", actual: branch.Branch);
+        Assert.Equal(expected: row.FirstSeen, actual: branch.FirstSeen);
+        Assert.Equal(expected: row.LastChecked, actual: branch.LastChecked);
     }
 
     [Fact]

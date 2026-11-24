@@ -16,11 +16,16 @@ internal static class WorkItemMapping
     public static DbStateResponse BuildDatabaseState(
         IReadOnlyList<PullRequestStateRow> prRows,
         IReadOnlyList<IssueStateRow> issueRows,
+        IReadOnlyList<DependencyBranchRow> orphanedBranchRows,
         in DateTimeOffset now
     )
     {
         IReadOnlyList<PullRequestState> pullRequests = [.. prRows.Select(MapPullRequestState)];
         IReadOnlyList<IssueState> issues = [.. issueRows.Select(MapIssueState)];
+        IReadOnlyList<DependencyBranchState> orphanedBranches =
+        [
+            .. orphanedBranchRows.Select(MapDependencyBranchState),
+        ];
 
         DateTimeOffset asOf = pullRequests
             .Select(static p => p.LastUpdated)
@@ -28,7 +33,31 @@ internal static class WorkItemMapping
             .DefaultIfEmpty(now)
             .Max();
 
-        return new DbStateResponse(PullRequests: pullRequests, Issues: issues, AsOf: asOf);
+        return new DbStateResponse(
+            PullRequests: pullRequests,
+            Issues: issues,
+            AsOf: asOf,
+            OrphanedDependencyBranches: orphanedBranches
+        );
+    }
+
+    private static DependencyBranchState MapDependencyBranchState(DependencyBranchRow row)
+    {
+        (string owner, string repo) = SplitRepository(row.Repository);
+
+        return new DependencyBranchState(
+            Owner: owner,
+            Repo: repo,
+            Repository: row.Repository,
+            Branch: row.Branch,
+            FirstSeen: row.FirstSeen,
+            LastChecked: row.LastChecked
+        );
+    }
+
+    public static DependencyBranchRecheck MapDependencyBranchRecheck(DependencyBranchRow row)
+    {
+        return new DependencyBranchRecheck(Repository: row.Repository, Branch: row.Branch, ETag: row.ETag);
     }
 
     private static PullRequestState MapPullRequestState(PullRequestStateRow row)

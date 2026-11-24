@@ -162,6 +162,40 @@ public sealed class InMemoryNotificationStateTrackerTests : TestBase
         );
     }
 
+    [Theory]
+    [InlineData("depends/update-sdk", true)]
+    [InlineData("feature/update-sdk", false)]
+    public async Task UpdateStateAsyncResolvesATrackedDependencyBranchFromThePullRequestHeadAsync(
+        string branch,
+        bool resolved
+    )
+    {
+        this._store.RecordDependencyBranchCreated(
+            repository: REPOSITORY,
+            branch: branch,
+            createdAt: BaseTime.AddDays(-1)
+        );
+
+        await this._tracker.UpdateStateAsync(
+            notification: CreateNotification(),
+            details: CreatePullRequestDetails(commitAuthors: [], linkedItems: []) with
+            {
+                HeadRef = branch,
+            },
+            priority: WorkPriority.MEDIUM,
+            isOnHold: false,
+            isAdopted: null,
+            cancellationToken: this.CancellationToken()
+        );
+
+        IReadOnlyList<DependencyBranchRow> orphaned = this._store.GetOrphanedDependencyBranches(
+            owner: null,
+            repo: null,
+            firstSeenBefore: BaseTime
+        );
+        Assert.Equal(expected: resolved, actual: orphaned.Count == 0);
+    }
+
     private ValueTask TrackPullRequestAsync(IReadOnlyList<string> commitAuthors)
     {
         return this._tracker.UpdateStateAsync(

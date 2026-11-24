@@ -42,6 +42,7 @@ public sealed class InMemoryWorkItemRepositoryTests : TestBase
             owner: null,
             repo: null,
             user: null,
+            orphanedBranchAge: TimeSpan.FromHours(6),
             cancellationToken: this.CancellationToken()
         );
 
@@ -411,6 +412,7 @@ public sealed class InMemoryWorkItemRepositoryTests : TestBase
             owner: null,
             repo: null,
             user: null,
+            orphanedBranchAge: TimeSpan.FromHours(6),
             cancellationToken: this.CancellationToken()
         );
     }

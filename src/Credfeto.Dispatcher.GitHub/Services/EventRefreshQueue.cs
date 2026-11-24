@@ -2,15 +2,19 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using Credfeto.Dispatcher.GitHub.DataTypes;
 
 namespace Credfeto.Dispatcher.GitHub.Services;
 
 // The single items one event-poll cycle needs to re-read, de-duplicated across every feed read in the cycle (the
 // repo and owner feeds overlap) and limited to the repos the dispatcher tracks.
-[DebuggerDisplay("PullRequests: {PullRequests.Count}, Issues: {Issues.Count}, Branches: {Branches.Count}")]
+[DebuggerDisplay(
+    "PullRequests: {PullRequests.Count}, Issues: {Issues.Count}, Branches: {Branches.Count}, Dependency branch changes: {DependencyBranchChanges.Count}"
+)]
 internal sealed class EventRefreshQueue
 {
     private readonly List<(string Repo, string Branch)> _branches = [];
+    private readonly List<DependencyBranchChange> _dependencyBranchChanges = [];
     private readonly List<(string Repo, int Number, DateTimeOffset CommentedAt)> _issues = [];
     private readonly HashSet<string> _keys = [with(StringComparer.OrdinalIgnoreCase)];
     private readonly List<(string Repo, int Number)> _pullRequests = [];
@@ -26,6 +30,23 @@ internal sealed class EventRefreshQueue
     public IReadOnlyList<(string Repo, string Branch)> Branches => this._branches;
 
     public IReadOnlyList<(string Repo, int Number, DateTimeOffset CommentedAt)> Issues => this._issues;
+
+    // Dependency branches created or deleted, in the order the events were processed (oldest first per feed).
+    public IReadOnlyList<DependencyBranchChange> DependencyBranchChanges => this._dependencyBranchChanges;
+
+    public bool AddDependencyBranchChange(string repo, string branch, bool isDeleted, in DateTimeOffset at)
+    {
+        if (!DependencyBranchNames.IsDependencyBranch(branch) || !this._trackedRepos.Contains(repo))
+        {
+            return false;
+        }
+
+        this._dependencyBranchChanges.Add(
+            new DependencyBranchChange(Repository: repo, Branch: branch, IsDeleted: isDeleted, At: at)
+        );
+
+        return true;
+    }
 
     // Several comments on one issue in a cycle cost one re-read, stamped with the newest comment.
     public bool AddIssue(string repo, int number, in DateTimeOffset commentedAt)

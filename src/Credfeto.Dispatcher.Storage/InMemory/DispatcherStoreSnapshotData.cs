@@ -17,5 +17,6 @@ internal sealed record DispatcherStoreSnapshotData(
     Dictionary<string, string> PollingStates,
     AssigneeSnapshotRow[]? PullRequestAssignees,
     AssigneeSnapshotRow[]? IssueAssignees,
-    AssigneeSnapshotRow[]? PullRequestCommitAuthors
+    AssigneeSnapshotRow[]? PullRequestCommitAuthors,
+    DependencyBranchRow[]? DependencyBranches = null
 );

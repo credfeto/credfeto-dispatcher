@@ -70,6 +70,23 @@ public sealed class NotificationStateTracker : INotificationStateTracker
             cancellationToken: cancellationToken
         );
 
+        if (DependencyBranchNames.IsDependencyBranch(details.HeadRef))
+        {
+            string branch = details.HeadRef;
+
+            await this._database.ExecuteAsync(
+                action: (c, ct) =>
+                    DispatcherDatabase.DependencyBranches_RecordPullRequestAsync(
+                        connection: c,
+                        repository: notification.Repository.FullName,
+                        branch: branch,
+                        pullRequestNumber: details.Number,
+                        cancellationToken: ct
+                    ),
+                cancellationToken: cancellationToken
+            );
+        }
+
         IReadOnlyList<int> linkedIssueNumbers = [.. details.LinkedItems.Select(static item => item.Number).Distinct()];
 
         foreach (int linkedIssueNumber in linkedIssueNumbers)

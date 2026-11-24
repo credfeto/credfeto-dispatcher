@@ -45,6 +45,7 @@ public static class StorageSetup
             .AddSingleton<IETagStore, ETagStore>()
             .AddSingleton<IFeedFreshnessStore, FeedFreshnessStore>()
             .AddSingleton<INotificationStateTracker, NotificationStateTracker>()
+            .AddSingleton<IDependencyBranchStore, DependencyBranchStore>()
             .AddSingleton<IWorkItemRepository, WorkItemRepository>()
             .AddSingleton<IDispatcherStoreSnapshotLoader, NullDispatcherStoreSnapshotLoader>();
     }

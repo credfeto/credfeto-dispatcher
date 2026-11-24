@@ -25,6 +25,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
     private const string ISSUE_COMMENT_EVENT_TYPE = "IssueCommentEvent";
     private const string PUSH_EVENT_TYPE = "PushEvent";
     private const string CREATE_EVENT_TYPE = "CreateEvent";
+    private const string DELETE_EVENT_TYPE = "DeleteEvent";
     private const string BRANCH_REF_TYPE = "branch";
     private const string BRANCH_REF_PREFIX = "refs/heads/";
     private const string BOT_USER_TYPE = "Bot";
@@ -40,6 +41,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
     private readonly IActiveRepoTracker _activeRepoTracker;
     private readonly IPullRequestCheckRefresher _checkRefresher;
     private readonly PullRequestCheckTracker _checkTracker;
+    private readonly IDependencyBranchMonitor _dependencyBranchMonitor;
     private readonly IETagStore _eTagStore;
     private readonly IFeedFreshnessStore _feedFreshnessStore;
     private readonly GitHubRepoHelper _helper;
@@ -57,6 +59,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
         IWorkItemRefresher workItemRefresher,
         IPullRequestCheckRefresher checkRefresher,
         PullRequestCheckTracker checkTracker,
+        IDependencyBranchMonitor dependencyBranchMonitor,
         IFeedFreshnessStore feedFreshnessStore,
         IOptions<GitHubOptions> options,
         TimeProvider timeProvider,
@@ -70,6 +73,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
         this._workItemRefresher = workItemRefresher;
         this._checkRefresher = checkRefresher;
         this._checkTracker = checkTracker;
+        this._dependencyBranchMonitor = dependencyBranchMonitor;
         this._feedFreshnessStore = feedFreshnessStore;
         this._options = options.Value;
         this._activeLabelFilter = LinkedIssueTrust.ActiveLabelFilter(this._options.Filter.LabelFilter);
@@ -108,6 +112,11 @@ public sealed class RepoEventPoller : IRepoEventPoller
             repos: repos,
             owners: owners,
             refreshQueue: refreshQueue,
+            cancellationToken: cancellationToken
+        );
+
+        await this._dependencyBranchMonitor.UpdateAsync(
+            changes: refreshQueue.DependencyBranchChanges,
             cancellationToken: cancellationToken
         );
 
@@ -650,34 +659,62 @@ public sealed class RepoEventPoller : IRepoEventPoller
                 && pushedRef.StartsWith(value: BRANCH_REF_PREFIX, comparisonType: StringComparison.Ordinal)
                 && refreshQueue.AddBranch(repo: repo, branch: pushedRef[BRANCH_REF_PREFIX.Length..]),
             CREATE_EVENT_TYPE => QueueBranchCreatedRefresh(ev: ev, repo: repo, refreshQueue: refreshQueue),
+            DELETE_EVENT_TYPE => RecordBranchDeleted(ev: ev, repo: repo, refreshQueue: refreshQueue),
             _ => false,
         };
     }
 
-    // A new dependency branch (depends/*, dependabot/*) looks up its open PR, so the PR lands as soon as it exists. Any
-    // other new branch whose name carries an issue number re-reads that issue, which only refreshes its stored row: it
-    // does not mark the issue started. Tags and branches without a number are ignored.
+    // A new dependency branch (depends/*, dependabot/*) is recorded (so one that never gets a PR shows in /db) and
+    // looks up its open PR, so the PR lands as soon as it exists. Any other new branch whose name carries an issue
+    // number re-reads that issue, which only refreshes its stored row: it does not mark the issue started. Tags and
+    // branches without a number are ignored.
     private static bool QueueBranchCreatedRefresh(ApiEvent ev, string repo, EventRefreshQueue refreshQueue)
+    {
+        if (!TryGetBranchName(ev: ev, branch: out string branch))
+        {
+            return false;
+        }
+
+        if (BranchNameParser.IsDependencyBranch(branch))
+        {
+            refreshQueue.AddDependencyBranchChange(repo: repo, branch: branch, isDeleted: false, at: ev.CreatedAt);
+
+            return refreshQueue.AddBranch(repo: repo, branch: branch);
+        }
+
+        return BranchNameParser.TryGetIssueNumber(branch: branch, number: out int issueNumber)
+            && refreshQueue.AddIssue(repo: repo, number: issueNumber, commentedAt: ev.CreatedAt);
+    }
+
+    // A deleted dependency branch stops being tracked; nothing is re-read for a deleted branch.
+    private static bool RecordBranchDeleted(ApiEvent ev, string repo, EventRefreshQueue refreshQueue)
+    {
+        if (TryGetBranchName(ev: ev, branch: out string branch))
+        {
+            refreshQueue.AddDependencyBranchChange(repo: repo, branch: branch, isDeleted: true, at: ev.CreatedAt);
+        }
+
+        return false;
+    }
+
+    // The branch a CreateEvent or DeleteEvent is about; tags and repositories have no branch.
+    private static bool TryGetBranchName(ApiEvent ev, out string branch)
     {
         if (
             !string.Equals(a: ev.Payload.RefType, b: BRANCH_REF_TYPE, comparisonType: StringComparison.Ordinal)
             || string.IsNullOrEmpty(ev.Payload.Ref)
         )
         {
+            branch = string.Empty;
+
             return false;
         }
 
-        string branch = ev.Payload.Ref.StartsWith(value: BRANCH_REF_PREFIX, comparisonType: StringComparison.Ordinal)
+        branch = ev.Payload.Ref.StartsWith(value: BRANCH_REF_PREFIX, comparisonType: StringComparison.Ordinal)
             ? ev.Payload.Ref[BRANCH_REF_PREFIX.Length..]
             : ev.Payload.Ref;
 
-        if (BranchNameParser.IsDependencyBranch(branch))
-        {
-            return refreshQueue.AddBranch(repo: repo, branch: branch);
-        }
-
-        return BranchNameParser.TryGetIssueNumber(branch: branch, number: out int issueNumber)
-            && refreshQueue.AddIssue(repo: repo, number: issueNumber, commentedAt: ev.CreatedAt);
+        return true;
     }
 
     // An issue event whose payload is incomplete re-reads the issue by number rather than being dropped.

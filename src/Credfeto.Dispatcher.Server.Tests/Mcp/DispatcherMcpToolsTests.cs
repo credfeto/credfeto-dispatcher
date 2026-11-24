@@ -71,9 +71,17 @@ public sealed class DispatcherMcpToolsTests : TestBase
                 owner: Arg.Any<string?>(),
                 repo: Arg.Any<string?>(),
                 user: Arg.Any<string?>(),
+                orphanedBranchAge: Arg.Any<TimeSpan>(),
                 cancellationToken: Arg.Any<CancellationToken>()
             )
-            .Returns(new DbStateResponse(PullRequests: [], Issues: [], AsOf: DateTimeOffset.UnixEpoch));
+            .Returns(
+                new DbStateResponse(
+                    PullRequests: [],
+                    Issues: [],
+                    AsOf: DateTimeOffset.UnixEpoch,
+                    OrphanedDependencyBranches: []
+                )
+            );
 
         string json = await this._tools.GetDatabaseStateAsync(
             owner: "credfeto",
@@ -89,8 +97,61 @@ public sealed class DispatcherMcpToolsTests : TestBase
                 owner: "credfeto",
                 repo: "credfeto-dispatcher",
                 user: null,
+                orphanedBranchAge: TimeSpan.FromHours(6),
                 cancellationToken: Arg.Any<CancellationToken>()
             );
+    }
+
+    [Fact]
+    public async Task GetDatabaseStateListsOrphanedDependencyBranchesAsync()
+    {
+        DispatcherMcpTools tools = new(
+            workItemRepository: this._workItemRepository,
+            options: Options.Create(
+                new GitHubOptions { Filter = new GitHubFilterOptions { OrphanedDependencyBranchHours = 9 } }
+            )
+        );
+        DependencyBranchState branch = new(
+            Owner: "credfeto",
+            Repo: "credfeto-dispatcher",
+            Repository: "credfeto/credfeto-dispatcher",
+            Branch: "depends/update-sdk",
+            FirstSeen: DateTimeOffset.UnixEpoch,
+            LastChecked: null
+        );
+        this._workItemRepository.GetDatabaseStateAsync(
+                owner: Arg.Any<string?>(),
+                repo: Arg.Any<string?>(),
+                user: Arg.Any<string?>(),
+                orphanedBranchAge: TimeSpan.FromHours(9),
+                cancellationToken: Arg.Any<CancellationToken>()
+            )
+            .Returns(
+                new DbStateResponse(
+                    PullRequests: [],
+                    Issues: [],
+                    AsOf: DateTimeOffset.UnixEpoch,
+                    OrphanedDependencyBranches: [branch]
+                )
+            );
+
+        string json = await tools.GetDatabaseStateAsync(cancellationToken: this.CancellationToken());
+
+        Assert.Contains(
+            expectedSubstring: "\"pullRequests\":[]",
+            actualString: json,
+            comparisonType: StringComparison.Ordinal
+        );
+        Assert.Contains(
+            expectedSubstring: "\"orphanedDependencyBranches\":[{",
+            actualString: json,
+            comparisonType: StringComparison.Ordinal
+        );
+        Assert.Contains(
+            expectedSubstring: "\"branch\":\"depends/update-sdk\"",
+            actualString: json,
+            comparisonType: StringComparison.Ordinal
+        );
     }
 
     [Fact]

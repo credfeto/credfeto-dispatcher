@@ -49,6 +49,10 @@ public sealed class RepoEventPoller : IRepoEventPoller
     private readonly TimeProvider _timeProvider;
     private readonly IWorkItemRefresher _workItemRefresher;
 
+    // The re-reads the last cycle could not fit in its budget. Only the one poller service calls PollAsync, one cycle
+    // at a time; nothing is persisted, and the scan that runs at start-up covers what a restart drops.
+    private EventRefreshQueue? _carriedOver;
+
     public RepoEventPoller(
         GitHubRepoHelper helper,
         IActiveRepoTracker activeRepoTracker,
@@ -102,7 +106,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
         }
 
         IReadOnlyList<string> owners = [.. repos.Select(GetOwner).Distinct(StringComparer.OrdinalIgnoreCase)];
-        EventRefreshQueue refreshQueue = new(repos);
+        EventRefreshQueue refreshQueue = new(trackedRepos: repos, carriedOver: this._carriedOver);
 
         (int? suggestedPollIntervalSeconds, bool allFeedsRead) = await this.PollFeedsAsync(
             repos: repos,
@@ -111,16 +115,19 @@ public sealed class RepoEventPoller : IRepoEventPoller
             cancellationToken: cancellationToken
         );
 
-        bool allRefreshed = await this.RefreshQueuedItemsAsync(
+        EventRefreshQueue deferred = await this.RefreshQueuedItemsAsync(
             refreshQueue: refreshQueue,
+            repos: repos,
             cancellationToken: cancellationToken
         );
 
-        // Every feed answered and every item its events touched was re-read: the store is in sync as of the start
-        // of this cycle, which is what /priorities reports as asOf.
-        if (allFeedsRead && allRefreshed)
+        DateTimeOffset? syncedAt = this.CarryOver(deferred: deferred, cycleStart: cycleStart);
+
+        // Every feed answered: the store is in sync as of the start of this cycle, or as of the oldest event whose
+        // re-read is still waiting. That is what /priorities reports as asOf.
+        if (allFeedsRead && syncedAt is { } synced)
         {
-            await this._feedFreshnessStore.RecordSyncAsync(syncedAt: cycleStart, cancellationToken: cancellationToken);
+            await this._feedFreshnessStore.RecordSyncAsync(syncedAt: synced, cancellationToken: cancellationToken);
         }
 
         int? checkPollIntervalSeconds = await this._checkRefresher.RefreshAsync(cancellationToken);
@@ -157,31 +164,162 @@ public sealed class RepoEventPoller : IRepoEventPoller
         return (suggestedPollIntervalSeconds, allFeedsRead);
     }
 
-    // Branch lookups first (they add PRs to the queue), then the PR re-reads, then the issue re-reads, all within one
-    // call budget. PRs past the budget are marked stale for the CI refresh, which works through them on later cycles;
-    // issues past it wait for the next scan. Either way the cycle does not count as a complete sync.
-    private async ValueTask<bool> RefreshQueuedItemsAsync(
+    // Re-reads past the budget are carried over to the next cycle, which does them ahead of its own new work, so
+    // nothing waits for the hourly scan; the store then counts as current only up to the oldest event still waiting.
+    // With the budget at 0 or less the event re-reads are off: nothing is carried, deferred PRs go to the CI refresh,
+    // issues wait for the next scan, and a cycle that deferred anything does not count as a sync.
+    private DateTimeOffset? CarryOver(EventRefreshQueue deferred, in DateTimeOffset cycleStart)
+    {
+        if (this._options.Filter.MaxEventRefreshesPerPoll <= 0)
+        {
+            this._carriedOver = null;
+
+            foreach ((string repo, int number, _) in deferred.PullRequests)
+            {
+                this._checkTracker.MarkStale(repo: repo, number: number);
+            }
+
+            return deferred.Count == 0 ? cycleStart : null;
+        }
+
+        this._carriedOver = deferred.Count == 0 ? null : deferred;
+
+        return deferred.OldestPendingSince is { } oldest && oldest < cycleStart ? oldest : cycleStart;
+    }
+
+    // Items carried over from the last cycle first, then this cycle's own; within each, branch lookups (they add PRs
+    // to the queue), then PR re-reads, then issue re-reads, all within one call budget. Returns what did not fit.
+    private async ValueTask<EventRefreshQueue> RefreshQueuedItemsAsync(
         EventRefreshQueue refreshQueue,
+        IReadOnlyList<string> repos,
         CancellationToken cancellationToken
     )
     {
         EventRefreshBudget budget = new(this._options.Filter.MaxEventRefreshesPerPoll);
+        EventRefreshQueue deferred = new(repos);
 
-        foreach ((string repo, string branch) in refreshQueue.Branches)
+        await this.RefreshRoundAsync(
+            refreshQueue: refreshQueue,
+            carriedOver: true,
+            budget: budget,
+            deferred: deferred,
+            cancellationToken: cancellationToken
+        );
+        await this.RefreshRoundAsync(
+            refreshQueue: refreshQueue,
+            carriedOver: false,
+            budget: budget,
+            deferred: deferred,
+            cancellationToken: cancellationToken
+        );
+
+        if (!budget.IsUnused)
         {
+            this._logger.LogEventRefreshesComplete(
+                lookupCount: budget.LookupCount,
+                refreshedCount: budget.PullRequestCount,
+                issueCount: budget.IssueCount,
+                deferredCount: budget.DeferredCount,
+                carriedOverCount: refreshQueue.CarriedBranchCount
+                    + refreshQueue.CarriedPullRequestCount
+                    + refreshQueue.CarriedIssueCount
+            );
+        }
+
+        return deferred;
+    }
+
+    private async ValueTask RefreshRoundAsync(
+        EventRefreshQueue refreshQueue,
+        bool carriedOver,
+        EventRefreshBudget budget,
+        EventRefreshQueue deferred,
+        CancellationToken cancellationToken
+    )
+    {
+        await this.RefreshBranchesAsync(
+            refreshQueue: refreshQueue,
+            carriedOver: carriedOver,
+            budget: budget,
+            deferred: deferred,
+            cancellationToken: cancellationToken
+        );
+        await this.RefreshPullRequestsAsync(
+            refreshQueue: refreshQueue,
+            carriedOver: carriedOver,
+            budget: budget,
+            deferred: deferred,
+            cancellationToken: cancellationToken
+        );
+        await this.RefreshIssuesAsync(
+            refreshQueue: refreshQueue,
+            carriedOver: carriedOver,
+            budget: budget,
+            deferred: deferred,
+            cancellationToken: cancellationToken
+        );
+    }
+
+    // The slice of a queue list one round works through: the carried-over items at the front, or everything after.
+    private static (int Start, int End) GetRange(bool carriedOver, int carriedCount, int count)
+    {
+        return carriedOver ? (0, carriedCount) : (carriedCount, count);
+    }
+
+    private async ValueTask RefreshBranchesAsync(
+        EventRefreshQueue refreshQueue,
+        bool carriedOver,
+        EventRefreshBudget budget,
+        EventRefreshQueue deferred,
+        CancellationToken cancellationToken
+    )
+    {
+        (int start, int end) = GetRange(
+            carriedOver: carriedOver,
+            carriedCount: refreshQueue.CarriedBranchCount,
+            count: refreshQueue.Branches.Count
+        );
+
+        for (int index = start; index < end; ++index)
+        {
+            (string repo, string branch, DateTimeOffset pendingSince) = refreshQueue.Branches[index];
+
             if (budget.TrySpendLookup())
             {
                 await this.QueueOpenPullRequestsForBranchAsync(
                     repo: repo,
                     branch: branch,
+                    pendingSince: pendingSince,
                     refreshQueue: refreshQueue,
                     cancellationToken: cancellationToken
                 );
             }
+            else
+            {
+                deferred.AddBranch(repo: repo, branch: branch, pendingSince: pendingSince);
+            }
         }
+    }
 
-        foreach ((string repo, int number) in refreshQueue.PullRequests)
+    private async ValueTask RefreshPullRequestsAsync(
+        EventRefreshQueue refreshQueue,
+        bool carriedOver,
+        EventRefreshBudget budget,
+        EventRefreshQueue deferred,
+        CancellationToken cancellationToken
+    )
+    {
+        // Read after the branch lookups, which append the PRs they find.
+        (int start, int end) = GetRange(
+            carriedOver: carriedOver,
+            carriedCount: refreshQueue.CarriedPullRequestCount,
+            count: refreshQueue.PullRequests.Count
+        );
+
+        for (int index = start; index < end; ++index)
         {
+            (string repo, int number, DateTimeOffset pendingSince) = refreshQueue.PullRequests[index];
+
             if (budget.TrySpendPullRequest())
             {
                 await this._workItemRefresher.RefreshPullRequestAsync(
@@ -192,39 +330,35 @@ public sealed class RepoEventPoller : IRepoEventPoller
             }
             else
             {
-                this._checkTracker.MarkStale(repo: repo, number: number);
+                deferred.AddPullRequest(repo: repo, number: number, pendingSince: pendingSince);
             }
         }
-
-        await this.RefreshQueuedIssuesAsync(
-            refreshQueue: refreshQueue,
-            budget: budget,
-            cancellationToken: cancellationToken
-        );
-
-        if (!budget.IsUnused)
-        {
-            this._logger.LogEventRefreshesComplete(
-                lookupCount: budget.LookupCount,
-                refreshedCount: budget.PullRequestCount,
-                issueCount: budget.IssueCount,
-                deferredCount: budget.DeferredCount
-            );
-        }
-
-        return budget.DeferredCount == 0;
     }
 
-    private async ValueTask RefreshQueuedIssuesAsync(
+    private async ValueTask RefreshIssuesAsync(
         EventRefreshQueue refreshQueue,
+        bool carriedOver,
         EventRefreshBudget budget,
+        EventRefreshQueue deferred,
         CancellationToken cancellationToken
     )
     {
-        foreach ((string repo, int number, DateTimeOffset commentedAt) in refreshQueue.Issues)
+        (int start, int end) = GetRange(
+            carriedOver: carriedOver,
+            carriedCount: refreshQueue.CarriedIssueCount,
+            count: refreshQueue.Issues.Count
+        );
+
+        for (int index = start; index < end; ++index)
         {
+            (string repo, int number, DateTimeOffset commentedAt, DateTimeOffset pendingSince) = refreshQueue.Issues[
+                index
+            ];
+
             if (!budget.TrySpendIssue())
             {
+                deferred.AddIssue(repo: repo, number: number, commentedAt: commentedAt, pendingSince: pendingSince);
+
                 continue;
             }
 
@@ -246,6 +380,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
     private async ValueTask QueueOpenPullRequestsForBranchAsync(
         string repo,
         string branch,
+        DateTimeOffset pendingSince,
         EventRefreshQueue refreshQueue,
         CancellationToken cancellationToken
     )
@@ -258,7 +393,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
 
         foreach (ApiPullRequest pr in items ?? [])
         {
-            refreshQueue.AddPullRequest(repo: repo, number: pr.Number);
+            refreshQueue.AddPullRequest(repo: repo, number: pr.Number, pendingSince: pendingSince);
         }
     }
 
@@ -643,12 +778,20 @@ public sealed class RepoEventPoller : IRepoEventPoller
         return ev.Type switch
         {
             PULL_REQUEST_EVENT_TYPE or PULL_REQUEST_REVIEW_EVENT_TYPE or PULL_REQUEST_REVIEW_COMMENT_EVENT_TYPE =>
-                refreshQueue.AddPullRequest(repo: repo, number: GetPullRequestNumber(ev.Payload)),
+                refreshQueue.AddPullRequest(
+                    repo: repo,
+                    number: GetPullRequestNumber(ev.Payload),
+                    pendingSince: ev.CreatedAt
+                ),
             ISSUES_EVENT_TYPE => QueueIssueEventRefresh(ev: ev, repo: repo, refreshQueue: refreshQueue),
             ISSUE_COMMENT_EVENT_TYPE => this.QueueCommentRefresh(ev: ev, repo: repo, refreshQueue: refreshQueue),
             PUSH_EVENT_TYPE => ev.Payload.Ref is { } pushedRef
                 && pushedRef.StartsWith(value: BRANCH_REF_PREFIX, comparisonType: StringComparison.Ordinal)
-                && refreshQueue.AddBranch(repo: repo, branch: pushedRef[BRANCH_REF_PREFIX.Length..]),
+                && refreshQueue.AddBranch(
+                    repo: repo,
+                    branch: pushedRef[BRANCH_REF_PREFIX.Length..],
+                    pendingSince: ev.CreatedAt
+                ),
             CREATE_EVENT_TYPE => QueueBranchCreatedRefresh(ev: ev, repo: repo, refreshQueue: refreshQueue),
             _ => false,
         };
@@ -673,7 +816,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
 
         if (BranchNameParser.IsDependencyBranch(branch))
         {
-            return refreshQueue.AddBranch(repo: repo, branch: branch);
+            return refreshQueue.AddBranch(repo: repo, branch: branch, pendingSince: ev.CreatedAt);
         }
 
         return BranchNameParser.TryGetIssueNumber(branch: branch, number: out int issueNumber)
@@ -692,7 +835,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
 
         return issue.PullRequest is null
             ? refreshQueue.AddIssue(repo: repo, number: number, commentedAt: ev.CreatedAt)
-            : refreshQueue.AddPullRequest(repo: repo, number: number);
+            : refreshQueue.AddPullRequest(repo: repo, number: number, pendingSince: ev.CreatedAt);
     }
 
     // The PR's number from the payload: pull_request.number, else the top-level number, else the tail of
@@ -744,7 +887,7 @@ public sealed class RepoEventPoller : IRepoEventPoller
 
         if (issue.PullRequest is not null)
         {
-            return refreshQueue.AddPullRequest(repo: repo, number: issue.Number);
+            return refreshQueue.AddPullRequest(repo: repo, number: issue.Number, pendingSince: ev.CreatedAt);
         }
 
         return !this.IsIgnoredCommentAuthor(ev)

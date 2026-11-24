@@ -52,13 +52,14 @@ internal static partial class RepoEventPollerLoggingExtensions
     [LoggerMessage(
         EventId = 6,
         Level = LogLevel.Information,
-        Message = "Event refreshes: {lookupCount} pushed-branch PR lookup(s), {refreshedCount} PR(s) re-read, {issueCount} issue(s) re-read, {deferredCount} deferred (PRs to the CI refresh, issues to the next scan)"
+        Message = "Event refreshes: {lookupCount} pushed-branch PR lookup(s), {refreshedCount} PR(s) re-read, {issueCount} issue(s) re-read, {carriedOverCount} carried over from the last poll, {deferredCount} deferred to the next poll"
     )]
     public static partial void LogEventRefreshesComplete(
         this ILogger logger,
         int lookupCount,
         int refreshedCount,
         int issueCount,
-        int deferredCount
+        int deferredCount,
+        int carriedOverCount
     );
 }

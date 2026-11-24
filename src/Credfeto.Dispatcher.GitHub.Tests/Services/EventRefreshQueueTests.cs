@@ -1,4 +1,5 @@
 using System;
+using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Services;
 using FunFair.Test.Common;
 using Xunit;
@@ -117,5 +118,37 @@ public sealed class EventRefreshQueueTests : TestBase
         Assert.Equal(expected: 1, actual: queue.CarriedPullRequestCount);
         Assert.Equal(expected: 0, actual: queue.CarriedBranchCount);
         Assert.Equal(expected: [(REPO, 3, Later, Earlier), (REPO, 6, Later, Later)], actual: queue.Issues);
+    }
+
+    [Fact]
+    public void AddDependencyBranchChangeKeepsOnlyDependencyBranchesInTrackedRepos()
+    {
+        DateTimeOffset at = DateTimeOffset.UnixEpoch;
+
+        Assert.True(
+            this._queue.AddDependencyBranchChange(repo: "owner/repo", branch: "depends/x", isDeleted: false, at: at),
+            userMessage: "Dependency branch"
+        );
+        Assert.True(
+            this._queue.AddDependencyBranchChange(repo: "owner/repo", branch: "depends/x", isDeleted: true, at: at),
+            userMessage: "Its deletion"
+        );
+        Assert.False(
+            this._queue.AddDependencyBranchChange(repo: "owner/repo", branch: "feature/x", isDeleted: false, at: at),
+            userMessage: "Not a dependency branch"
+        );
+        Assert.False(
+            this._queue.AddDependencyBranchChange(repo: "owner/other", branch: "depends/x", isDeleted: false, at: at),
+            userMessage: "Untracked repo"
+        );
+
+        Assert.Equal(
+            expected:
+            [
+                new DependencyBranchChange(Repository: "owner/repo", Branch: "depends/x", IsDeleted: false, At: at),
+                new DependencyBranchChange(Repository: "owner/repo", Branch: "depends/x", IsDeleted: true, At: at),
+            ],
+            actual: this._queue.DependencyBranchChanges
+        );
     }
 }

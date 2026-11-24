@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,10 +16,12 @@ public interface IWorkItemRepository
         CancellationToken cancellationToken
     );
 
+    // orphanedBranchAge: a dependency branch with no pull request is listed once it is older than this.
     Task<DbStateResponse> GetDatabaseStateAsync(
         string? owner,
         string? repo,
         string? user,
+        TimeSpan orphanedBranchAge,
         CancellationToken cancellationToken
     );
 

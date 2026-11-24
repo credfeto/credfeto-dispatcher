@@ -22,6 +22,7 @@ public sealed class GitHubSetupTests : DependencyInjectionTestsBase
             .AddMockedService<IOptions<GitHubOptions>>(static o => o.Value.Returns(new GitHubOptions()))
             .AddMockedService<IActiveRepoTracker>()
             .AddMockedService<IETagStore>()
+            .AddMockedService<IDependencyBranchStore>()
             .AddMockedService<IFeedFreshnessStore>()
             .AddMockedService<INotificationStateTracker>()
             .AddMockedService<IWorkItemRepository>();
@@ -37,6 +38,12 @@ public sealed class GitHubSetupTests : DependencyInjectionTestsBase
     public void PullRequestCheckRefresherShouldBeOfCorrectType()
     {
         this.RequireServiceInCollectionFor<IPullRequestCheckRefresher, PullRequestCheckRefresher>();
+    }
+
+    [Fact]
+    public void DependencyBranchMonitorShouldBeOfCorrectType()
+    {
+        this.RequireServiceInCollectionFor<IDependencyBranchMonitor, DependencyBranchMonitor>();
     }
 
     [Fact]

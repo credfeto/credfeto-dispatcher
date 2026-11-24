@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using Credfeto.Dispatcher.GitHub.DataTypes;
 
 namespace Credfeto.Dispatcher.GitHub.Services;
 
@@ -10,8 +11,7 @@ internal static class BranchNameParser
 
     public static bool IsDependencyBranch(string branch)
     {
-        return branch.StartsWith(value: "depends/", comparisonType: StringComparison.OrdinalIgnoreCase)
-            || branch.StartsWith(value: "dependabot/", comparisonType: StringComparison.OrdinalIgnoreCase);
+        return DependencyBranchNames.IsDependencyBranch(branch);
     }
 
     // The issue number in the common forms: fix/292-x, feat/6-x, 292-x, 292 and issue-292-x. Only the first path

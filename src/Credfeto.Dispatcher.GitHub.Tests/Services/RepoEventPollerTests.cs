@@ -71,12 +71,23 @@ public sealed class RepoEventPollerTests : TestBase
 
     private const string REPO_SEEN_IDS_KEY = "events.repo.seen:owner/repo";
 
+    private static readonly DateTimeOffset EventTime = new(
+        year: 2024,
+        month: 1,
+        day: 1,
+        hour: 0,
+        minute: 0,
+        second: 0,
+        offset: TimeSpan.Zero
+    );
+
     private readonly IActiveRepoTracker _activeRepoTracker;
     private readonly IETagStore _eTagStore;
     private readonly System.Net.Http.IHttpClientFactory _httpClientFactory;
     private readonly INotificationStateTracker _notificationStateTracker;
     private readonly FakeCheckRefresher _checkRefresher;
     private readonly PullRequestCheckTracker _checkTracker;
+    private readonly IDependencyBranchMonitor _dependencyBranchMonitor;
     private readonly IFeedFreshnessStore _feedFreshnessStore;
     private readonly TimeProvider _timeProvider;
     private readonly IWorkItemRefresher _workItemRefresher;
@@ -86,6 +97,7 @@ public sealed class RepoEventPollerTests : TestBase
         this._workItemRefresher = GetSubstitute<IWorkItemRefresher>();
         this._checkRefresher = new FakeCheckRefresher();
         this._feedFreshnessStore = GetSubstitute<IFeedFreshnessStore>();
+        this._dependencyBranchMonitor = GetSubstitute<IDependencyBranchMonitor>();
         this._timeProvider = MockDateTimeSources.Past;
         this._checkTracker = new PullRequestCheckTracker(this._timeProvider);
         this._httpClientFactory = GetSubstitute<System.Net.Http.IHttpClientFactory>();
@@ -112,6 +124,7 @@ public sealed class RepoEventPollerTests : TestBase
             workItemRefresher: this._workItemRefresher,
             checkRefresher: this._checkRefresher,
             checkTracker: this._checkTracker,
+            dependencyBranchMonitor: this._dependencyBranchMonitor,
             feedFreshnessStore: this._feedFreshnessStore,
             options: Options.Create(options ?? new GitHubOptions()),
             timeProvider: this._timeProvider,
@@ -1433,5 +1446,113 @@ public sealed class RepoEventPollerTests : TestBase
             expected: ["/repos/owner/repo/issues/6", "/repos/owner/repo/issues/7"],
             actual: this.RefreshedIssues()
         );
+    }
+
+    private static string DeleteEventJson(string id, string refName, string refType = "branch", string repo = REPO)
+    {
+        return BuildEventJson(
+            id: id,
+            type: "DeleteEvent",
+            payload: $$"""
+            {"ref": "{{refName}}", "ref_type": "{{refType}}", "pusher_type": "user"}
+            """,
+            repo: repo
+        );
+    }
+
+    // A new dependency branch also costs one open-PR lookup (answered with none here).
+    private async Task PollWithDependencyBranchLookupAsync(IReadOnlyList<string> repoFeedEvents)
+    {
+        using SequencedResponseHandler handler = new(Ok(BuildFeedJson(repoFeedEvents)), Ok(EMPTY_JSON), Ok(EMPTY_JSON));
+        using HttpClient client = this.UseSequencedClient(handler);
+
+        await this.CreatePoller().PollAsync(this.CancellationToken());
+    }
+
+    private IReadOnlyList<DependencyBranchChange> DependencyBranchChanges()
+    {
+        return
+        [
+            .. this
+                ._dependencyBranchMonitor.ReceivedCalls()
+                .Select(static call => call.GetArguments()[0])
+                .OfType<IReadOnlyList<DependencyBranchChange>>()
+                .SelectMany(static changes => changes),
+        ];
+    }
+
+    [Theory]
+    [InlineData("depends/update-sdk")]
+    [InlineData("dependabot/npm/left-pad-2.0.0")]
+    public async Task PollAsync_WithNewDependencyBranch_RecordsItAsync(string branch)
+    {
+        await this.PollWithDependencyBranchLookupAsync([CreateEventJson(id: "520", refName: branch)]);
+
+        DependencyBranchChange change = Assert.Single(this.DependencyBranchChanges());
+        Assert.Equal(
+            expected: new DependencyBranchChange(Repository: REPO, Branch: branch, IsDeleted: false, At: EventTime),
+            actual: change
+        );
+    }
+
+    [Fact]
+    public async Task PollAsync_WithDeletedDependencyBranch_RecordsTheDeletionAndRefreshesNothingAsync()
+    {
+        await this.PollWithRepoFeedAsync([DeleteEventJson(id: "521", refName: "depends/update-sdk")]);
+
+        DependencyBranchChange change = Assert.Single(this.DependencyBranchChanges());
+        Assert.Equal(
+            expected: new DependencyBranchChange(
+                Repository: REPO,
+                Branch: "depends/update-sdk",
+                IsDeleted: true,
+                At: EventTime
+            ),
+            actual: change
+        );
+        Assert.Empty(this._workItemRefresher.ReceivedCalls());
+    }
+
+    [Fact]
+    public async Task PollAsync_WithDependencyBranchCreatedAndDeleted_RecordsBothOldestFirstAsync()
+    {
+        await this.PollWithDependencyBranchLookupAsync([
+            DeleteEventJson(id: "523", refName: "depends/update-sdk"),
+            CreateEventJson(id: "522", refName: "depends/update-sdk"),
+        ]);
+
+        Assert.Equal(
+            expected: [false, true],
+            actual: [.. this.DependencyBranchChanges().Select(static c => c.IsDeleted)]
+        );
+    }
+
+    [Theory]
+    [InlineData("fix/292-thing", "branch")]
+    [InlineData("feature/add-thing", "branch")]
+    [InlineData("depends/update-sdk", "tag")]
+    public async Task PollAsync_WithOtherBranchesOrTagsCreatedOrDeleted_RecordsNoDependencyBranchAsync(
+        string refName,
+        string refType
+    )
+    {
+        await this.PollWithRepoFeedAsync([
+            DeleteEventJson(id: "525", refName: refName, refType: refType),
+            CreateEventJson(id: "524", refName: refName, refType: refType),
+        ]);
+
+        Assert.Empty(this.DependencyBranchChanges());
+        Assert.Single(this._dependencyBranchMonitor.ReceivedCalls());
+    }
+
+    [Fact]
+    public async Task PollAsync_WithDependencyBranchInUntrackedRepo_RecordsNothingAsync()
+    {
+        await this.PollWithRepoFeedAsync([
+            CreateEventJson(id: "526", refName: "depends/update-sdk", repo: "owner/untracked"),
+            DeleteEventJson(id: "527", refName: "depends/update-sdk", repo: "owner/untracked"),
+        ]);
+
+        Assert.Empty(this.DependencyBranchChanges());
     }
 }

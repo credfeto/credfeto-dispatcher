@@ -133,16 +133,26 @@ public sealed class InMemoryWorkItemRepository : IWorkItemRepository
         string? owner,
         string? repo,
         string? user,
+        TimeSpan orphanedBranchAge,
         CancellationToken cancellationToken
     )
     {
+        DateTimeOffset now = this._timeProvider.GetUtcNow();
+
         (IReadOnlyList<PullRequestStateRow> prRows, IReadOnlyList<IssueStateRow> issueRows) =
             this._store.GetAllWorkItems(owner: owner, repo: repo, user: user);
+
+        IReadOnlyList<DependencyBranchRow> orphanedBranchRows = this._store.GetOrphanedDependencyBranches(
+            owner: owner,
+            repo: repo,
+            firstSeenBefore: now - orphanedBranchAge
+        );
 
         DbStateResponse response = WorkItemMapping.BuildDatabaseState(
             prRows: prRows,
             issueRows: issueRows,
-            now: this._timeProvider.GetUtcNow()
+            orphanedBranchRows: orphanedBranchRows,
+            now: now
         );
 
         return Task.FromResult(response);

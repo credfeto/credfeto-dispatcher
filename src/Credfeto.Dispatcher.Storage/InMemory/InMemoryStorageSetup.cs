@@ -19,6 +19,7 @@ public static class InMemoryStorageSetup
             .AddSingleton<IETagStore, InMemoryETagStore>()
             .AddSingleton<IFeedFreshnessStore, FeedFreshnessStore>()
             .AddSingleton<INotificationStateTracker, InMemoryNotificationStateTracker>()
+            .AddSingleton<IDependencyBranchStore, InMemoryDependencyBranchStore>()
             .AddSingleton<IWorkItemRepository, InMemoryWorkItemRepository>()
             .AddSingleton<DispatcherStoreSnapshotStore>()
             .AddSingleton<IDispatcherStoreSnapshotLoader, DispatcherStoreSnapshotLoader>()

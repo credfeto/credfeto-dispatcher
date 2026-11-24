@@ -122,6 +122,30 @@ public sealed class NotificationStateTrackerTests : TestBase
         Assert.Equal(expected: 1, actual: this._database.VoidExecuteCallCount);
     }
 
+    [Theory]
+    [InlineData("depends/update-sdk", 2)]
+    [InlineData("dependabot/nuget/Foo-1.2.3", 2)]
+    [InlineData("feature/thing", 1)]
+    [InlineData(null, 1)]
+    public async Task UpdateStateAsyncRecordsThePullRequestForADependencyBranchHeadAsync(
+        string? headRef,
+        int expectedCalls
+    )
+    {
+        PullRequestDetails details = CreatePullRequestDetails("Open") with { HeadRef = headRef };
+
+        await this._tracker.UpdateStateAsync(
+            notification: CreateNotification(),
+            details: details,
+            priority: WorkPriority.MEDIUM,
+            isOnHold: false,
+            isAdopted: false,
+            cancellationToken: this.CancellationToken()
+        );
+
+        Assert.Equal(expected: expectedCalls, actual: this._database.VoidExecuteCallCount);
+    }
+
     [Fact]
     public async Task UpdateStateAsyncForClosedPullRequestCallsDatabaseAsync()
     {

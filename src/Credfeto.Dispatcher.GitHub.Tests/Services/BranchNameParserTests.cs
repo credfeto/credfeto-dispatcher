@@ -1,3 +1,4 @@
+using Credfeto.Dispatcher.GitHub.DataTypes;
 using Credfeto.Dispatcher.GitHub.Services;
 using FunFair.Test.Common;
 using Xunit;
@@ -55,5 +56,16 @@ public sealed class BranchNameParserTests : TestBase
     public static void IsDependencyBranch_MatchesOnlyTheDependencyPrefixes(string branch, bool expected)
     {
         Assert.Equal(expected: expected, actual: BranchNameParser.IsDependencyBranch(branch));
+    }
+
+    [Theory]
+    [InlineData("depends/update-sdk", true)]
+    [InlineData("dependabot/npm/left-pad", true)]
+    [InlineData("depends", false)]
+    [InlineData("", false)]
+    [InlineData(null, false)]
+    public static void DependencyBranchNames_IsDependencyBranch_HandlesMissingNames(string? branch, bool expected)
+    {
+        Assert.Equal(expected: expected, actual: DependencyBranchNames.IsDependencyBranch(branch));
     }
 }

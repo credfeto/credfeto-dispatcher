@@ -51,7 +51,7 @@ public sealed class DispatcherMcpTools
 
     [McpServerTool(Name = "db", ReadOnly = true, Idempotent = true, OpenWorld = false)]
     [Description(
-        "Returns every pull request and issue the dispatcher has stored, including closed and on-hold items, without paging."
+        "Returns every pull request and issue the dispatcher has stored, including closed and on-hold items, without paging, plus the dependency branches (depends/*, dependabot/*) that still have no pull request after the configured age."
     )]
     public async Task<string> GetDatabaseStateAsync(
         [Description("Optional repository owner (the part before '/'); exact, case-insensitive match.")]
@@ -78,6 +78,9 @@ public sealed class DispatcherMcpTools
             owner: ownerFilter,
             repo: repoFilter,
             user: userFilter,
+            orphanedBranchAge: TimeSpan.FromHours(
+                Math.Max(val1: 0, val2: this._options.Filter.OrphanedDependencyBranchHours)
+            ),
             cancellationToken: cancellationToken
         );
 

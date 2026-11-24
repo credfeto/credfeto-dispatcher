@@ -44,6 +44,15 @@ public sealed class InMemoryNotificationStateTracker : INotificationStateTracker
             commitAuthors: NotificationDetailMapping.KnownCommitAuthors(details.CommitAuthors)
         );
 
+        if (DependencyBranchNames.IsDependencyBranch(details.HeadRef))
+        {
+            this._store.RecordDependencyBranchPullRequest(
+                repository: repository,
+                branch: details.HeadRef,
+                pullRequestNumber: details.Number
+            );
+        }
+
         foreach (int linkedIssueNumber in details.LinkedItems.Select(static item => item.Number).Distinct())
         {
             this._store.LinkIssueToPullRequest(

@@ -41,5 +41,13 @@ public sealed class GitHubFilterOptions
     // request, plus a full re-read only when its workflow runs changed. A value of 0 or less turns the CI refresh off.
     public int MaxCheckRefreshesPerPoll { get; set; } = 5;
 
+    // A dependency branch (depends/*, dependabot/*) still without a pull request this many hours after it was created
+    // is listed in /db as orphaned. Report only: nothing alerts on it or acts on it.
+    public int OrphanedDependencyBranchHours { get; set; } = 6;
+
+    // How many tracked dependency branches still without a pull request one poll cycle re-checks, oldest first. Each
+    // costs one conditional request. A value of 0 or less turns the re-check off.
+    public int MaxDependencyBranchRechecksPerPoll { get; set; } = 3;
+
     public GitHubPullRequestFilterOptions PullRequests { get; set; } = new();
 }

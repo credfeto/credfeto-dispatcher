@@ -37,6 +37,7 @@ public static class GitHubSetup
             .AddSingleton<PullRequestCheckTracker>()
             .AddSingleton<IWorkItemRefresher, WorkItemRefresher>()
             .AddSingleton<IPullRequestCheckRefresher, PullRequestCheckRefresher>()
+            .AddSingleton<IDependencyBranchMonitor, DependencyBranchMonitor>()
             .AddHostedService<StartupGitHubAuthCheckService>()
             .AddHostedService<GitHubPollingWorker>()
             .AddHostedService<WorkItemScannerService>()

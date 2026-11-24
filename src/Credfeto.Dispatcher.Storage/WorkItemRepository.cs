@@ -63,9 +63,12 @@ public sealed class WorkItemRepository : IWorkItemRepository
         string? owner,
         string? repo,
         string? user,
+        TimeSpan orphanedBranchAge,
         CancellationToken cancellationToken
     )
     {
+        DateTimeOffset now = this._timeProvider.GetUtcNow();
+
         IReadOnlyList<PullRequestStateRow> prRows = await this._database.ExecuteAsync(
             action: (c, ct) =>
                 DispatcherDatabase.PullRequests_GetAllAsync(
@@ -90,10 +93,23 @@ public sealed class WorkItemRepository : IWorkItemRepository
             cancellationToken: cancellationToken
         );
 
+        IReadOnlyList<DependencyBranchRow> orphanedBranchRows = await this._database.ExecuteAsync(
+            action: (c, ct) =>
+                DispatcherDatabase.DependencyBranches_GetOrphanedAsync(
+                    connection: c,
+                    owner: owner,
+                    repo: repo,
+                    firstSeenBefore: now - orphanedBranchAge,
+                    cancellationToken: ct
+                ),
+            cancellationToken: cancellationToken
+        );
+
         return WorkItemMapping.BuildDatabaseState(
             prRows: prRows,
             issueRows: issueRows,
-            now: this._timeProvider.GetUtcNow()
+            orphanedBranchRows: orphanedBranchRows,
+            now: now
         );
     }
 

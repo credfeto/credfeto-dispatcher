@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using Credfeto.Dispatcher.GitHub.DataTypes;
 
 namespace Credfeto.Dispatcher.GitHub.Services;
 
@@ -11,11 +12,12 @@ namespace Credfeto.Dispatcher.GitHub.Services;
 // event that queued it (PendingSince), so a cycle that cannot re-read everything knows how far the store is current.
 // Items carried over from the previous cycle are queued first, ahead of the new ones.
 [DebuggerDisplay(
-    "PullRequests: {PullRequests.Count}, Issues: {Issues.Count}, Branches: {Branches.Count}, Carried: {CarriedBranchCount}/{CarriedPullRequestCount}/{CarriedIssueCount}"
+    "PullRequests: {PullRequests.Count}, Issues: {Issues.Count}, Branches: {Branches.Count}, Carried: {CarriedBranchCount}/{CarriedPullRequestCount}/{CarriedIssueCount}, Dependency branch changes: {DependencyBranchChanges.Count}"
 )]
 internal sealed class EventRefreshQueue
 {
     private readonly List<(string Repo, string Branch, DateTimeOffset PendingSince)> _branches = [];
+    private readonly List<DependencyBranchChange> _dependencyBranchChanges = [];
     private readonly List<(string Repo, int Number, DateTimeOffset CommentedAt, DateTimeOffset PendingSince)> _issues =
     [];
     private readonly HashSet<string> _keys = [with(StringComparer.OrdinalIgnoreCase)];
@@ -59,6 +61,23 @@ internal sealed class EventRefreshQueue
             .Concat(this._pullRequests.Select(static p => (DateTimeOffset?)p.PendingSince))
             .Concat(this._issues.Select(static i => (DateTimeOffset?)i.PendingSince))
             .Min();
+
+    // Dependency branches created or deleted, in the order the events were processed (oldest first per feed).
+    public IReadOnlyList<DependencyBranchChange> DependencyBranchChanges => this._dependencyBranchChanges;
+
+    public bool AddDependencyBranchChange(string repo, string branch, bool isDeleted, in DateTimeOffset at)
+    {
+        if (!DependencyBranchNames.IsDependencyBranch(branch) || !this._trackedRepos.Contains(repo))
+        {
+            return false;
+        }
+
+        this._dependencyBranchChanges.Add(
+            new DependencyBranchChange(Repository: repo, Branch: branch, IsDeleted: isDeleted, At: at)
+        );
+
+        return true;
+    }
 
     // Several comments on one issue in a cycle cost one re-read, stamped with the newest comment.
     public bool AddIssue(string repo, int number, in DateTimeOffset commentedAt)
